@@ -99,6 +99,11 @@ class FactoryChecks(unittest.TestCase):
             bad['permissions'][name] = value
             with self.assertRaises(ValueError):
                 factory.validate_contract(bad)
+        for field in ('role', 'objective', 'quality_standard'):
+            bad = copy.deepcopy(self.contract)
+            bad['persona'][field] = '   '
+            with self.assertRaises(ValueError):
+                factory.validate_contract(bad)
         self.contract['scope'] = ['../credentials']
         with self.assertRaises(ValueError):
             factory.validate_contract(self.contract)
@@ -398,6 +403,17 @@ class PortableSkillChecks(unittest.TestCase):
             self.assertFalse((root / '.git').exists())
             factory.adopt()
             self.assertEqual((root / '.gitignore').read_text().count('.factory/'), 1)
+
+    def test_legacy_adoption_preserves_plan_and_hands_migration_to_supervisor(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(factory, 'ROOT', Path(tmp).resolve()):
+            legacy = factory.ROOT / 'PROJECT_BRAIN.md'
+            original = '# Project Brain\n\n## Goal\nPreserve the existing product.\n'
+            legacy.write_text(original)
+            result = factory.adopt()
+            self.assertEqual(result['status'], 'MIGRATION_REVIEW_REQUIRED')
+            self.assertEqual(result['preview']['exit_code'], 0, result)
+            self.assertEqual(legacy.read_text(), original)
+            self.assertFalse((factory.ROOT / '.project-brain').exists())
 
     def test_launcher_preserves_cwd_and_rejects_local_modification(self):
         installer = runpy.run_path(str(factory.BUNDLE / 'tool/install-skill.py'))

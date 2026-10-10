@@ -17,13 +17,15 @@
 ### factory
 Status: VERIFIED
 Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`, `docs/**`, `README.md`, `AGENTS.md`, `.gitignore`, `skills/**`, `.github/**`
-- Root 52 stdlib tests PASS; syntax PASS. Guards reject external links, credential source hashes, forged resume, stale evidence, paid fallback and concurrent/unfinished mutators.
+- Root 53 stdlib tests PASS; syntax PASS. Guards reject external links, credential source hashes, forged resume, stale evidence, paid fallback and concurrent/unfinished mutators.
 - Global installed adopt/activity/providers pass outside tool checkout, preserving existing source and importing no tasks. New product goals remain DRAFT until supplied.
 - Actual free native source-read supervisor/worker/fresh reviewer smoke PASS, owned task server STOPPED, supervisor-reported usage measured. Process completion is separate from task/evidence acceptance; child usage and account quota may be unknown.
 - Independent reviews found and closed manifest-link, adoption pointer, descendant cleanup, state-storage cleanup, permission/resume, URL and digest-link defects. Auto-pane watcher is deterministic-tested; no native UI visual acceptance claimed.
-- Template eight local generated modes analyze/test PASS and versioned workspace 144 tests/five analyses PASS. Remote-only proof is in PB-010 before tags; no local override result is called remote proof.
+- Template eight local generated modes analyze/test PASS and versioned workspace 163 tests/five analyses PASS. Remote-only proof is in PB-010 before tags; no local override result is called remote proof.
 - Official CLIs installed/enumerated; only measured access enabled. Current host may remain orchestrator. Subscription login and model entitlement are separate.
 ## Known Unknowns
 - PB-002: macOS/Xcode, real store/receipt backend/device/account production acceptance. No production upload performed.
 - PB-005: Gemini/MiniMax user login, GLM supported headless route, other provider billing/permission/inference verification. No universal adapter or account quota claimed.
 - Same-user full-access AI cannot be technically denied private-file access by skill prose. Native credential references reduce exposure; strict isolation requires separately installed identity/broker.
+
+- Latest source core-v1.1.2 privacy patch and CI artifact reuse published; remote/native final verification in PB-010. Global final53-test checkpoint passes and both installed18-file bundles match source.

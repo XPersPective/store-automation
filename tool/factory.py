@@ -111,7 +111,7 @@ def validate_contract(data):
     if data['permissions'].get('deploy') is not False:
         raise ValueError('Production operations are outside the factory worker')
     persona = data['persona']
-    if any(not isinstance(persona[k], str) for k in ('role', 'objective', 'quality_standard')) or any(
+    if any(not isinstance(persona[k], str) or not persona[k].strip() for k in ('role', 'objective', 'quality_standard')) or any(
             not isinstance(persona[k], list) or not persona[k] or
             any(not isinstance(v, str) or not v.strip() for v in persona[k])
             for k in ('expertise', 'tools', 'forbidden_actions', 'common_failure_modes', 'acceptance_criteria')):

@@ -16,5 +16,15 @@
       "command": "store-automation providers",
       "exit_code": 0
     }
+  ],
+  "bundle_hash_verification": [
+    {
+      "target": "C:\\Users\\rubicon\\.codex\\skills\\store-automation",
+      "files_matching_source": 18
+    },
+    {
+      "target": "C:\\Users\\rubicon\\.config\\opencode\\skills\\store-automation",
+      "files_matching_source": 18
+    }
   ]
 }

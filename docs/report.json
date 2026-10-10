@@ -1,324 +1,89 @@
 {
-  "status": "LOCAL_FACTORY_VERIFIED_EXTERNAL_GATES_BLOCKED",
-  "verified_on": "2026-10-11",
-  "architecture_iterations_completed": true,
-  "final_architecture_documented": true,
-  "inspected_repositories": [
-    "D:/repositories/store-otomaston",
-    "D:/repositories/napp-core",
-    "D:/repositories/napp_app_template",
-    "D:/repositories/store-publish-matic",
-    "D:/AppPublishing"
-  ],
-  "created_files": [
-    ".opencode/prompts/factory.md",
-    ".opencode/prompts/reviewer.md",
-    ".opencode/prompts/worker.md",
-    ".opencode/skills/app-factory/SKILL.md",
-    ".opencode/skills/factory-release/SKILL.md",
-    ".project-brain/tasks/PB-002.md",
-    "README.md",
-    "contracts/capabilities.json",
-    "contracts/delegation-prompt.txt",
-    "contracts/delegation-smoke.json",
-    "contracts/final-review-prompt.txt",
-    "contracts/final-review.json",
-    "contracts/handoff-prompt.txt",
-    "contracts/handoff.json",
-    "contracts/write-smoke-prompt.txt",
-    "contracts/write-smoke.json",
-    "docs/evidence/android-free-runtime.png",
-    "docs/evidence/apk-sdk-matrix.json",
-    "docs/evidence/final-review.json",
-    "docs/evidence/native-costs.json",
-    "docs/evidence/native-write.json",
-    "docs/evidence/skills-inventory.json",
-    "docs/evidence/skills-preserved.json",
-    "docs/evidence/template-local.json",
-    "docs/evidence/template-source-manifest.json",
-    "docs/report.json",
-    "docs/roadmap.md",
-    "docs/services.md",
-    "docs/skill-audit.md",
-    "opencode.json",
-    "tests/fastlane/fastlane/Fastfile",
-    "tests/test_factory.py",
-    "tool/factory.py",
-    "tool/start-factory.ps1"
-  ],
-  "modified_files": [
-    ".gitignore",
-    ".project-brain/current.md",
-    ".project-brain/tasks/PB-001.md",
-    "AGENTS.md"
-  ],
-  "preserved_existing_components": [
-    "global OpenCode 1.17.18 and configuration",
-    "global skills (scoped locally, not deleted)",
-    "Project Brain canonical per repo",
-    "D:/AppPublishing/README.md",
-    "StorePublishMatic/Fastlane",
-    "existing napp/template source changes"
-  ],
-  "archived_or_removed_skills": {
-    "deleted": [],
-    "scoped_off": "All unrelated skills denied per factory role; docs/skill-audit.md",
-    "backups": "C:/Users/rubicon/.local/share/ai-app-factory/backups/2026-10-10/*.bundle"
+  "status": "GLOBAL_SKILL_VERIFIED_EXTERNAL_GATES_REMAIN",
+  "verified_on": "2026-10-11 Europe/Istanbul",
+  "repository": "https://github.com/XPersPective/store-automation",
+  "visibility": "private",
+  "use": {
+    "existing_codex_chat": "$store-automation Bu projeyi incele ve kaldığı yerden devam et.",
+    "project_terminal": "store-automation",
+    "codex_terminal": "store-automation start --host codex \"Bu projeyi incele ve devam et\""
   },
-  "agents_configured": [
-    "factory",
-    "factory-worker",
-    "factory-reviewer"
-  ],
-  "validation_runs": [
-    {
-      "check": "Factory stdlib boundaries",
-      "result": "17 tests passed; includes quota/fallback task verdict, process lock, source mutation, native-review identity/verdict, root/log/artifact confinement and paid config rejection"
-    },
-    {
-      "check": "OpenCode isolated 1.18.0 native discovery and scoped skills",
-      "result": "PASS; .factory/runs/factory-repaired-check-discovery.json"
-    },
-    {
-      "check": "Real native worker write and fresh read-only reviewer",
-      "result": "PASS; docs/evidence/native-write.json"
-    },
-    {
-      "check": "Free second-model same-session resume",
-      "result": "PASS; .factory/runs/native-other-model-resume-v118.json"
-    },
-    {
-      "check": "Official Codex ChatGPT handoff",
-      "result": "Source snapshot review only; CLI shell blocked; .factory/runs/codex-handoff-snapshots.json"
-    },
-    {
-      "check": "napp workspace flutter test",
-      "result": "PASS: 141 tests across 5 packages/examples (94 core, 23 pro, 20 ads, 3 core_only, 1 full)"
-    },
-    {
-      "check": "napp workspace fatal Flutter analysis",
-      "result": "PASS, all packages/examples"
-    },
-    {
-      "check": "Starter generator self-check and dart analyze tool",
-      "result": "PASS; generator copies byte-identical between starter/kit"
-    },
-    {
-      "check": "Seven generated apps",
-      "result": "PASS: free, ads_only, lifetime, lifetime_ads, monthly, both_ads, all_optional_off; actual analyze/test logs hashed below; fullscreen default OFF"
-    },
-    {
-      "check": "Local Fastlane lane",
-      "result": "PASS FACTORY_FASTLANE_LOCAL_SMOKE_PASS; no store operation"
-    },
-    {
-      "check": "Android emulator runtime",
-      "result": "Install PASS; initial am start -W timed out, later topResumedActivity and inspected screenshot prove free app visible; no claim for full runtime matrix"
-    },
-    {
-      "check": "Template remote HEAD readback",
-      "result": "PASS current remote HEAD readback; local verified source branches are committed/clean and include later local commits; remote release tags unchanged"
-    },
-    {
-      "check": "Fresh Android placeholder integration",
-      "result": "All seven generated modes analyze/test/rerun PASS; unknown Android entries, fake placeholder directory and existing lib refused unchanged. Full archive helper passes Flutter fatal lint after braces-only correction."
-    },
-    {
-      "check": "Actual factory bootstrap from committed archive",
-      "result": "PASS: archive -> isolated own Git -> generator -> fatal Flutter analysis -> widget tests -> release APK; .factory/workspaces/factory-final-bootstrap-v3/.factory-bootstrap.json"
-    }
-  ],
-  "verified_artifacts": [
-    {
-      "variant": "free",
-      "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\template-matrix-final\\free\\build\\app\\outputs\\flutter-apk\\app-release.apk",
-      "sha256": "b8cb0b8ef2e5381b3b4e57fbf1006677c6830fcac740711b5b424148ee7be021",
-      "bytes": 50289689,
-      "kind": "Android release-mode APK; local test signing, not store acceptance"
-    },
-    {
-      "variant": "monthly",
-      "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\template-matrix-final\\monthly\\build\\app\\outputs\\flutter-apk\\app-release.apk",
-      "sha256": "cde16dff6a5123a7fd1f63f1bc3ef048c99a145694bd3553d3af4726f5f40a8e",
-      "bytes": 54335772,
-      "kind": "Android release-mode APK; local test signing, not store acceptance"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\docs\\evidence\\android-free-runtime.png",
-      "sha256": "aaef8911150dc5dc72c3bd50fd90f80d3aef32f5a60e04c9a77273225eac4e7b",
-      "kind": "Actual inspected Android emulator screenshot"
-    },
-    {
-      "variant": "actual-archive-bootstrap-free",
-      "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\factory-final-bootstrap-v3\\build\\app\\outputs\\flutter-apk\\app-release.apk",
-      "sha256": "a1e643ce1514ad1b804de552fe21fc6ad44f310037b74e503765a0fdeee2efa3",
-      "bytes": 50304913,
-      "kind": "Android release-mode APK; local test signing; no store acceptance claim"
-    }
-  ],
-  "machine_logs": [
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\template-matrix-final\\ads_only.log",
-      "sha256": "b238790150c36796dea861547c8b27dbdb57ac0f3540bb73c2e9c9454150e317"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\template-matrix-final\\all_optional_off.log",
-      "sha256": "f7e8b83acaacbc6ea36f7e0a1e7f053c49910aff4b6804779866035a33cc17a3"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\template-matrix-final\\both_ads.log",
-      "sha256": "1c06d6da90e388054baeea755aa56ab4268bba2c7a8417076913e2424c13076f"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\template-matrix-final\\free.log",
-      "sha256": "40066ac1a0ae4212ba334217325741044899fd6ea3efd6340918ae4f01c9f51d"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\template-matrix-final\\lifetime.log",
-      "sha256": "907720b76f654aca2320831075d5b95a95dfdb8913f29ce5b7966a138fb68a3a"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\template-matrix-final\\lifetime_ads.log",
-      "sha256": "b77de875a594c5db28e357506207dacaba38339df5376a9b88c137a4d5f14bc5"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\template-matrix-final\\monthly.log",
-      "sha256": "91bd72ebed7d82a66c6e2aed36fc3fef2ed63bfe32229109b06af7f83b19a795"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\napp-resume-analyze.log",
-      "sha256": "ef1c098f4d7083d54adf233fc7bb12726caffbc7d955fbb5e21ca3b56beba6a3"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\napp-resume-test.log",
-      "sha256": "1f71331010f7d6e15a645d7eb50836f151af5c4216fab4fc8faeda5c1513ee92"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\monthly-resume-build.log",
-      "sha256": "4d291f0617525756a7f9d6b73893674ec838627b38e9532244535a03b6ad241f"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\fastlane-resume-smoke.log",
-      "sha256": "ea7382b6e17e7f60eea381aea8a0e7fccf14aa2977a5d2460f7754d0a7c4c157"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\android-runtime-smoke.json",
-      "sha256": "bd7fb8663a419ad344922149bcbe724f100a5a6c6ec6f794949ecf1819f7f590"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\android-runtime-errors.log",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\template-remote-readback.json",
-      "sha256": "f5addaede31cd0cf0305bc6a95a03fa5454f8e0630d0cdfcbc717b154f3b7e46"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\napp-final-test.log",
-      "sha256": "ce4e4ff557df30d96d330e0c8b021702a4357d99c33c62bd912de6ecb33fa88e"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\napp-final-analyze.log",
-      "sha256": "1a1b362bcef75ade0c91721ffbaea2698e04426efd8723befacf252b8c03888e"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\template-placeholder-matrix.log",
-      "sha256": "dada4b45911446581434226f38cd0dfbb2e3932bf98a74be4c90d3679818fb5e"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\generator-guard-negatives.json",
-      "sha256": "47a30618f009bf3c2f4c9307e247a657ad0eaf4a0ae55bd0b70ddbaf3374f38f"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\monthly-final-build.log",
-      "sha256": "cf5a6657320e28fc51c0d5f51bef71232b8b7b6dba6a76291b868bd8b96ffa04"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\bootstrap-final-v3.log",
-      "sha256": "2379ddb9cd2d5884e803a0935237253c4055d3945de200dccd6945567c774844"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\factory-final-v4-check.json",
-      "sha256": "c8ff1816f35d7d6c39be16a032de2380a29a6fb47f3930cdf55d71365022dc1c"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\factory-final-v4-check-unit.json",
-      "sha256": "1709e93361d2de837a6d0a55ade5debdf43d5143d2c6c045c6e8e5d8ec1c2fae"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\factory-final-v4-check-syntax.json",
-      "sha256": "e3023fe1c5fa5542d7032a9fa465d98d5ecc7e03cf4fcba0ae7eebae87412883"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\factory-final-v4-check-discovery.json",
-      "sha256": "4cd7682ed47955cefacdf398026ef8359d8c57eea2f951faac2a68465635a697"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\final-independent-review-v4.json",
-      "sha256": "837d9ceec1ce8a7e03d6157bbacfdf5c3ee724642f7e4f9e27401a96f9b2f69c"
-    },
-    {
-      "path": "D:\\repositories\\store-otomaston\\.factory\\runs\\gate-final-v4.json",
-      "sha256": "6229871cf31b2f21920989e1d0de237d423ac8fcfd32a6778a8b830ac8a22c71"
-    }
-  ],
-  "manual_approvals_pending": [
-    "App-specific production publish/signing/billing only when requested; no such action performed"
-  ],
-  "unresolved_blockers": [
-    {
-      "id": "PB-002",
-      "need": "Store products, trusted receipt backend, official sandbox scenarios; monthly purchase disabled without verifier"
-    },
-    {
-      "id": "PB-002",
-      "need": "macOS/Xcode and app-specific signing/account for iOS build and runtime acceptance"
-    },
-    {
-      "need": "Full actual device/screenshots/independent visual acceptance across UI matrix still unverified; widget layout tests and one screenshot are not full premium UI acceptance"
-    }
-  ],
-  "limitations": [
-    "Local audited starter/shared source committed and clean; remote release tags not published. Bootstrap uses exact starter HEAD plus local kit override; real products require approved release refs.",
-    "in_app_review uses deprecated Kotlin Gradle plugin; current builds pass with future-compatibility warning",
-    "No store upload, credentials, signing/billing configuration changes or paid inference calls",
-    "Machine evidence/session database are trusted local supervisor inputs; hashes are not a hostile-local-user authentication mechanism"
-  ],
-  "commands": {
-    "start": ".\\tool\\start-factory.ps1",
-    "audit": "python tool/factory.py audit",
-    "resume": "/factory-resume",
-    "test": "python -m unittest discover -s tests -v"
+  "installed": {
+    "hosts": [
+      "Codex",
+      "OpenCode"
+    ],
+    "launcher": "C:/Users/rubicon/.local/bin/store-automation.cmd",
+    "files_per_host": 18,
+    "source_hashes_match": true,
+    "unrelated_project_adoption": "PASS: preserved source, fresh project-owned Brain, no imported tasks",
+    "details": "docs/evidence/premium-installed.json"
   },
-  "independent_review": "Historical PB-001 native review/gate is retained in docs/evidence/final-review.json. Current portability source changes: independent Codex subagent review PASS after corrections; parent ran 21 tests and installed-runtime native discovery/read smoke. This is not a new OpenCode exported-session gate or product acceptance; see docs/evidence/portable-skill.json.",
-  "source_checkpoints": [
-    {
-      "repo": "D:/repositories/napp-core",
-      "commit": "099f19802f089e006081129839f7cd215110152e",
-      "working_tree_clean": true,
-      "pushed": false
+  "verification": {
+    "factory_stdlib": "53 tests PASS; syntax PASS",
+    "workspace": "163 tests PASS: core116, pro23, ads20, examples4; five fatal analyses PASS",
+    "local_generated_modes": "Eight modes analyze/test PASS before final branding patch; APK deliberately separate",
+    "final_remote_modes": "Final privacy patch remote free/both_ads/cloud checks running; previous contrast patch free22/both_ads23 PASS",
+    "android": {
+      "build": "PASS: release-mode local test APK; production signing not verified",
+      "artifact": ".factory/artifacts/premium-final-release.apk",
+      "bytes": 54368288,
+      "sha256": "de703c89ed743a69f5112aa29f60752be773d8d76986283a6ba1f9a9a83d848e",
+      "runtime": "PASS: exact final APK installed and launched on fresh owned API36 emulator; English light and Turkish dark screenshots inspected",
+      "screenshots": [
+        "docs/evidence/premium-android.png",
+        "docs/evidence/premium-tr-dark.png"
+      ],
+      "scope": "This APK verifies prior core0.1.1 contrast patch; final core0.1.2 remote APK verification pending."
     },
-    {
-      "repo": "D:/repositories/napp_app_template",
-      "commit": "31f47aeb1576f4ebaad9f659b279cc1f8424a615",
-      "working_tree_clean": true,
-      "pushed": false
+    "independent_review": "PASS: 19 privacy and 15 branding tests independently repeated; earlier lifecycle/security findings fixed",
+    "gitleaks": "PASS: exact historical public SHA-256 digest false-positive fingerprint suppressed; no broad exclusion",
+    "native_agents": "Actual read-only supervisor/worker/fresh-reviewer smoke PASS; owned task server STOPPED; real descendant cleanup checks PASS",
+    "native_evidence": "docs/evidence/premium-native.json",
+    "root_ci": {
+      "url": "https://github.com/XPersPective/store-automation/actions/runs/38094317649",
+      "commit": "bf7f3ba2c00a4a5e2a68238e66fb73e3ebeb183c",
+      "windows_linux": "PASS"
+    },
+    "source_ci": {
+      "url": "https://github.com/XPersPective/napp_kit/actions/runs/38096491598",
+      "commit": "028b0ffd4545e62f3af074e0a565abba5998ec73",
+      "status": "IN_PROGRESS",
+      "prior_emulator_failure": "Previous run failed before app install: runner disk insufficient. Native artifact reuse/KVM patch published; no new CI acceptance claimed yet."
     }
-  ],
-  "bootstrap_provenance": {
-    "path": "D:\\repositories\\store-otomaston\\.factory\\workspaces\\factory-final-bootstrap-v3\\.factory-bootstrap.json",
-    "sha256": "93f9a70f72e9201f56a664981d065385708de2b3e30540b290f53aaaf713046e",
-    "starter_commit": "31f47aeb1576f4ebaad9f659b279cc1f8424a615",
-    "kit_commit": "099f19802f089e006081129839f7cd215110152e",
-    "local_override": true,
-    "pubspec_lock_sha256": "61da66e5ae61f433af5af6c447e5abaf6e9f8407876b4d90d4dccba022fd91f4"
   },
-  "portable_skill": {
-    "status": "INSTALLED_AND_LOCALLY_VERIFIED",
-    "entry": "skills/store-automation/SKILL.md",
-    "state_ownership": "selected application repo, not factory repo",
-    "host": "Codex native or optional OpenCode; additional official CLIs require verified account/permissions",
-    "evidence": "docs/evidence/portable-skill.json",
-    "pending": "PB-005 subscription access; PB-002 live store/iOS"
-  }
+  "sources": {
+    "core": {
+      "ref": "core-v1.1.2",
+      "version": "0.1.2",
+      "commit": "028b0ffd4545e62f3af074e0a565abba5998ec73"
+    },
+    "pro": {
+      "ref": "pro-v1.1.0",
+      "version": "0.1.1",
+      "commit": "f6f715e8d04c1cb3c447fd14fe1c801646a2fb66"
+    },
+    "ads": {
+      "ref": "ads-v1.0.1",
+      "version": "0.0.2",
+      "commit": "f6f715e8d04c1cb3c447fd14fe1c801646a2fb66"
+    },
+    "starter_code_commit": "4f54561f53119ad03479c97e4097042b9245f0ff",
+    "old_immutable_tags_moved": false
+  },
+  "external_gates": {
+    "PB-002": "macOS/Xcode, real devices, official store/sandbox products and trusted receipt verifier/backend",
+    "PB-005": "User-owned official provider logins/plan permissions; GLM supported headless route and Antigravity recovery. Installed is not inference proof.",
+    "PB-011": "Selected app/account/operation and separate OS/CI identity for enforced private-secret isolation; native secret paths are not that boundary"
+  },
+  "limits": [
+    "No universal provider adapter, account quota meter or automatic account rotation is claimed.",
+    "Reported stream usage may exclude nested agents and is not subscription billing or remaining credit proof.",
+    "Windows Terminal invocation/environment checked; watcher tested. Native UI visual/intervention acceptance is unverified.",
+    "Cloud data mode selects truthful privacy wording; it does not provision a backend.",
+    "Source reviews and image headers do not prove visual/store/legal/signature acceptance.",
+    "No paid AI API, private credential content read, production store/backend operation or signing change performed."
+  ],
+  "known_nonblocking_warning": "in_app_review uses legacy Kotlin Gradle Plugin integration; current build passes, future Flutter compatibility needs provider migration.",
+  "publishing_source_of_truth": "D:/AppPublishing/README.md"
 }

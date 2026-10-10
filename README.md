@@ -1,5 +1,7 @@
 # Store Automation
 
+[![Portable checks](https://github.com/XPersPective/store-automation/actions/workflows/checks.yml/badge.svg)](https://github.com/XPersPective/store-automation/actions/workflows/checks.yml)
+
 Flutter projelerini incelemek, geliştirmek ve mağazaya hazırlamak için global bir Codex/OpenCode skill’i. Her proje kendi klasöründe, kendi Git deposu ve Project Brain’iyle çalışır.
 
 ## Hemen kullan
