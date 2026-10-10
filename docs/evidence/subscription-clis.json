@@ -1,0 +1,53 @@
+{
+  "checked_on": "2026-10-11",
+  "authorization": "User explicitly permits installed subscription/free CLI use and missing official CLI installation; no paid AI API.",
+  "routing": "deterministic tool > light > standard > strong only for justified complexity; current assistant normally supervises, persona separate from model",
+  "cli_versions": {
+    "codex": "0.153.4",
+    "claude": "2.1.272",
+    "gemini": "0.63.0",
+    "qwen": "0.21.3",
+    "agy": "1.1.9",
+    "mcode": "0.6.8"
+  },
+  "installed_this_change": [
+    "@google/gemini-cli",
+    "@minimax-ai/code"
+  ],
+  "preserved": "Existing CLI versions, broken minimax desktop shim, global configs and account data not replaced by adapters.",
+  "auth_summary": {
+    "claude": {
+      "exit_code": 0,
+      "loggedIn": true,
+      "authMethod": "oauth_token",
+      "subscriptionType": null
+    },
+    "codex": {
+      "exit_code": 0,
+      "chatgpt_login": true
+    }
+  },
+  "gemini": "Official CLI installed; isolated headless probe auth-required, no inference. User interactive Login with Google needed.",
+  "antigravity": "Official CLI live model listing succeeded; low-effort Flash inference probe timed out with zero reported tokens. Not marked runnable.",
+  "minimax": "Old minimax shim MODULE_NOT_FOUND; separate official mcode version/help verified; account/managed-plan inference unverified.",
+  "qwen": "Installed, unavailable per user; official documentation says former OAuth discontinued; no API reconfiguration.",
+  "glm": "Official account-based ZCode desktop route documented; no verified supported standalone headless route configured.",
+  "limits": "CLI auth/listing is not plan entitlement/overage/inference/vision verification. No credential reads/token transfer/account rotation/paid API inference.",
+  "remaining_task": "PB-005",
+  "logs": {
+    ".factory/runs/subscription-auth-summary.json": "bc1459322d84c7e8f422ce35ad943f1921eeec0f19c4730fa8bb3386cbbe01e0",
+    ".factory/runs/gemini-subscription-probe.json": "a3b8a4915b51170d1a5bb57a637f1bc09c8f7e193fd5df240b9945413c1c608c",
+    ".factory/runs/antigravity-models-probe.json": "7cbfbae43713ff2a0310af3a55dde46ce1610ee129ce5383f1f0c4799c8f7d8b",
+    ".factory/runs/antigravity-subscription-probe.json": "54be0889dae95521e1514dd09a69ab7fdd8fcbc1f1d3a20d9f39c473be1af8c1"
+  },
+  "sources": [
+    "https://github.com/google-gemini/gemini-cli",
+    "https://google-gemini.github.io/gemini-cli/docs/get-started/authentication.html",
+    "https://support.claude.com/en/articles/11145838-use-claude-code-with-your-pro-or-max-plan",
+    "https://code.claude.com/docs/en/cli-reference",
+    "https://github.com/QwenLM/qwen-code/blob/main/docs/users/quickstart.md",
+    "https://github.com/MiniMax-AI/minimax-code",
+    "https://www.antigravity.google/docs/cli/reference/",
+    "https://zcode.z.ai/en/docs/configuration"
+  ]
+}
