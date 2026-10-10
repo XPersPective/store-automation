@@ -1,0 +1,11 @@
+schema_version: 4
+architecture:
+  mode: single
+git:
+  history_mode: full
+  commit: auto
+  push: manual
+commands:
+  test: 'python -m unittest discover -s tests -v'
+  lint: 'python -m py_compile tool/factory.py'
+  build: 'opencode debug agent factory'
