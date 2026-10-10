@@ -19,7 +19,7 @@
 ## Domains
 ### factory
 Status: VERIFIED
-Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`, `docs/**`
+Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`, `docs/**`, `README.md`, `AGENTS.md`, `.gitignore`
 - Three native roles discovered; native worker→fresh reviewer read smoke passed on free model.
 - Another free model resumed same native session on1.18; source-read recovery, no duplicate implementation.
 - Official Codex ChatGPT snapshot handoff worked; host read-only shell blocked, not filesystem execution proof.
