@@ -22,7 +22,7 @@
     "tool/factory.py": "b160ea6c3fdb2dba21a805503c6ae156707a04dcabb70545e0c4702a68bfdd41",
     "tool/install-skill.py": "71aa7dfc4db96e6a4dd10b59fc8e3b9cfd5fba3df3bf6ec81ffe708a45e235fd",
     "tests/test_factory.py": "17fe5d4201d85edb66592361294bfbaf57ca467a6ad4b6d8c915573c5c3c2053",
-    "skills/store-automation/SKILL.md": "a8369faeabb003a432d9f17a2f3bf4368ca8be25cb0aa9175ac1aae9b48ced1c",
+    "skills/store-automation/SKILL.md": "818c0f0fe91a828e59c07baff43f8c5ad9376915eaf29ee0fda8a49a1747b46b",
     "skills/store-automation/references/cli-routing.md": "d30ad5588ece02971edb5d0a1873fbd4f9d320a43d8aa3f8b3abf53829ee3b2c"
   },
   "logs": {
@@ -30,5 +30,6 @@
     ".factory/runs/portable-final-discovery.json": "5ef60305ce8910e78d3a069febf8afe69d731975a04e0f47a491c6e00000d961",
     ".factory/runs/portable-skill-discovery.json": "e631be976e84a38c8d9ef447dbb59c014d78367e366672000eb1f0bfc8658d1c",
     ".factory/runs/portable-native-smoke-summary.json": "8bad6d18666ccd56f40a7266a002add1532a96660c29dd3714a3e9925f18ca76"
-  }
+  },
+  "post_review_metadata": "Corrected one apostrophe encoding in skill description; workflow and implementation unchanged."
 }

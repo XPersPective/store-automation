@@ -1,6 +1,6 @@
 ---
 name: store-automation
-description: Develop, inspect, repair and prepare Flutter mobile apps with project-owned Project Brain state, sequential implementation and independent review. Use for the user’s app-factory/store-automation workflow in Codex or OpenCode.
+description: Develop, inspect, repair and prepare Flutter mobile apps with project-owned Project Brain state, sequential implementation and independent review. Use for the user's app-factory/store-automation workflow in Codex or OpenCode.
 ---
 
 # Store Automation
