@@ -1,0 +1,8 @@
+This is a real fresh-session handoff verification for PB-001. Read-only.
+Read .project-brain/current.md, target.md and tasks/PB-001.md, docs/architecture.md,
+tool/factory.py and opencode.json. Verify actual existing files and identify the
+first unmet acceptance from current state. Do not repeat implementation or edit.
+Do not access credentials, stores, paid APIs or other projects.
+Report JSON: canonical_brain, preserved_completed_work, next_unmet_acceptance,
+limits, no_duplicate_changes. This test cannot prove production/store or Flutter
+success. Read source and give evidence, not guesses.

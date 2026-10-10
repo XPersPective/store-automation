@@ -1,0 +1,151 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/space-bunny-free",
+  "small_model": "opencode/space-bunny-free",
+  "enabled_providers": [
+    "opencode"
+  ],
+  "provider": {
+    "opencode": {
+      "whitelist": [
+        "space-bunny-free",
+        "longcat-2.5-preview-free"
+      ]
+    }
+  },
+  "default_agent": "factory",
+  "share": "disabled",
+  "permission": {
+    "*": "deny",
+    "read": {
+      "*": "allow",
+      "*.env*": "deny",
+      "*credentials*": "deny",
+      "*.jks": "deny",
+      "*.p8": "deny",
+      "*auth.json": "deny",
+      "*key.properties": "deny",
+      "*.p12": "deny",
+      "*.pfx": "deny",
+      "*.pem": "deny",
+      "*service-account*.json": "deny",
+      "*id_rsa*": "deny",
+      "*id_ed25519*": "deny"
+    },
+    "glob": "allow",
+    "grep": "deny",
+    "list": "allow",
+    "question": "allow",
+    "external_directory": {
+      "*": "deny",
+      "C:/Users/rubicon/.skills-manager/skills/project-brain/**": "allow"
+    },
+    "skill": {
+      "*": "deny",
+      "project-brain": "allow",
+      "app-factory": "allow"
+    }
+  },
+  "agent": {
+    "factory": {
+      "description": "Sequential App Factory supervisor: contracts, Brain, routing and evidence acceptance",
+      "mode": "primary",
+      "prompt": "{file:./.opencode/prompts/factory.md}",
+      "permission": {
+        "edit": {
+          "*": "deny",
+          ".project-brain/**": "allow",
+          ".project-brain\\**": "allow",
+          ".factory/**": "allow",
+          ".factory\\**": "allow",
+          "docs/**": "allow",
+          "docs\\**": "allow",
+          "contracts/**": "allow",
+          "contracts\\**": "allow",
+          "contracts/capabilities.json": "deny",
+          "contracts\\capabilities.json": "deny"
+        },
+        "task": {
+          "*": "deny",
+          "factory-worker": "allow",
+          "factory-reviewer": "allow"
+        },
+        "bash": {
+          "*": "ask",
+          "git status*": "allow",
+          "git diff*": "allow",
+          "git log*": "allow",
+          "python tool/factory.py *": "allow",
+          "git push*": "deny",
+          "fastlane *": "deny",
+          "curl *": "deny"
+        },
+        "webfetch": "allow",
+        "websearch": "allow"
+      }
+    },
+    "factory-worker": {
+      "description": "Implement one validated task/persona, self-review and provide actual evidence",
+      "mode": "subagent",
+      "prompt": "{file:./.opencode/prompts/worker.md}",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny",
+        "skill": {
+          "*": "deny",
+          "app-factory": "allow"
+        },
+        "webfetch": "allow",
+        "websearch": "allow"
+      }
+    },
+    "factory-reviewer": {
+      "description": "Independent fresh-session architecture/code/security/visual/release review, no writes or shell",
+      "mode": "subagent",
+      "prompt": "{file:./.opencode/prompts/reviewer.md}",
+      "permission": {
+        "*": "deny",
+        "read": {
+          "*": "allow",
+          "*.env*": "deny",
+          "*credentials*": "deny",
+          "*auth.json": "deny",
+          "*.jks": "deny",
+          "*.p8": "deny",
+          "*key.properties": "deny",
+          "*.p12": "deny",
+          "*.pfx": "deny",
+          "*.pem": "deny",
+          "*service-account*.json": "deny",
+          "*id_rsa*": "deny",
+          "*id_ed25519*": "deny"
+        },
+        "glob": "allow",
+        "grep": "deny",
+        "list": "allow",
+        "skill": {
+          "*": "deny",
+          "app-factory": "allow",
+          "factory-release": "allow"
+        }
+      }
+    }
+  },
+  "command": {
+    "factory-start": {
+      "description": "Create an app specification and validated tasks before implementation",
+      "agent": "factory",
+      "template": "Load app-factory skill. User idea: $ARGUMENTS. Boot Project Brain. Produce app spec including free monetization option and ask only unresolved product decisions. Use existing napp template, dated service ADR, validated contracts and sequential worker/reviewer. Never publish."
+    },
+    "factory-resume": {
+      "description": "Verify repository state and continue the first unfinished acceptance",
+      "agent": "factory",
+      "template": "Load app-factory and project-brain skills. Run python tool/factory.py brain boot. Read focus and actual diff; rerun stale evidence. Resume the first unmet acceptance; do not duplicate completed work. $ARGUMENTS"
+    },
+    "factory-audit": {
+      "description": "Audit configuration and skills without deleting global tools",
+      "agent": "factory",
+      "template": "Run python tool/factory.py audit. Review actual config, scoped skills and evidence; record conflicts and blockers. Do not delete or alter global skills. $ARGUMENTS"
+    }
+  }
+}

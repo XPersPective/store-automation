@@ -1,0 +1,29 @@
+{
+  "scope": "Native CLI recorded cost only; not an account billing audit",
+  "runs": [
+    {
+      "run": ".factory\\runs\\native-delegation.json",
+      "recorded_steps": 8,
+      "recorded_native_cost": 0,
+      "cost_values_all_zero": true
+    },
+    {
+      "run": ".factory\\runs\\native-other-model-resume-v118.json",
+      "recorded_steps": 5,
+      "recorded_native_cost": 0,
+      "cost_values_all_zero": true
+    },
+    {
+      "run": ".factory\\runs\\native-write-smoke-relative.json",
+      "recorded_steps": 13,
+      "recorded_native_cost": 0,
+      "cost_values_all_zero": true
+    },
+    {
+      "run": ".factory\\runs\\final-independent-review-v3.json",
+      "recorded_steps": 3,
+      "recorded_native_cost": 0,
+      "cost_values_all_zero": true
+    }
+  ]
+}

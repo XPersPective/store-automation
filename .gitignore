@@ -8,3 +8,7 @@ __pycache__/
 *.p12
 key.properties
 service-account*.json
+
+.factory/dispatch.lock
+tests/fastlane/fastlane/report.xml
+tests/fastlane/fastlane/README.md

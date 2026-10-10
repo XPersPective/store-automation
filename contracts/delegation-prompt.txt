@@ -1,0 +1,10 @@
+This is a REAL runtime smoke test, not app creation. Execute sequentially.
+Read the attached validated task contract and docs/architecture.md.
+Use the native task tool to delegate that full contract to factory-worker.
+After its result, use native task to delegate the same contract and worker result
+to a NEW factory-reviewer child session. Do not run both concurrently.
+Do not edit any source or Brain files. No shell needed for this read-only smoke.
+The worker should read docs/architecture.md, support three assertions, self-review
+and return evidence. The fresh reviewer must verify source, no edits, no bash.
+Return JSON with worker_session, reviewer_session, task_id PB-001, verdict,
+assertions, and any blockers. Never claim Flutter/build/fallback PASS in this test.

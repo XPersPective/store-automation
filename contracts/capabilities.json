@@ -1,0 +1,79 @@
+{
+  "checked_on": "2026-10-11",
+  "policy": "No paid inference. Revalidate free pricing and access before changing this allowlist. Unknown capability is unavailable.",
+  "models": {
+    "opencode/space-bunny-free": {
+      "access": "native_free",
+      "capabilities": [
+        "reasoning",
+        "source_read",
+        "native_task"
+      ],
+      "verified": [
+        "reasoning",
+        "source_read",
+        "native_task"
+      ],
+      "evidence": ".factory/runs/native-delegation.json",
+      "quality_ceiling": "document smoke passed; premium implementation requires machine and independent review gates",
+      "vision": "UNVERIFIED",
+      "quota": "not exposed; classify actual availability failures"
+    },
+    "opencode/longcat-2.5-preview-free": {
+      "access": "native_free_requires_OpenCode_1.18.0",
+      "capabilities": [
+        "reasoning",
+        "source_read",
+        "native_task"
+      ],
+      "verified": [
+        "reasoning",
+        "source_read"
+      ],
+      "evidence": ".factory/runs/native-other-model-resume-v118.json",
+      "quality_ceiling": "Measured source-read resume only; native_task and premium implementation remain unverified",
+      "vision": "UNVERIFIED",
+      "quota": "not exposed"
+    },
+    "codex": {
+      "access": "official_CLI_ChatGPT_subscription_forced_login",
+      "capabilities": [
+        "reasoning",
+        "source_read"
+      ],
+      "verified": [
+        "reasoning",
+        "source_read"
+      ],
+      "evidence": ".factory/runs/codex-handoff-snapshots.json",
+      "quality_ceiling": "read-only source snapshots; local CLI shell blocked by host policy",
+      "vision": "UNVERIFIED",
+      "quota": "official CLI availability; no paid API fallback"
+    }
+  },
+  "unavailable": {
+    "claude": "OAuth login observed, automatic route disabled until extra-usage billing exclusion verified",
+    "gemini": "CLI not in PATH",
+    "vision_review": "No measured vision-capable route; source-only review cannot accept UI",
+    "ios_build": "No macOS/Xcode",
+    "store_subscription_receipt": "Needs store products and trusted backend/sandbox verification"
+  },
+  "routing": {
+    "SIMPLE": [
+      "opencode/space-bunny-free",
+      "opencode/longcat-2.5-preview-free"
+    ],
+    "STANDARD": [
+      "opencode/space-bunny-free",
+      "opencode/longcat-2.5-preview-free"
+    ],
+    "COMPLEX": [
+      "codex",
+      "opencode/space-bunny-free"
+    ],
+    "SPECIALIZED": [
+      "codex",
+      "opencode/space-bunny-free"
+    ]
+  }
+}

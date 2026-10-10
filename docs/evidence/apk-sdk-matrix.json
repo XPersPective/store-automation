@@ -1,0 +1,20 @@
+[
+  {
+    "variant": "free",
+    "apk_sha256": "b8cb0b8ef2e5381b3b4e57fbf1006677c6830fcac740711b5b424148ee7be021",
+    "ads_classes": false,
+    "billing_classes": false
+  },
+  {
+    "variant": "monthly",
+    "apk_sha256": "cde16dff6a5123a7fd1f63f1bc3ef048c99a145694bd3553d3af4726f5f40a8e",
+    "ads_classes": true,
+    "billing_classes": true
+  },
+  {
+    "variant": "actual-archive-bootstrap-free",
+    "apk_sha256": "a1e643ce1514ad1b804de552fe21fc6ad44f310037b74e503765a0fdeee2efa3",
+    "ads_classes": false,
+    "billing_classes": false
+  }
+]
