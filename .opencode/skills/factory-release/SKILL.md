@@ -7,7 +7,7 @@ Source of truth: `D:/AppPublishing/README.md`; read it only in an authorized rel
 session. Preserve its apps/publisher layout and existing StorePublishMatic settings.
 Do not invent another publishing catalogue, credential system or protocol.
 
-`python tool/factory.py release-preflight <app-root>` is local readiness only.
+`python tool/factory.py release-preflight <app-root> --app-id <slug> --platform android --locale tr-TR` is local readiness only. Add selected platforms/locales explicitly; use canonical public metadata paths, never credential contents.
 Fastlane has no universal safe dry-run. Never invoke an existing production lane
 as a dry-run; the factory smoke Fastfile only prints a success marker.
 

@@ -53,7 +53,7 @@
   },
   "unavailable": {
     "claude": "OAuth login observed, automatic route disabled until extra-usage billing exclusion verified",
-    "gemini": "CLI not in PATH",
+    "gemini": "Official CLI 0.63.0 installed; isolated inference probe requires interactive Google login",
     "vision_review": "No measured vision-capable route; source-only review cannot accept UI",
     "ios_build": "No macOS/Xcode",
     "store_subscription_receipt": "Needs store products and trusted backend/sandbox verification"

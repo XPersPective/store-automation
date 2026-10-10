@@ -5,17 +5,27 @@ import json
 import os
 from pathlib import Path, PureWindowsPath
 import re
+import secrets
 import shutil
 import subprocess
 import sys
 import time
 import zipfile
 
+try:
+    from . import sessions
+except ImportError:
+    import sessions
+
 BUNDLE = Path(__file__).resolve().parents[1]
 ROOT = Path.cwd().resolve()
-BRAIN = Path.home() / '.skills-manager/skills/project-brain/scripts/brain.py'
-STARTER = Path('D:/repositories/napp_app_template')
-KIT = Path('D:/repositories/napp-core')
+BRAIN = Path(os.environ['STORE_AUTOMATION_BRAIN']) if os.environ.get('STORE_AUTOMATION_BRAIN') else next(
+    (path for path in (Path.home() / '.skills-manager/skills/project-brain/scripts/brain.py',
+                       Path.home() / '.codex/skills/project-brain/scripts/brain.py',
+                       Path.home() / '.config/opencode/skills/project-brain/scripts/brain.py') if path.is_file()),
+    Path.home() / '.codex/skills/project-brain/scripts/brain.py')
+STARTER = Path(os.environ.get('STORE_AUTOMATION_STARTER', 'D:/repositories/napp_app_template'))
+KIT = Path(os.environ.get('STORE_AUTOMATION_KIT', 'D:/repositories/napp-core'))
 FREE_MODELS = ('opencode/space-bunny-free', 'opencode/longcat-2.5-preview-free')
 FIELDS = ('task_id objective persona context dependencies scope out_of_scope '
           'required_capabilities allowed_tools permissions quality_requirements '
@@ -220,6 +230,54 @@ def brain_run(action, args=(), env=None):
     return run([sys.executable, str(BRAIN), action, *args], env=env)
 
 
+def adopt():
+    """Select the caller's project, never copy the factory's history."""
+    if not BRAIN.is_file():
+        raise ValueError('Install project-brain before starting this workflow')
+    for name in ('AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'PROJECT_BRAIN.md', '.gitignore'):
+        pointer = ROOT / name
+        if pointer.is_symlink() or (hasattr(pointer, 'is_junction') and pointer.is_junction()) or (pointer.exists() and not pointer.is_file()):
+            raise ValueError('Linked/non-file project instruction or ignore path refused: ' + name)
+    brain = project_dir('.project-brain')
+    if not brain.exists() and (ROOT / 'PROJECT_BRAIN.md').exists():
+        return {'status': 'MIGRATION_REVIEW_REQUIRED', 'project_root': str(ROOT),
+                'preview': brain_run('migrate'),
+                'next': 'Supervisor follows Project Brain migration before implementation'}
+    actions = []
+    if not brain.exists():
+        for action in ('map', 'init'):
+            evidence = brain_run(action)
+            actions.append(evidence)
+            if evidence['exit_code']:
+                return {'status': 'BLOCKED', 'actions': actions}
+    ignore = ROOT / '.gitignore'
+    if ignore.resolve() != ignore or (ignore.exists() and not ignore.is_file()):
+        raise ValueError('Linked or non-file .gitignore refused')
+    old = ignore.read_text(encoding='utf-8-sig') if ignore.exists() else ''
+    entry = '.factory/'
+    if entry not in old.splitlines():
+        with ignore.open('a', encoding='utf-8') as stream:
+            stream.write(('\n' if old and not old.endswith('\n') else '') + entry + '\n')
+    boot = brain_run('boot')
+    return {'status': 'PROJECT_LOADED' if not boot['exit_code'] else 'BLOCKED',
+            'project_root': str(ROOT), 'actions': actions, 'boot': boot,
+            'next': 'Supervisor reads map/manifests and records the actual goal; new target remains DRAFT'}
+
+
+def validate_resume(session, contract):
+    if not re.fullmatch(r'ses_[A-Za-z0-9]+', session):
+        raise ValueError('Invalid native session ID')
+    records = project_dir('.factory/runs')
+    for path in records.glob('live-*.json'):
+        if path.resolve().parent != records:
+            raise ValueError('Linked execution evidence refused')
+        data = load(path)
+        if (data.get('project') == str(ROOT) and data.get('contract_sha256') == digest_file(contract)
+                and session in data.get('native_sessions', []) and data.get('state') in ('FINISHED', 'FAILED', 'TIMEOUT', 'INTERRUPTED')):
+            return
+    raise ValueError('Resume requires this project and exact contract execution provenance; use a fresh Brain handoff')
+
+
 def classify(result):
     if result['exit_code'] == 124:
         return 'TIMEOUT'
@@ -280,7 +338,7 @@ def task_result(result):
     return data if isinstance(data, dict) else {'status': 'UNVERIFIED'}
 
 
-def model_run(provider, prompt, contract, timeout=300, session=None):
+def model_run(provider, prompt, contract, timeout=300, session=None, visible=False):
     lock = project_dir('.factory') / 'dispatch.lock'
     lock.parent.mkdir(parents=True, exist_ok=True)
     # ponytail: one project lock serializes its tasks; cross-project scheduling remains supervisor-owned.
@@ -288,17 +346,21 @@ def model_run(provider, prompt, contract, timeout=300, session=None):
         stream = lock.open('x', encoding='utf-8')
     except FileExistsError:
         raise RuntimeError('Dispatch already active; after a crash inspect the recorded PID before removing its lock')
+    release = True
     try:
         with stream:
             stream.write(str(os.getpid()))
             stream.flush()
-            return _model_run(provider, prompt, contract, timeout, session)
+            return _model_run(provider, prompt, contract, timeout, session, visible)
+    except sessions.ContainmentError:
+        release = False
+        raise
     finally:
-        if lock.exists() and lock.read_text(encoding='utf-8') == str(os.getpid()):
+        if release and lock.exists() and lock.read_text(encoding='utf-8') == str(os.getpid()):
             lock.unlink()
 
 
-def _model_run(provider, prompt, contract, timeout=300, session=None):
+def _model_run(provider, prompt, contract, timeout=300, session=None, visible=False):
     env = clean_ai_env(os.environ)
     contract = trusted_input(contract, '.json')
     task = validate_contract(load(contract))
@@ -322,7 +384,11 @@ def _model_run(provider, prompt, contract, timeout=300, session=None):
             path = snapshot_path(name)
             snapshots.append({'path': name, 'sha256': digest_file(path),
                               'content': path.read_text(encoding='utf-8-sig')})
-        result = run(argv, env=env, timeout=timeout,
+        if visible:
+            raise ValueError('Codex handoff streams activity; interactive panes require its native host, not OpenCode attach')
+        result = sessions.stream_run(argv, ROOT, env, timeout=timeout,
+                   metadata={'provider': provider, 'task_id': task['task_id'], 'role': task['persona']['role']},
+                   emit=lambda event: print(json.dumps(event), file=sys.stderr, flush=True),
                    input_text=prompt + '\nValidated task contract:\n' + json.dumps(task) +
                    '\nExact read-only source snapshots captured by the runner. Verify these; '
                    'do not execute shell or reimplement. Parent rechecks hashes before acceptance.\n' +
@@ -341,11 +407,32 @@ def _model_run(provider, prompt, contract, timeout=300, session=None):
     argv = [executable('opencode'), '--pure', 'run', '--model', provider,
             '--agent', 'factory', '--format', 'json', '--file', str(Path(contract).resolve())]
     if session:
-        if not re.fullmatch(r'ses_[A-Za-z0-9]+', session):
-            raise ValueError('Invalid native session ID')
+        validate_resume(session, contract)
         argv += ['--session', session]
-    argv += ['--', prompt]
-    return run(argv, env=env, timeout=timeout)
+    metadata = {'provider': 'opencode', 'model': provider, 'task_id': task['task_id'],
+                'role': task['persona']['role'], 'contract_sha256': digest_file(contract)}
+    server = None
+    def activity(event):
+        print(json.dumps(event), file=sys.stderr, flush=True)
+    try:
+        if visible:
+            env['OPENCODE_SERVER_PASSWORD'] = secrets.token_urlsafe(32)
+            server = sessions.start(ROOT, executable('opencode'), env)
+            sessions.validate_config(server, env)
+            if session:
+                server['resume_sessions'] = [session]
+                sessions.store(ROOT, server)
+            argv += ['--attach', server['url']]
+            watcher = [sys.executable, str(BUNDLE / 'tool/sessions.py'), 'watch', '--project', str(ROOT), '--auto-panes']
+            subprocess.run(sessions.terminal_command(ROOT, watcher), env=env, check=True)
+        argv += ['--', prompt]
+        return sessions.stream_run(argv, ROOT, env, timeout=timeout, metadata=metadata, emit=activity)
+    finally:
+        if server:
+            try:
+                sessions.stop(ROOT)
+            except Exception as error:
+                raise sessions.ContainmentError('Visible server cleanup is unverified; reconcile before dispatch') from error
 
 
 def digest_file(path):
@@ -365,7 +452,12 @@ def source_digest(root):
     for name in sorted(set(result['stdout'].split('\0')) - {''}):
         if name.startswith(('.factory/', 'docs/evidence/')):
             continue
+        if not name.endswith('.example') and re.search(
+                r'(^|/)(?:\.env(?:\.[^/]+)?|auth\.json|credentials?\.json|service-account[^/]*\.json|key\.properties|id_rsa|id_ed25519)$|\.(?:jks|p8|p12|pfx|pem)$|(^|/)credentials?/', name, re.I):
+            raise ValueError('Credential path must be outside tracked/unignored source before verification: ' + name)
         path = root / name
+        if path.resolve() != path.absolute():
+            raise ValueError('Linked source must be replaced by regular project files before verification: ' + name)
         if path.is_file():
             digest.update(name.encode())
             digest.update(bytes.fromhex(digest_file(path)))
@@ -568,11 +660,28 @@ def main():
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('audit')
     commands.add_parser('open')
+    starter = commands.add_parser('start')
+    starter.add_argument('--host', choices=['opencode', 'codex'], default='opencode')
+    starter.add_argument('goal', nargs='*')
+    commands.add_parser('adopt')
+    commands.add_parser('activity')
+    commands.add_parser('providers')
+    native = commands.add_parser('sessions')
+    native.add_argument('action', choices=['start', 'status', 'watch', 'attach', 'stop'])
+    native.add_argument('--session')
+    native.add_argument('--pane', action='store_true')
+    native.add_argument('--contract')
     router = commands.add_parser('route')
     router.add_argument('--contract', required=True)
     router.add_argument('--complexity', choices=['SIMPLE', 'STANDARD', 'COMPLEX', 'SPECIALIZED'], default='STANDARD')
-    for name in ('contract', 'digest', 'release-preflight'):
+    for name in ('contract', 'digest'):
         commands.add_parser(name).add_argument('path')
+    release = commands.add_parser('release-preflight')
+    release.add_argument('path')
+    release.add_argument('--publishing-root', default='D:/AppPublishing')
+    release.add_argument('--app-id', required=True)
+    release.add_argument('--platform', choices=['android', 'ios'], action='append', required=True)
+    release.add_argument('--locale', action='append', required=True)
     brain = commands.add_parser('brain')
     brain.add_argument('action', choices=['boot', 'validate', 'map', 'new'])
     brain.add_argument('args', nargs='*')
@@ -583,6 +692,7 @@ def main():
     runner.add_argument('--output', required=True)
     runner.add_argument('--timeout', type=int, default=300)
     runner.add_argument('--session')
+    runner.add_argument('--visible', action='store_true', help='Actual OpenCode session panes; Windows Terminal required')
     runner.add_argument('--fallback', choices=FREE_MODELS)
     gate = commands.add_parser('gate')
     gate.add_argument('--root', default=str(ROOT))
@@ -600,12 +710,57 @@ def main():
     boot.add_argument('--package', required=True)
     boot.add_argument('--ads', choices=['yes', 'no'], default='no')
     boot.add_argument('--pro', choices=['yes', 'no'], default='no')
-    args = parser.parse_args()
+    args = parser.parse_args(sys.argv[1:] or ['start'])
     if args.command == 'audit':
         result = audit()
-    elif args.command == 'open':
-        return subprocess.call([executable('opencode'), '--pure', '--agent', 'factory', str(ROOT)],
+    elif args.command in ('open', 'start'):
+        prompt = None
+        if args.command == 'start':
+            adopted = adopt()
+            print(json.dumps(adopted, ensure_ascii=False, indent=2), flush=True)
+            if adopted['status'] == 'BLOCKED':
+                return 1
+            prompt = ('Use $store-automation and canonical project-brain in this selected project. '
+                      'Inspect current state and existing callers before planning. Resume the recorded '
+                      'goal if confirmed; otherwise adopt/map the existing project and record only the '
+                      'actual user goal. Never import another project history. Give each task a detailed '
+                      'persona and least sufficient verified model, with quality gates and fresh review. '
+                      'Expose real agent sessions/status for user intervention. '
+                      + ('User goal: ' + ' '.join(args.goal) if args.goal else
+                         'No new product goal supplied: inspect and report verified state, then resume only confirmed work.'))
+            if args.host == 'codex':
+                return subprocess.call([executable('codex'), '-c', 'forced_login_method="chatgpt"',
+                                        '-C', str(ROOT), prompt], cwd=ROOT, env=clean_ai_env(os.environ))
+        argv = [executable('opencode'), '--pure', '--agent', 'factory', str(ROOT)]
+        if prompt:
+            argv += ['--prompt', prompt]
+        return subprocess.call(argv,
                                cwd=ROOT, env=native_env())
+    elif args.command == 'adopt':
+        result = adopt()
+    elif args.command == 'activity':
+        records = []
+        for path in sorted(project_dir('.factory/runs').glob('live-*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[:20]:
+            if path.resolve().parent != project_dir('.factory/runs'):
+                raise ValueError('Linked execution evidence refused')
+            data = load(path)
+            if data.get('project') != str(ROOT):
+                raise ValueError('Execution evidence belongs to another project')
+            records.append(data)
+        result = {'project_root': str(ROOT), 'runs': records, 'quota_remaining': None}
+    elif args.command == 'providers':
+        login = {'codex': 'codex login', 'claude': 'claude auth login', 'gemini': 'gemini (Login with Google)',
+                 'mcode': 'mcode login --region global', 'qwen': 'Verify current Coding Plan route',
+                 'agy': 'Use official Antigravity account setup', 'opencode': 'opencode providers',
+                 'gh': 'gh auth login --web'}
+        result = {'providers': [{'cli': name, 'installed': shutil.which(name) is not None,
+                                 'access': 'NOT_PROBED', 'login': command} for name, command in login.items()],
+                  'measured_routes': load(BUNDLE / 'contracts/capabilities.json'),
+                  'policy': 'Presence is not authentication/entitlement/inference proof; official subscription login only',
+                  'glm': 'Official ZCode account route; no verified headless adapter', 'quota_remaining': None}
+    elif args.command == 'sessions':
+        overlay = worker_permissions(validate_contract(load(trusted_input(args.contract, '.json')))) if args.contract else None
+        result = sessions.handle(args.action, ROOT, executable('opencode'), native_env(overlay), args.session, args.pane)
     elif args.command == 'route':
         task = validate_contract(load(trusted_input(args.contract, '.json')))
         registry = load(BUNDLE / 'contracts/capabilities.json')
@@ -613,7 +768,11 @@ def main():
                       if set(task['required_capabilities']).issubset(registry['models'][model]['verified'])]
         result = {'status': 'CANDIDATES_REQUIRE_GATES' if candidates else 'BLOCKED',
                   'candidates': candidates, 'complexity': args.complexity,
-                  'required_capabilities': task['required_capabilities']}
+                  'required_capabilities': task['required_capabilities'],
+                  'first_action': 'Use deterministic tools if acceptance needs no judgment' if args.complexity == 'SIMPLE' else
+                                  'Select lowest sufficient verified capability; do not lower quality floor',
+                  'quality_gates': ['contract', 'machine verification', 'fresh independent review'],
+                  'subscription_quota_remaining': None}
     elif args.command == 'contract':
         result = {'status': 'VALID', 'task_id': validate_contract(load(trusted_input(args.path, '.json')))['task_id']}
     elif args.command == 'digest':
@@ -642,10 +801,10 @@ def main():
                 if boot['exit_code'] or {str(root): source_digest(root) for root in roots} != initial:
                     raise RuntimeError('BLOCKED: reconcile changed source before model fallback')
             result = fallback_run(args.provider, args.fallback,
-                                  lambda provider: model_run(provider, prompt, args.contract, args.timeout),
+                                  lambda provider: model_run(provider, prompt, args.contract, args.timeout, visible=args.visible),
                                   checkpoint)
         else:
-            result = model_run(args.provider, prompt, args.contract, args.timeout, args.session)
+            result = model_run(args.provider, prompt, args.contract, args.timeout, args.session, visible=args.visible)
             result['classification'] = classify(result)
             result['task_result'] = task_result(result)
         save(args.output, result)
@@ -658,12 +817,11 @@ def main():
     elif args.command == 'bootstrap':
         result = bootstrap(args.destination, args.name, args.package, args.ads, args.pro)
     else:
-        root = Path(args.path).resolve()
-        result = {'status': 'PREPARATION_ONLY', 'root': str(root),
-                  'checks': {p: (root / p).is_file() for p in ('pubspec.yaml', 'fastlane/Fastfile')},
-                  'protocol': 'D:/AppPublishing/README.md', 'store_write': False,
-                  'blockers': ['Store identity/signature/declarations/live account checks required',
-                               'iOS build requires macOS/Xcode', 'Production needs explicit authorization']}
+        try:
+            from .release import preflight
+        except ImportError:
+            from release import preflight
+        result = preflight(args.path, args.publishing_root, args.app_id, args.platform, args.locale)
     printed = result
     if args.command == 'run':
         printed = {k: v for k, v in result.items() if k not in ('stdout', 'stderr', 'attempts')}

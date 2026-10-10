@@ -1,55 +1,94 @@
-# Store Automation skill
+# Store Automation
 
-Her uygulama kendi proje klas�r�nde, kendi Git deposu ve `.project-brain/` ile �al���r. Bu depo ortak arac�n geli�tirme kayna��d�r; uygulamalar buraya ta��nmaz.
+Flutter projelerini incelemek, geliştirmek ve mağazaya hazırlamak için global bir Codex/OpenCode skill’i. Her proje kendi klasöründe, kendi Git deposu ve Project Brain’iyle çalışır.
 
-## Codex i�inde
+## Hemen kullan
 
-Uygulaman�n klas�r�n� Codex�te a� ve yaz:
+Codex’te uygulamanın klasörünü aç ve yaz:
 
 ```text
-$store-automation Bu projeyi incele, hatalar� d�zelt ve test et.
+$store-automation Bu projeyi incele, kaldığı yerden devam et ve hataları düzelt.
 ```
 
-Yeni uygulamada �nce hedef klas�r� ve fikrini s�yle. Skill, mevcut `project-brain` skill�ini y�kler; plan ve ilerleme se�ilen projede tutulur. Konu�tu�un asistan normalde y�r�t�c�/supervisor olur. Ayr� orkestrat�r her k���k g�rev i�in �al��t�r�lmaz. Karma��kl��a uygun persona ve model se�ilir; basit i�lerde �nce scripts/ara�lar veya hafif model kullan�l�r.
-
-## OpenCode i�inde (iste�e ba�l�)
-
-PowerShell�de **uygulama klas�r�nden**:
+Terminalde aynı proje klasöründen:
 
 ```powershell
-cd D:\repositories\uygulamam
-python "$env:USERPROFILE/.codex/skills/store-automation/runtime/tool/factory.py" open
+store-automation
+# Belirli bir hedefle:
+store-automation start "Bu projeyi incele ve testleri geçen bir sürüme getir"
+# Resmî Codex CLI ile:
+store-automation start --host codex "Bu projeyi incele ve devam et"
 ```
 
-�� native rol ve `/factory-start`, `/factory-resume`, `/factory-audit` bu oturumda y�klenir. Global/proje OpenCode config dosyalar� de�i�tirilmez. Worker scope�u kontratla s�n�rland�r�l�r; inceleme ayr� oturumda yap�l�r.
+Komut, bulunduğun klasörü seçer. Brain varsa yükler; yoksa mevcut dosyaları koruyarak Genesis iskeleti oluşturur. Yeni hedef DRAFT başlar; ürün hedefi uydurulmaz. Mevcut Codex sohbetinde ikinci bir yönetici açılmaz.
 
-## Dosyalar nerede?
+## İş akışı
+
+```mermaid
+flowchart LR
+    A[Mevcut projeyi tara / Brain yükle] --> B[Görev + kapsamlı persona]
+    B --> C[Uygun doğrulanmış araç / model]
+    C --> D[Sıralı uygulama]
+    D --> E[Makine kontrolleri]
+    E --> F[Yeni bağımsız inceleme]
+    F --> G[Kanıt + checkpoint]
+    G --> H[Yayın hazırlığı]
+```
+
+Basit doğrulamalar önce betiklerle yapılır. Model ve persona ayrı seçilir; kalite eşiği token tasarrufu için düşürülmez. Kota/hata sonrası değişiklikler uzlaştırılmadan görev başka modele körlemesine aktarılmaz. Bir projede tek Brain ve tek otomatik uygulama görevi vardır.
+
+## Ajanları gör ve müdahale et
+
+OpenCode görev çalıştırıcısında `run --visible`, gerçek oturumlar için Windows Terminal bölmeleri açar. Yönetici, çalışan ve inceleyen ayrı native oturumlardır; ajanlar durumlarını ana yöneticiye bildirir. Görev tamamlandığında yalnız o görevin sunucusu kapanır, oturum geçmişi ve kanıtlar kalır.
+
+```powershell
+store-automation activity
+store-automation providers
+```
+
+`activity` görev/persona rolü, sağlayıcı/model, süreç durumu ve sağlayıcının bildirdiği token kullanımını gösterir. Bilinmeyen kota ve kullanım alanları bilinmeyen kalır. Codex/Claude/Gemini oturumları kendi native arayüzlerinden izlenir; OpenCode’a zorunlu bağımlılık yoktur. [Canlı ajanlar ve müdahale](skills/store-automation/references/live-agents.md).
+
+## Projeye ait dosyalar
 
 ```text
-D:/repositories/uygulamam/
-  .project-brain/       # bu projenin hedefi/g�revleri/kald��� yer
-  contracts/            # bu projenin g�rev kontratlar�
-  .factory/runs/        # yerel loglar; Git ignore eklenir
-  lib/, test/, ...      # uygulaman�n kodu
+uygulamam/
+  .project-brain/       # hedef, mimari, görevler ve devam noktası
+  contracts/            # göreve özel persona / izin / kabul ölçütleri
+  .factory/runs/        # yerel çalışma kanıtı; Git dışında
+  lib/, test/, ...      # uygulamanın kodu
 ```
 
-Yeni proje i�in kurulu CLI�nin `bootstrap D:/repositories/yeni-uygulama ...` komutu a��k�a se�ilen **yeni** klas�r� olu�turur; mevcut klas�r� reddeder. Starter��n Brain ge�mi�ini ta��maz. Yeni Brain skeleton�� DRAFT ba�lar; kullan�c�n�n ger�ek hedefiyle tamamlan�r. Eski Factory alt�ndaki test/probe klas�rleri ta��nmad�.
+Başka projenin görevleri veya oturumları taşınmaz. `adopt` yalnız mevcut projeyi yükler. `bootstrap <yeni-klasör> --name "Ad" --package com.example.ad --ads no --pro no` açıkça seçilmiş yeni klasör oluşturur; mevcut projeyi ezmez. Yeni projeler normalde Factory’nin altında değil, diğer projelerin yanında tutulur.
 
-## Abonelikler
+## Şablon ve yayın
 
-Onayl� resm� CLI/subscription yollar� g�rev ihtiyac�na g�re kullan�labilir; model/persona ayr� se�ilir. �lk se�im veya �nceki kullan�c� yetkisi proje Brain�ine kaydedilir. Kota ya da hata, otomatik �cretli API veya hesap d�nd�rme nedeni de�ildir. [G�ncel CLI envanteri ve y�nlendirme](skills/store-automation/references/cli-routing.md).
+napp çekirdeği tema, kalıcı dil seçimi, yerelleştirme, hakkımızda, gizlilik, lisanslar ve mağaza/paylaşım servislerini sağlar. Reklam/Pro modülleri seçmelidir; kapalı modüllerin bağımlılıkları üretilen uygulamaya eklenmez. iOS paylaş/puan ver bağlantısı gerçek App Store ID ister. Bulut veri modu doğru gizlilik metnine bağlanır. Yeni paketler yalnız somut ihtiyaca göre eklenir.
 
-Wrapper �u an �l��lm�� �cretsiz OpenCode modelleri ve Codex/ChatGPT read-only handoff destekler. Di�er CLI�lar skill taraf�ndan, kendi resm� izin/giri� y�ntemleri do�ruland�ktan sonra kullan�l�r; evrensel adapter tamamland� iddias� yoktur. Wrapper��n `gate` komutu OpenCode native reviewer oturumunu do�rular; ba�ka host�un incelemesi kendi ger�ek kan�tlar�yla kaydedilir.
+Yayın dosyalarının tek kaynağı `D:/AppPublishing/README.md` protokolü; kaynak projeye ikinci katalog veya gizli bilgi şeması kurulmaz.
 
-## Skill kurulumu/g�ncelleme
+```powershell
+store-automation release-preflight . --app-id uygulamam --platform android --locale tr-TR --locale en-US
+```
 
-Bu geli�tirme deposundan bir kez:
+Kontrol; kaynak kimliği/sürümü, derleme hash’i, mağaza metinleri ve görsel başlıklarını inceler. İmza, gerçek cihaz, mağaza beyanları, hesap yetkisi ve uzak sürüm ayrıca doğrulanır. Yerel geçiş üretim yayınına hazır kabul edilmez. [Yayın ve gizli bilgi sınırları](skills/store-automation/references/publishing.md).
+
+## Abonelikler ve hesaplar
+
+Resmî CLI’lar kendi abonelik oturumlarını kullanır; API anahtarına otomatik geçilmez. Codex, Claude, Gemini, Qwen, Antigravity ve MiniMax Code envanteri tutulur. Kurulu olmak, oturumun/modelin çalıştığını kanıtlamaz. GLM/Z.ai için doğrulanmış bir headless yol yoksa sistem bunu açıkça engeller. [Güncel envanter ve yönlendirme](skills/store-automation/references/cli-routing.md).
+
+Girişler resmî istemcide kullanıcı tarafından yapılır. Anahtar/parola içerikleri okunmaz veya loglanmaz; Fastlane ve sağlayıcı araçları mevcut güvenli dosya/secret referanslarını tüketir. Aynı Windows kullanıcısına ait bir dosya, tam yetkili bir ajandan teknik olarak gizlenmiş sayılmaz. Kesin ayrım ayrı işletim sistemi kimliği ve sınırlı broker gerektirir; skill bunu varmış gibi göstermez. Üretim/backend işlemleri seçilmiş uygulama, hesap ve işlem yetkisiyle yürütülür.
+
+## Kurulum ve geliştirme
+
+Python 3.11+, Project Brain skill’i ve kullanılacak resmî CLI gerekir. Bu depodan:
 
 ```powershell
 python tool/install-skill.py
 python -m unittest discover -s tests -v
 ```
 
-Codex ve OpenCode global skill dizinlerine kendine yeterli kopyalar kurulur. �al���rken bu kaynak depoya ihtiya� yoktur. Kurulum yerel de�i�iklik yap�lm�� skill dosyalar�n� ezmez; mevcut global ayarlar korunur. Codex yeni skill�i listelemiyorsa yeni bir sohbet/oturum a�.
+Kurulum Codex ve OpenCode skill dizinlerine kendine yeterli kopyalar, kullanıcının `.local/bin` dizinine `store-automation` başlatıcısı yazar. Değiştirilmiş/başkasına ait dosyaları ezmez; global model ayarlarını değiştirmez. `.local/bin` PATH üzerinde olmalıdır; bu bilgisayarda zaten vardır. Yeni skill görünmüyorsa yeni sohbet/terminal aç.
 
-Uygulama starter/core kaynaklar� h�l� `D:/repositories/napp_app_template` ve `D:/repositories/napp-core`; publishing protokol� `D:/AppPublishing/README.md`. Canl� ma�aza/receipt ve iOS/Xcode ayr�ca do�rulan�r. [Kurulum ve ge�mi� do�rulama raporu](docs/report.json).
+Bu bilgisayarın varsayılanları: starter `D:/repositories/napp_app_template`, core `D:/repositories/napp-core`, publishing `D:/AppPublishing`. Başka kurulumlarda `STORE_AUTOMATION_STARTER`, `STORE_AUTOMATION_KIT`, `STORE_AUTOMATION_BRAIN` (brain.py yolu) ve preflight’ın `--publishing-root` seçeneği kullanılabilir. Çalışma sırasında bu araç geliştirme deposuna ihtiyaç yoktur.
+
+CI, haricî hesap/SDK gerektirmeyen süreç ve yayın kontrollerini çalıştırır; tam yerel entegrasyon yukarıdaki test komutuyla doğrulanır. Android cihaz/derleme, iOS/macOS, canlı mağaza/receipt ve sağlayıcı girişleri ayrı kanıt kapılarıdır. [Doğrulama raporu](docs/report.json).

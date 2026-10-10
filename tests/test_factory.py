@@ -42,6 +42,41 @@ class FactoryChecks(unittest.TestCase):
             self.assertTrue(factory.sensitive_path(name))
         self.assertFalse(factory.sensitive_path('lib/feature.dart'))
 
+    def test_containment_failure_preserves_dispatch_lock(self):
+        with patch.object(factory, '_model_run', side_effect=factory.sessions.ContainmentError('synthetic failure')):
+            with self.assertRaises(factory.sessions.ContainmentError):
+                factory.model_run(factory.FREE_MODELS[0], 'test', 'unused')
+        self.assertTrue((factory.ROOT / '.factory/dispatch.lock').is_file())
+        with self.assertRaisesRegex(RuntimeError, 'Dispatch already active'):
+            factory.model_run(factory.FREE_MODELS[0], 'test', 'unused')
+
+    def test_source_digest_refuses_credentials_before_hashing_contents(self):
+        subprocess.run(['git', 'init', '-q', str(factory.ROOT)], check=True)
+        private = factory.ROOT / 'service-account-prod.json'
+        private.write_text('synthetic fixture only')
+        real_digest = factory.digest_file
+        def digest(path):
+            self.assertNotEqual(Path(path), private, 'Credential contents must never be hashed/read')
+            return real_digest(path)
+        with patch.object(factory, 'digest_file', side_effect=digest):
+            with self.assertRaisesRegex(ValueError, 'Credential path'):
+                factory.source_digest(factory.ROOT)
+
+    def test_source_digest_rejects_resolved_links_before_reading(self):
+        subprocess.run(['git', 'init', '-q', str(factory.ROOT)], check=True)
+        harmless = factory.ROOT / 'public.txt'
+        harmless.write_text('synthetic fixture')
+        resolve = Path.resolve
+        def resolved(path, *args, **kwargs):
+            return factory.ROOT / 'credentials.json' if path == harmless else resolve(path, *args, **kwargs)
+        digest = factory.digest_file
+        def checked_digest(path):
+            self.assertNotEqual(path, harmless)
+            return digest(path)
+        with patch.object(Path, 'resolve', resolved), patch.object(factory, 'digest_file', side_effect=checked_digest):
+            with self.assertRaisesRegex(ValueError, 'Linked source'):
+                factory.source_digest(factory.ROOT)
+
     def test_snapshot_rejects_resolved_sensitive_target(self):
         target = factory.ROOT / 'service-account-prod.json'
         target.write_text('{"synthetic":true}')
@@ -199,7 +234,7 @@ class FactoryChecks(unittest.TestCase):
         prompt.write_text('Synthetic fallback check')
         output = factory.ROOT / '.factory/runs/fallback.json'
         calls = []
-        def invoke(provider, *args):
+        def invoke(provider, *args, **kwargs):
             calls.append(provider)
             source.write_text('partial implementation')
             return {'exit_code': 1, 'stderr': 'quota exhausted'}
@@ -307,6 +342,82 @@ class FactoryChecks(unittest.TestCase):
 
 
 class PortableSkillChecks(unittest.TestCase):
+    def test_linked_manifest_and_adoption_pointer_preserve_external_files(self):
+        installer = runpy.run_path(str(factory.BUNDLE / 'tool/install-skill.py'))
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp).resolve()
+            outside = base / 'outside.json'
+            outside.write_text('{}')
+            skill, app, binary = base / 'skill', base / 'app', base / 'bin'
+            for path in (skill, app, binary):
+                path.mkdir()
+            links = [skill / '.install-manifest.json', app / 'AGENTS.md', binary / '.store-automation-launcher.json']
+            try:
+                for link in links:
+                    link.symlink_to(outside)
+            except OSError:
+                self.skipTest('Host does not allow symlink creation')
+            with self.assertRaisesRegex(ValueError, 'manifest'):
+                installer['install']([skill])
+            with patch.object(factory, 'ROOT', app):
+                with self.assertRaisesRegex(ValueError, 'instruction'):
+                    factory.adopt()
+            with self.assertRaisesRegex(ValueError, 'manifest'):
+                installer['install_launcher'](skill, binary)
+            self.assertEqual(outside.read_text(), '{}')
+            self.assertFalse((app / '.project-brain').exists())
+
+    def test_resume_requires_exact_project_contract_and_finished_provenance(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(factory, 'ROOT', Path(tmp).resolve()):
+            root = factory.ROOT
+            contract = root / 'contracts/task.json'
+            contract.parent.mkdir()
+            contract.write_text('{}')
+            record = root / '.factory/runs/live-test.json'
+            record.parent.mkdir(parents=True)
+            data = {'project': str(root), 'contract_sha256': factory.digest_file(contract),
+                    'native_sessions': ['ses_owned'], 'state': 'FINISHED'}
+            record.write_text(json.dumps(data))
+            factory.validate_resume('ses_owned', contract)
+            for key, value in [('project', str(root.parent)), ('contract_sha256', 'wrong'),
+                               ('native_sessions', ['ses_elsewhere']), ('state', 'RUNNING')]:
+                record.write_text(json.dumps(dict(data, **{key: value})))
+                with self.assertRaisesRegex(ValueError, 'provenance'):
+                    factory.validate_resume('ses_owned', contract)
+
+    def test_adoption_preserves_existing_project_and_does_not_import_tasks(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(factory, 'ROOT', Path(tmp).resolve()):
+            root = factory.ROOT
+            (root / 'README.md').write_text('Existing user project goal\n')
+            result = factory.adopt()
+            self.assertEqual(result['status'], 'PROJECT_LOADED', result)
+            self.assertEqual((root / 'README.md').read_text(), 'Existing user project goal\n')
+            self.assertTrue((root / '.project-brain/target.md').is_file())
+            self.assertIn('Status: DRAFT', (root / '.project-brain/target.md').read_text())
+            self.assertEqual(list((root / '.project-brain/tasks').glob('PB-*.md')), [])
+            self.assertFalse((root / '.git').exists())
+            factory.adopt()
+            self.assertEqual((root / '.gitignore').read_text().count('.factory/'), 1)
+
+    def test_launcher_preserves_cwd_and_rejects_local_modification(self):
+        installer = runpy.run_path(str(factory.BUNDLE / 'tool/install-skill.py'))
+        with tempfile.TemporaryDirectory(prefix='launcher space ') as tmp:
+            base = Path(tmp)
+            skill = base / 'installed skill'
+            installer['install']([skill])
+            launcher = Path(installer['install_launcher'](skill, base / 'bin'))
+            app = base / 'existing app'
+            app.mkdir()
+            # Windows cmd quoting is exercised by an actual launcher, not a string assertion.
+            command = [str(launcher), 'adopt']
+            result = subprocess.run(command, cwd=app, capture_output=True, text=True, encoding='utf-8')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads(result.stdout)['project_root'], str(app.resolve()))
+            self.assertFalse((skill / '.project-brain').exists())
+            launcher.write_text('user change')
+            with self.assertRaisesRegex(ValueError, 'modified/unowned launcher'):
+                installer['install_launcher'](skill, base / 'bin')
+
     def test_installed_cli_uses_each_projects_brain_without_checkout(self):
         installer = runpy.run_path(str(factory.BUNDLE / 'tool/install-skill.py'))
         with tempfile.TemporaryDirectory() as tmp:

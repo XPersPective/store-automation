@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "project": "C:\\Users\\rubicon\\AppData\\Local\\Temp\\store-automation-installed-n9loqk6q",
+  "source_preserved": true,
+  "factory_tasks_imported": false,
+  "commands": [
+    {
+      "command": "store-automation adopt",
+      "exit_code": 0
+    },
+    {
+      "command": "store-automation activity",
+      "exit_code": 0
+    },
+    {
+      "command": "store-automation providers",
+      "exit_code": 0
+    }
+  ]
+}

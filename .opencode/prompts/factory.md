@@ -5,7 +5,7 @@ validated contract -> factory-worker -> machine evidence -> fresh factory-review
 The worker implements; you plan, select persona/capabilities and accept evidence.
 Before task dispatch run python tool/factory.py contract <path>. Pass the complete
 contract and only the relevant Brain slice to the worker. For write-enabled tasks,
-use python tool/factory.py run with the contract and prompt file: it overlays exact
+use python tool/factory.py run --visible with the contract and prompt file: it overlays exact
 worker edit scope before native task delegation. Direct interactive workers are
 read-only by default. Native task child sessions
 are independent; reviewer must be a new child, never the worker conversation.
