@@ -11,7 +11,8 @@ import sys
 import time
 import zipfile
 
-ROOT = Path(__file__).resolve().parents[1]
+BUNDLE = Path(__file__).resolve().parents[1]
+ROOT = Path.cwd().resolve()
 BRAIN = Path.home() / '.skills-manager/skills/project-brain/scripts/brain.py'
 STARTER = Path('D:/repositories/napp_app_template')
 KIT = Path('D:/repositories/napp-core')
@@ -40,9 +41,16 @@ def load(path):
     return json.loads(Path(path).read_text(encoding='utf-8-sig'))
 
 
+def project_dir(name):
+    path = (ROOT / name).resolve()
+    if ROOT not in path.parents:
+        raise ValueError('Project state directory escapes the selected project')
+    return path
+
+
 def trusted_input(path, suffix, directory='contracts'):
     path = Path(path).resolve()
-    base = (ROOT / directory).resolve()
+    base = project_dir(directory)
     if base not in path.parents or path.suffix != suffix or not path.is_file():
         raise ValueError('Input must be an existing contracts file in the factory workspace')
     if sensitive_path(path.name):
@@ -63,10 +71,10 @@ def validate_contract(data):
         raise ValueError('Incomplete task contract')
     if not re.fullmatch(r'PB-\d{3,}', data['task_id']):
         raise ValueError('task_id must refer to an existing Project Brain task')
-    if not (ROOT / '.project-brain/tasks' / (data['task_id'] + '.md')).is_file():
+    if not project_dir('.project-brain/tasks/' + data['task_id'] + '.md').is_file():
         raise ValueError('Canonical Project Brain task does not exist')
     if not re.search(r'^Status: (READY|IN_PROGRESS)$',
-                     (ROOT / '.project-brain/tasks' / (data['task_id'] + '.md')).read_text(encoding='utf-8'), re.M):
+                     project_dir('.project-brain/tasks/' + data['task_id'] + '.md').read_text(encoding='utf-8'), re.M):
         raise ValueError('Task must be READY or IN_PROGRESS before dispatch/acceptance')
     if not isinstance(data['persona'], dict) or any(not data['persona'].get(k) for k in PERSONA):
         raise ValueError('Incomplete persona')
@@ -81,7 +89,7 @@ def validate_contract(data):
            for dep in data['dependencies']):
         raise ValueError('Invalid dependency ID')
     for dep in data['dependencies']:
-        if not (ROOT / '.project-brain/tasks' / (dep + '.md')).is_file():
+        if not project_dir('.project-brain/tasks/' + dep + '.md').is_file():
             history = run(['git', 'log', '--format=%B', '--grep=PB-Task: ' + dep])
             if history['exit_code'] or not history['stdout'].strip():
                 raise ValueError('Dependency has no canonical task or completed checkpoint')
@@ -162,10 +170,36 @@ def clean_ai_env(env):
         r'OPENAI|ANTHROPIC|AZURE|BEDROCK|VERTEX|OPENCODE_CONFIG|OPENCODE_MODEL|GEMINI|GOOGLE_API_KEY', k, re.I)}
 
 
-def run(argv, cwd=ROOT, timeout=300, env=None, input_text=None):
+def native_env(overlay=None):
+    """Load installed roles while all work/state stays in the current project."""
+    cfg = load(BUNDLE / 'opencode.json')
+    cli = f'python "{Path(__file__).resolve().as_posix()}"'
+    for agent in cfg['agent'].values():
+        prompt = agent['prompt']
+        if prompt.startswith('{file:'):
+            agent['prompt'] = (BUNDLE / prompt[6:-1]).read_text(encoding='utf-8')
+        agent['prompt'] = agent['prompt'].replace('python tool/factory.py', cli).replace('app-factory', 'store-automation')
+        permission = agent['permission']
+        if isinstance(permission.get('bash'), dict):
+            permission['bash'].pop('python tool/factory.py *', None)
+            permission['bash'][cli + ' *'] = 'allow'
+        permission['skill'] = {'*': 'deny', 'store-automation': 'allow'}
+    cfg['permission']['skill'] = {'*': 'deny', 'store-automation': 'allow', 'project-brain': 'allow'}
+    cfg['agent']['factory']['permission']['skill']['project-brain'] = 'allow'
+    cfg['permission']['external_directory'][BUNDLE.as_posix() + '/**'] = 'allow'
+    for command in cfg['command'].values():
+        command['template'] = command['template'].replace('python tool/factory.py', cli).replace('app-factory', 'store-automation')
+    for name, agent in (overlay or {}).get('agent', {}).items():
+        cfg['agent'][name]['permission'].update(agent['permission'])
+    env = clean_ai_env(os.environ)
+    env['OPENCODE_CONFIG_CONTENT'] = json.dumps(cfg)
+    return env
+
+
+def run(argv, cwd=None, timeout=300, env=None, input_text=None):
     started = time.monotonic()
     try:
-        proc = subprocess.run(argv, cwd=cwd, input=input_text, capture_output=True,
+        proc = subprocess.run(argv, cwd=ROOT if cwd is None else cwd, input=input_text, capture_output=True,
                               text=True, encoding='utf-8', errors='replace',
                               timeout=timeout, env=env)
         return {'command': argv, 'exit_code': proc.returncode,
@@ -177,6 +211,13 @@ def run(argv, cwd=ROOT, timeout=300, env=None, input_text=None):
         return {'command': argv, 'exit_code': 124, 'stdout': partial(error.stdout),
                 'stderr': partial(error.stderr) + '\nTIMEOUT; inspect checkpoint before retry',
                 'duration_seconds': round(time.monotonic() - started, 2)}
+
+
+def brain_run(action, args=(), env=None):
+    brain = project_dir('.project-brain')
+    if any(ROOT not in path.resolve().parents for path in brain.rglob('*')):
+        raise ValueError('Project Brain path escapes the selected project')
+    return run([sys.executable, str(BRAIN), action, *args], env=env)
 
 
 def classify(result):
@@ -240,9 +281,9 @@ def task_result(result):
 
 
 def model_run(provider, prompt, contract, timeout=300, session=None):
-    lock = ROOT / '.factory/dispatch.lock'
+    lock = project_dir('.factory') / 'dispatch.lock'
     lock.parent.mkdir(parents=True, exist_ok=True)
-    # ponytail: one global process lock serializes all apps; use per-app locks only after parallel workflows are approved.
+    # ponytail: one project lock serializes its tasks; cross-project scheduling remains supervisor-owned.
     try:
         stream = lock.open('x', encoding='utf-8')
     except FileExistsError:
@@ -261,7 +302,7 @@ def _model_run(provider, prompt, contract, timeout=300, session=None):
     env = clean_ai_env(os.environ)
     contract = trusted_input(contract, '.json')
     task = validate_contract(load(contract))
-    registry = load(ROOT / 'contracts/capabilities.json')['models']
+    registry = load(BUNDLE / 'contracts/capabilities.json')['models']
     if provider not in registry or not set(task['required_capabilities']).issubset(registry[provider]['verified']):
         raise ValueError('Model unavailable or lacks required verified capability; do not guess vision support')
     if provider in FREE_MODELS and registry[provider].get('access') not in (
@@ -290,8 +331,8 @@ def _model_run(provider, prompt, contract, timeout=300, session=None):
         return result
     if provider not in FREE_MODELS:
         raise ValueError('Paid/unverified model refused; choose an explicit free allowlisted model')
-    env['OPENCODE_CONFIG_CONTENT'] = json.dumps(worker_permissions(task))
-    boot = run([sys.executable, str(BRAIN), 'boot'], env=env)
+    env = native_env(worker_permissions(task))
+    boot = brain_run('boot', env=env)
     if boot['exit_code']:
         raise RuntimeError('Project Brain boot failed before native dispatch')
     prompt = ('Runner already executed this session Project Brain boot; use this '
@@ -333,6 +374,8 @@ def source_digest(root):
 
 def verification_commands(profile, build=False):
     if profile == 'factory':
+        if ROOT != BUNDLE:
+            raise ValueError('Factory verification is only for the tool source; application tasks use flutter')
         if build:
             raise ValueError('Factory profile has no mobile build')
         return {'unit': [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-v'],
@@ -355,12 +398,12 @@ def check(root, contract, worker_session, output):
         raise ValueError('Contract verification requires a profile and boolean build')
     task_id = task['task_id']
     root = Path(root).resolve()
-    if root != ROOT and (ROOT / '.factory/workspaces').resolve() not in root.parents:
+    if root != ROOT and project_dir('.factory/workspaces') not in root.parents:
         raise ValueError('Checks must target the factory or its generated workspaces')
-    if not worker_session or not (ROOT / '.project-brain/tasks' / (task_id + '.md')).is_file():
+    if not worker_session or not project_dir('.project-brain/tasks/' + task_id + '.md').is_file():
         raise ValueError('Existing task and worker session required')
     output = Path(output).resolve()
-    if (ROOT / '.factory/runs').resolve() not in output.parents or output.exists():
+    if project_dir('.factory/runs') not in output.parents or output.exists():
         raise ValueError('Use a NEW evidence path inside .factory/runs')
     before = source_digest(root)
     checks = []
@@ -390,7 +433,7 @@ def check(root, contract, worker_session, output):
 
 def evidence_gate(root, evidence, review, contract):
     root = Path(root).resolve()
-    if root != ROOT and (ROOT / '.factory/workspaces').resolve() not in root.parents:
+    if root != ROOT and project_dir('.factory/workspaces') not in root.parents:
         raise ValueError('Evidence must target the factory or its generated workspaces')
     contract = trusted_input(contract, '.json')
     task = validate_contract(load(contract))
@@ -459,9 +502,8 @@ def evidence_gate(root, evidence, review, contract):
 
 def bootstrap(destination, name, package, ads, pro):
     destination = Path(destination).resolve()
-    base = (ROOT / '.factory/workspaces').resolve()
-    if base not in destination.parents or destination.exists():
-        raise ValueError('Bootstrap only into a NEW directory under .factory/workspaces')
+    if destination.exists():
+        raise ValueError('Bootstrap only into a NEW explicitly selected project directory')
     if any(p.isspace() for p in package) or not re.fullmatch(r'[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+', package):
         raise ValueError('Invalid Android/iOS package')
     destination.mkdir(parents=True)
@@ -469,24 +511,42 @@ def bootstrap(destination, name, package, ads, pro):
     if archive['exit_code']:
         raise RuntimeError('Starter archive failed')
     with zipfile.ZipFile(destination / 'starter.zip') as source:
-        source.extractall(destination)
+        # A starter's plan/history is not the new product's Project Brain.
+        source.extractall(destination, [name for name in source.namelist()
+                                       if not name.startswith('.project-brain/') and name != 'PROJECT_BRAIN.md'])
     (destination / 'starter.zip').unlink()
     subprocess.run(['git', 'init'], cwd=destination, check=True, capture_output=True)
+    brain = run([sys.executable, str(BRAIN), 'init'], cwd=destination)
+    if brain['exit_code']:
+        raise RuntimeError('New project Brain initialization failed; preserve workspace for inspection')
     argv = [executable('dart'), 'run', 'tool/new_app.dart', '--name', name,
             '--package', package, '--ads', ads, '--pro', pro, '--data', 'local',
             '--kit-path', KIT.as_posix(), '--force']
     result = run(argv, cwd=destination, timeout=1800)
+    legacy = destination / 'PROJECT_BRAIN.md'
     provenance = {'starter_commit': run(['git', 'rev-parse', 'HEAD'], cwd=STARTER)['stdout'].strip(),
                   'kit_commit': run(['git', 'rev-parse', 'HEAD'], cwd=KIT)['stdout'].strip(),
+                  'project_root': str(destination), 'brain_init': brain,
+                  'generated_legacy_brain': legacy.read_text(encoding='utf-8') if legacy.is_file() else None,
                   'kit_local_development': True, 'result': result,
                   'status': 'VERIFIED_LOCAL' if not result['exit_code'] else 'BLOCKED'}
     save(destination / '.factory-bootstrap.json', provenance)
+    if not result['exit_code']:
+        # Owned new skeleton: preserve generator notes above, keep only canonical Brain.
+        if legacy.is_file():
+            legacy.unlink()
+        config = destination / '.project-brain/config.yaml'
+        text = config.read_text(encoding='utf-8')
+        text = re.sub(r"(?m)^  (test|lint|build):.*$", lambda m: '  ' + m[1] + ': ' + {
+            'test': 'flutter test', 'lint': 'flutter analyze --fatal-infos',
+            'build': 'flutter build apk --release'}[m[1]], text)
+        config.write_text(text, encoding='utf-8')
     return provenance
 
 
 def audit():
-    cfg = load(ROOT / 'opencode.json')
-    registry = load(ROOT / 'contracts/capabilities.json')['models']
+    cfg = load(BUNDLE / 'opencode.json')
+    registry = load(BUNDLE / 'contracts/capabilities.json')['models']
     paid = cfg.get('enabled_providers') != ['opencode'] or set(
         cfg.get('provider', {}).get('opencode', {}).get('whitelist', [])) != {
             model.split('/', 1)[1] for model in FREE_MODELS} or any(
@@ -495,6 +555,7 @@ def audit():
                     for model in FREE_MODELS)
     return {'status': 'REWORK_REQUIRED' if paid else 'PASS', 'model': cfg['model'], 'free_allowlist': FREE_MODELS,
             'agents': list(cfg['agent']), 'enabled_providers': cfg['enabled_providers'],
+            'project_root': str(ROOT), 'runtime_root': str(BUNDLE),
             'brain_exists': (ROOT / '.project-brain').is_dir(), 'brain_skill_exists': BRAIN.is_file(),
             'publishing_protocol_exists': Path('D:/AppPublishing/README.md').is_file(),
             'skills_scoped': {name: agent.get('permission', {}).get('skill', cfg['permission']['skill'])
@@ -506,6 +567,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('audit')
+    commands.add_parser('open')
     router = commands.add_parser('route')
     router.add_argument('--contract', required=True)
     router.add_argument('--complexity', choices=['SIMPLE', 'STANDARD', 'COMPLEX', 'SPECIALIZED'], default='STANDARD')
@@ -541,9 +603,12 @@ def main():
     args = parser.parse_args()
     if args.command == 'audit':
         result = audit()
+    elif args.command == 'open':
+        return subprocess.call([executable('opencode'), '--pure', '--agent', 'factory', str(ROOT)],
+                               cwd=ROOT, env=native_env())
     elif args.command == 'route':
         task = validate_contract(load(trusted_input(args.contract, '.json')))
-        registry = load(ROOT / 'contracts/capabilities.json')
+        registry = load(BUNDLE / 'contracts/capabilities.json')
         candidates = [model for model in registry['routing'][args.complexity]
                       if set(task['required_capabilities']).issubset(registry['models'][model]['verified'])]
         result = {'status': 'CANDIDATES_REQUIRE_GATES' if candidates else 'BLOCKED',
@@ -559,10 +624,10 @@ def main():
                 raise ValueError('Brain new must target this workspace using . and a title')
         elif args.args:
             raise ValueError('Brain read/validation commands target this workspace only')
-        result = run([sys.executable, str(BRAIN), args.action, *args.args])
+        result = brain_run(args.action, args.args)
     elif args.command == 'run':
         output = Path(args.output).resolve()
-        if (ROOT / '.factory/runs').resolve() not in output.parents or output.suffix != '.json':
+        if project_dir('.factory/runs') not in output.parents or output.suffix != '.json':
             raise ValueError('Run outputs must stay under .factory/runs and use .json')
         if output.exists():
             raise ValueError('Existing run evidence will not be overwritten')
@@ -573,7 +638,7 @@ def main():
                              if scope.startswith('.factory/workspaces/'))}
             initial = {str(root): source_digest(root) for root in roots}
             def checkpoint():
-                boot = run([sys.executable, str(BRAIN), 'boot'])
+                boot = brain_run('boot')
                 if boot['exit_code'] or {str(root): source_digest(root) for root in roots} != initial:
                     raise RuntimeError('BLOCKED: reconcile changed source before model fallback')
             result = fallback_run(args.provider, args.fallback,

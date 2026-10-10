@@ -1,87 +1,55 @@
-# AI App Factory
+# Store Automation skill
 
-GerÃ§ek kurulum ve doÄŸrulama durumu: [rapor](docs/report.json).
-ÃœÃ§ mimari turu/final kararlar: [mimari](docs/architecture.md).
-Fazlar, baÅŸarÄ±sÄ±zlÄ±k/geri dÃ¶nÃ¼ÅŸ kapÄ±larÄ±: [roadmap](docs/roadmap.md).
+Her uygulama kendi proje klasöründe, kendi Git deposu ve `.project-brain/` ile çalışır. Bu depo ortak aracın geliştirme kaynağıdır; uygulamalar buraya taşınmaz.
 
-```powershell
-cd D:\repositories\store-otomaston
-.\tool\start-factory.ps1
+## Codex içinde
+
+Uygulamanın klasörünü Codex’te aç ve yaz:
+
+```text
+$store-automation Bu projeyi incele, hataları düzelt ve test et.
 ```
 
-OpenCode iÃ§inde `/factory-start <uygulama fikri>` ile baÅŸla;
-`/factory-resume` devralÄ±r, `/factory-audit` config/skill sÄ±nÄ±rlarÄ±nÄ± denetler.
-ÃœÃ§ rol sÄ±ralÄ± Ã§alÄ±ÅŸÄ±r; her Ã¼rÃ¼nÃ¼n monetization/backend kararÄ± ayrÄ±ca alÄ±nÄ±r.
-Bu depo fabrikanÄ±n kendisidir, ÅŸartnamedeki Ã¶rnek uygulama deÄŸildir.
+Yeni uygulamada önce hedef klasörü ve fikrini söyle. Skill, mevcut `project-brain` skill’ini yükler; plan ve ilerleme seçilen projede tutulur. Konuştuğun asistan normalde yürütücü/supervisor olur. Ayrı orkestratör her küçük görev için çalıştırılmaz. Karmaşıklığa uygun persona ve model seçilir; basit işlerde önce scripts/araçlar veya hafif model kullanılır.
 
-Factory isolated OpenCode 1.18.0 runtime kullanÄ±r. Global 1.17.18 ve ayarlarÄ±
-korunur; free-tier yedek endpoint 1.18.0 istiyordu. Gerekirse yeniden kurulum:
+## OpenCode içinde (isteğe bağlı)
+
+PowerShell’de **uygulama klasöründen**:
 
 ```powershell
-npm install --prefix "$env:USERPROFILE\.local\share\ai-app-factory\runtime-1.18.0" opencode-ai@1.18.0 --no-audit --no-fund
-python tool/factory.py audit
-python tool/factory.py brain boot
+cd D:\repositories\uygulamam
+python "$env:USERPROFILE/.codex/skills/store-automation/runtime/tool/factory.py" open
+```
+
+Üç native rol ve `/factory-start`, `/factory-resume`, `/factory-audit` bu oturumda yüklenir. Global/proje OpenCode config dosyaları değiştirilmez. Worker scope’u kontratla sınırlandırılır; inceleme ayrı oturumda yapılır.
+
+## Dosyalar nerede?
+
+```text
+D:/repositories/uygulamam/
+  .project-brain/       # bu projenin hedefi/görevleri/kaldığı yer
+  contracts/            # bu projenin görev kontratları
+  .factory/runs/        # yerel loglar; Git ignore eklenir
+  lib/, test/, ...      # uygulamanın kodu
+```
+
+Yeni proje için kurulu CLI’nin `bootstrap D:/repositories/yeni-uygulama ...` komutu açıkça seçilen **yeni** klasörü oluşturur; mevcut klasörü reddeder. Starter’ın Brain geçmişini taşımaz. Yeni Brain skeleton’ı DRAFT başlar; kullanıcının gerçek hedefiyle tamamlanır. Eski Factory altındaki test/probe klasörleri taşınmadı.
+
+## Abonelikler
+
+Onaylı resmî CLI/subscription yolları görev ihtiyacına göre kullanılabilir; model/persona ayrı seçilir. İlk seçim veya önceki kullanıcı yetkisi proje Brain’ine kaydedilir. Kota ya da hata, otomatik ücretli API veya hesap döndürme nedeni değildir. [Güncel CLI envanteri ve yönlendirme](skills/store-automation/references/cli-routing.md).
+
+Wrapper şu an ölçülmüş ücretsiz OpenCode modelleri ve Codex/ChatGPT read-only handoff destekler. Diğer CLI’lar skill tarafından, kendi resmî izin/giriş yöntemleri doğrulandıktan sonra kullanılır; evrensel adapter tamamlandı iddiası yoktur. Wrapper’ın `gate` komutu OpenCode native reviewer oturumunu doğrular; başka host’un incelemesi kendi gerçek kanıtlarıyla kaydedilir.
+
+## Skill kurulumu/güncelleme
+
+Bu geliştirme deposundan bir kez:
+
+```powershell
+python tool/install-skill.py
 python -m unittest discover -s tests -v
 ```
 
-Tam gÃ¶rev kontratÄ± `contracts/delegation-smoke.json` biÃ§imindedir. Yeni iÅŸi
-Ã¶nce `python tool/factory.py brain new . "GÃ¶rev baÅŸlÄ±ÄŸÄ±"` ile oluÅŸtur. Kontratta
-gerÃ§ek task ID, persona, scope ve doÄŸrulanacak `verification.profile` yer alÄ±r.
-`python tool/factory.py contract contracts/<gorev>.json` eksik/tehlikeli girdiyi reddeder.
+Codex ve OpenCode global skill dizinlerine kendine yeterli kopyalar kurulur. Çalışırken bu kaynak depoya ihtiyaç yoktur. Kurulum yerel değişiklik yapılmış skill dosyalarını ezmez; mevcut global ayarlar korunur. Codex yeni skill’i listelemiyorsa yeni bir sohbet/oturum aç.
 
-Smoke kontratlarÄ± bitmiÅŸ PB-001 kurulum gÃ¶revini Ã¶rnekler; yeni iÅŸte kopyalarÄ±nÄ±
-oluÅŸturup `brain new` Ã§Ä±ktÄ±sÄ±ndaki gerÃ§ek gÃ¶rev IDâ€™sini yaz. TamamlanmÄ±ÅŸ gÃ¶revler
-yeniden dispatch edilmez.
-
-Model dispatch Ã¼cretsiz whitelist'e baÄŸlÄ±dÄ±r. Native wrapper worker yazma iznini
-yalnÄ±z kontrattaki app-source scope iÃ§in aÃ§ar; varsayÄ±lan deny, shell deny.
-Supervisor doÄŸrudan interaktif native task Ã§alÄ±ÅŸtÄ±rdÄ±ÄŸÄ±nda worker read-only'dir;
-implementation iÃ§in validated wrapper ile doÄŸru contract scope kullanÄ±lÄ±r.
-
-```powershell
-python tool/factory.py run --provider opencode/space-bunny-free --contract contracts/delegation-smoke.json --prompt-file contracts/delegation-prompt.txt --output .factory/runs/my-run.json
-python tool/factory.py run --provider opencode/space-bunny-free --fallback opencode/longcat-2.5-preview-free --contract contracts/delegation-smoke.json --prompt-file contracts/delegation-prompt.txt --output .factory/runs/my-fallback.json
-```
-
-Availability fallback checkpoint/diff doÄŸrulamasÄ±ndan sonra yeni session'a geÃ§er;
-auth/generic/quality failure'da otomatik paid escalation yok. Official Codex ChatGPT
-login ile `--provider codex` source-snapshot handoff/review yapar. Windows bu
-oturumda Codex read-only shell'i engellediÄŸi iÃ§in wrapper gerekli kaynaklarÄ± exact
-path/hash/content snapshot olarak verir; bu doÄŸrudan filesystem execution kanÄ±tÄ±
-deÄŸildir. Claude automatic fallback extra usage belirsizliÄŸi nedeniyle kapalÄ±.
-
-GerÃ§ek test loglarÄ± ve artifact hash'i Ã¼reten kapÄ±:
-
-```powershell
-python tool/factory.py check --contract contracts/delegation-smoke.json --worker-session <gercek-session> --output .factory/runs/check.json
-python tool/factory.py gate --contract contracts/delegation-smoke.json --evidence .factory/runs/check.json --review .factory/runs/review.json
-```
-
-Review JSON `task_id/source_digest/contract_sha256/worker_session/reviewer_session/verdict/findings`
-taÅŸÄ±r. Reviewer yeni session, verdict PASS ve findings boÅŸ olmalÄ±dÄ±r. Gate gerÃ§ek
-zorunlu komut/log/hash/artifact/source kontrolÃ¼ yapar; reviewer kimliÄŸinin gÃ¼venilir
-native session kaydÄ±ndan gate tarafÄ±ndan doÄŸrulanÄ±r. Native reviewer JSON verdict Ã§Ä±ktÄ±sÄ± zorunludur.
-SÄ±radan elle yazÄ±lmÄ±ÅŸ PASS gerÃ§ek review yerine geÃ§mez. Dispatch tek process kilidiyle sÄ±ralanÄ±r; Ã§Ã¶kmeden kalan kilidi kaldÄ±rmadan Ã¶nce iÃ§indeki PID kontrol edilir.
-
-Ä°zole yerel starter denemesi (mevcut proje Ã¼zerine yazmaz; generator build/test yapar):
-
-```powershell
-python tool/factory.py bootstrap .factory/workspaces/my_probe --name "Factory Probe" --package com.factory.probe --ads no --pro no
-python tool/factory.py release-preflight .factory/workspaces/my_probe
-```
-
-Starter commit + kit commit `.factory-bootstrap.json` iÃ§inde kaydedilir. Yerel kit
-override geliÅŸtirme iÃ§indir; stable source kabulÃ¼ ve release Ã¶ncesi verified Git ref'e
-sabitleme gerekir. Yeni Ã¼rÃ¼n reposu seÃ§imi app intake sÄ±rasÄ±nda yapÄ±lÄ±r; ÅŸimdilik
-workspace factory altÄ±nda ve kendi Git reposuyla ayrÄ±dÄ±r. Monthly sandbox/receipt,
-iOS/Xcode ve store production ayrÄ±ca kanÄ±t/onay ister.
-
-Release kaynak protokolÃ¼ `D:/AppPublishing/README.md`; mevcut StorePublishMatic
-ve Fastlane korunur. `release-preflight` preparation-only; evrensel Fastlane
-dry-run deÄŸildir. Yerel smoke iÃ§in `tests/fastlane` iÃ§inden
-`fastlane android factory_smoke` Ã§alÄ±ÅŸÄ±r; store/credential iÅŸlemi yapmaz.
-
-Yedekler `C:/Users/rubicon/.local/share/ai-app-factory/backups/2026-10-10/` iÃ§inde
-Git bundle. Rollback owned commit'leri revert veya repo-local factory config'i
-devre dÄ±ÅŸÄ± bÄ±rakmaktÄ±r; diÄŸer projelerin global skill/ayarlarÄ± deÄŸiÅŸtirilmedi.
-SecretlarÄ± repo/prompt/dart-define iÃ§ine koyma; client define secret storage deÄŸildir.
+Uygulama starter/core kaynakları hâlâ `D:/repositories/napp_app_template` ve `D:/repositories/napp-core`; publishing protokolü `D:/AppPublishing/README.md`. Canlı mağaza/receipt ve iOS/Xcode ayrıca doğrulanır. [Kurulum ve geçmiş doğrulama raporu](docs/report.json).

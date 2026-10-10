@@ -290,7 +290,7 @@
     "resume": "/factory-resume",
     "test": "python -m unittest discover -s tests -v"
   },
-  "independent_review": "PASS (fresh v4 native reviewer ses_ed8254433ffeXq2YZWxBO4uBR0); exported-session machine gate ACCEPTABLE. Exact reviewed source digest, implementation hashes and machine evidence in docs/evidence/final-review.json; subsequent edits are completion metadata only.",
+  "independent_review": "Historical PB-001 native review/gate is retained in docs/evidence/final-review.json. Current portability source changes: independent Codex subagent review PASS after corrections; parent ran 21 tests and installed-runtime native discovery/read smoke. This is not a new OpenCode exported-session gate or product acceptance; see docs/evidence/portable-skill.json.",
   "source_checkpoints": [
     {
       "repo": "D:/repositories/napp-core",
@@ -312,5 +312,13 @@
     "kit_commit": "099f19802f089e006081129839f7cd215110152e",
     "local_override": true,
     "pubspec_lock_sha256": "61da66e5ae61f433af5af6c447e5abaf6e9f8407876b4d90d4dccba022fd91f4"
+  },
+  "portable_skill": {
+    "status": "INSTALLED_AND_LOCALLY_VERIFIED",
+    "entry": "skills/store-automation/SKILL.md",
+    "state_ownership": "selected application repo, not factory repo",
+    "host": "Codex native or optional OpenCode; additional official CLIs require verified account/permissions",
+    "evidence": "docs/evidence/portable-skill.json",
+    "pending": "PB-005 subscription access; PB-002 live store/iOS"
   }
 }

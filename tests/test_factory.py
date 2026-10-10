@@ -2,9 +2,12 @@ import copy
 from contextlib import redirect_stdout
 import io
 import json
+import os
+import runpy
 import shutil
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -14,19 +17,24 @@ from tool import factory
 
 class FactoryChecks(unittest.TestCase):
     def setUp(self):
-        original = factory.ROOT
+        original = factory.BUNDLE
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
         for name in ('contracts/delegation-smoke.json', 'contracts/capabilities.json', 'opencode.json'):
             (root / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(original / name, root / name)
+        for directory in ('prompts', 'skills'):
+            shutil.copytree(original / '.opencode' / directory, root / '.opencode' / directory)
         task = root / '.project-brain/tasks/PB-001.md'
         task.parent.mkdir(parents=True)
         task.write_text('Status: READY\n')
         patched = patch.object(factory, 'ROOT', root)
         patched.start()
         self.addCleanup(patched.stop)
+        bundled = patch.object(factory, 'BUNDLE', root)
+        bundled.start()
+        self.addCleanup(bundled.stop)
         self.contract = factory.load(factory.ROOT / 'contracts/delegation-smoke.json')
 
     def test_sensitive_inputs_refused(self):
@@ -172,8 +180,8 @@ class FactoryChecks(unittest.TestCase):
                                      lambda: None)
         self.assertEqual(result['task_result']['status'], 'BLOCKED')
 
-    def test_bootstrap_never_overwrites_existing_or_external_directory(self):
-        for destination in (factory.ROOT, factory.ROOT / '../another-app'):
+    def test_bootstrap_never_overwrites_existing_directory(self):
+        for destination in (factory.ROOT, factory.ROOT / 'contracts'):
             with self.assertRaises(ValueError):
                 factory.bootstrap(destination, 'Demo', 'com.demo.app', 'no', 'no')
 
@@ -296,6 +304,119 @@ class FactoryChecks(unittest.TestCase):
         self.assertNotIn('task', reviewer)
         self.assertEqual(cfg['enabled_providers'], ['opencode'])
         self.assertEqual(cfg['permission']['skill']['*'], 'deny')
+
+
+class PortableSkillChecks(unittest.TestCase):
+    def test_installed_cli_uses_each_projects_brain_without_checkout(self):
+        installer = runpy.run_path(str(factory.BUNDLE / 'tool/install-skill.py'))
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            skill = base / 'skill'
+            installer['install']([skill])
+            cli = skill / 'runtime/tool/factory.py'
+            for name, task_id in [('first', 'PB-101'), ('second', 'PB-202')]:
+                app = base / name
+                task = app / '.project-brain/tasks' / (task_id + '.md')
+                task.parent.mkdir(parents=True)
+                task.write_text('Status: READY\n')
+                (app / 'contracts').mkdir()
+                contract = factory.load(factory.BUNDLE / 'contracts/delegation-smoke.json')
+                contract['task_id'] = task_id
+                path = app / 'contracts/task.json'
+                path.write_text(json.dumps(contract))
+                result = subprocess.run([sys.executable, str(cli), 'contract', str(path)], cwd=app, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                audit = subprocess.run([sys.executable, str(cli), 'audit'], cwd=app, capture_output=True, text=True)
+                self.assertEqual(json.loads(audit.stdout)['project_root'], str(app.resolve()))
+            cross = subprocess.run([sys.executable, str(cli), 'contract', str(base / 'first/contracts/task.json')],
+                                   cwd=base / 'second', capture_output=True)
+            self.assertNotEqual(cross.returncode, 0)
+            contract['task_id'] = 'PB-101'
+            path.write_text(json.dumps(contract))
+            wrong_id = subprocess.run([sys.executable, str(cli), 'contract', str(path)], cwd=path.parents[1], capture_output=True)
+            self.assertNotEqual(wrong_id.returncode, 0)
+            # No source-checkout paths are present in the installed execution arguments.
+            self.assertNotIn(str(factory.BUNDLE), str(cli))
+            (skill / 'runtime/tool/factory.py').write_text('user edit')
+            with self.assertRaisesRegex(ValueError, 'Preserve modified'):
+                installer['install']([skill])
+
+    def test_bootstrap_separate_project_gets_fresh_brain(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            starter = base / 'starter'
+            inherited = starter / '.project-brain/tasks/PB-999.md'
+            inherited.parent.mkdir(parents=True)
+            inherited.write_text('template task must not leak')
+            (starter / 'PROJECT_BRAIN.md').write_text('template legacy plan')
+            (starter / 'source.txt').write_text('preserved template source')
+            subprocess.run(['git', 'init', '-q', str(starter)], check=True)
+            subprocess.run(['git', 'add', '.'], cwd=starter, check=True)
+            subprocess.run(['git', '-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.invalid',
+                            'commit', '-qm', 'synthetic starter'], cwd=starter, check=True)
+            app = base / 'independent-app'
+            real_run = factory.run
+            def runner(argv, **kw):
+                if 'tool/new_app.dart' in argv:
+                    (app / 'PROJECT_BRAIN.md').write_text('newly generated app notes')
+                    return {'exit_code': 0, 'stdout': 'synthetic generator success'}
+                return real_run(argv, **kw)
+            with patch.object(factory, 'STARTER', starter), patch.object(factory, 'KIT', starter), \
+                    patch.object(factory, 'executable', return_value=sys.executable), patch.object(factory, 'run', side_effect=runner):
+                result = factory.bootstrap(app, 'Demo', 'com.example.demo', 'no', 'no')
+            self.assertEqual(result['status'], 'VERIFIED_LOCAL')
+            self.assertTrue((app / '.git').is_dir())
+            self.assertTrue((app / '.project-brain/target.md').is_file())
+            self.assertIn('Status: DRAFT', (app / '.project-brain/target.md').read_text())
+            self.assertFalse((app / '.project-brain/tasks/PB-999.md').exists())
+            self.assertFalse((app / 'PROJECT_BRAIN.md').exists())
+            self.assertEqual(result['generated_legacy_brain'], 'newly generated app notes')
+            self.assertIn('flutter test', (app / '.project-brain/config.yaml').read_text())
+            self.assertEqual((app / 'source.txt').read_text(), 'preserved template source')
+            with self.assertRaises(ValueError):
+                factory.bootstrap(app, 'Demo', 'com.example.demo', 'no', 'no')
+
+    def test_native_config_and_subprocess_cwd_are_project_scoped(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(factory, 'ROOT', Path(tmp)):
+            result = factory.run([sys.executable, '-c', 'import os; print(os.getcwd())'])
+            self.assertEqual(Path(result['stdout'].strip()).resolve(), Path(tmp).resolve())
+            cfg = json.loads(factory.native_env()['OPENCODE_CONFIG_CONTENT'])
+            self.assertIn('store-automation', cfg['permission']['skill'])
+            self.assertNotIn('{file:', cfg['agent']['factory']['prompt'])
+            cfg = json.loads(factory.native_env({'agent': {'factory': {'permission': {'bash': 'deny'}}}})['OPENCODE_CONFIG_CONTENT'])
+            self.assertEqual(cfg['agent']['factory']['permission']['bash'], 'deny')
+            self.assertEqual(cfg['agent']['factory-reviewer']['permission']['*'], 'deny')
+            with self.assertRaisesRegex(ValueError, 'only for the tool source'):
+                factory.verification_commands('factory')
+
+    def test_linked_project_state_cannot_borrow_another_projects_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            other = base / 'other'
+            other.mkdir()
+            (other / 'task.json').write_text('{}')
+            (other / 'PB-001.md').write_text('Status: READY\n')
+            for index, relative in enumerate(('contracts', '.factory', '.project-brain', '.project-brain/tasks')):
+                app = base / str(index)
+                app.mkdir()
+                link = app / relative
+                link.parent.mkdir(parents=True, exist_ok=True)
+                if os.name == 'nt':
+                    subprocess.run(['cmd', '/c', 'mklink', '/J', str(link), str(other)],
+                                   check=True, capture_output=True)
+                else:
+                    link.symlink_to(other, target_is_directory=True)
+                with patch.object(factory, 'ROOT', app):
+                    with self.assertRaisesRegex(ValueError, 'escapes the selected project'):
+                        factory.project_dir(relative)
+                    if relative == 'contracts':
+                        with self.assertRaises(ValueError):
+                            factory.trusted_input(link / 'task.json', '.json')
+                    if relative.startswith('.project-brain'):
+                        with patch('sys.argv', ['factory', 'brain', 'new', '.', 'Synthetic task']):
+                            with self.assertRaises(ValueError):
+                                factory.main()
+                        self.assertEqual(sorted(p.name for p in other.iterdir()), ['PB-001.md', 'task.json'])
 
 
 if __name__ == '__main__':

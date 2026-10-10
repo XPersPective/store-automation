@@ -224,3 +224,9 @@ bu repo iÃ§in ek engine/dependency kanÄ±tlÄ± ihtiyaÃ§ deÄŸil.
   kendi subscription ile unmodified resmi CLI; token aktarÄ±mÄ± yok.
 - [Codex authentication](https://developers.openai.com/codex/auth): ChatGPT login;
   yerel codex login status da ChatGPT doÄŸruladÄ±.
+
+## 11 Ekim revizyonu: projeden baðýmsýz skill
+
+Yukarýdaki ilk kurulum kararlarýnýn merkezi workspace/Brain varsayýmý kullanýcý isteðiyle deðiþti (ADR-001). Kurulu store-automation skill’i Project Brain’i baðýmlýlýk olarak yükler. Her uygulama kendi repo/kök/Brain/kontrat/log alanýna sahip olur; store-otomaston yalnýz ortak aracýn geliþtirme deposudur. Mevcut probe’lar taþýnmaz.
+
+Konuþulan asistan varsayýlan yürütücü/supervisor; ayrý orkestratör isteðe baðlý. Codex veya OpenCode native araçlarý ya da onaylý resmî CLI’lar kullanýlabilir. Basit iþ önce script/hafif model, standart iþ standart model, gerçekten karmaþýk dilim güçlü model. Model/persona ayrý seçilir. Provider login/model listesi gerçek görev ve dahil kullaným kanýtýndan ayrýlýr. Mevcut wrapper yalnýz ölçülmüþ OpenCode free ve Codex read-only yollarýný saðlar; diðer host’larýn incelemesine sahte OpenCode session kapýsý uygulanmaz.

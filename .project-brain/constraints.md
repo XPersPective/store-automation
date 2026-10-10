@@ -6,3 +6,5 @@
 - C-005: Reuse D:/AppPublishing/README.md; no new publishing protocol or credential reads (existing protocol).
 - C-006: Production, credential/signing, destructive migration, monetization activation and payment need approval (brief).
 - C-007: Smallest diff after call-flow tracing; reuse and one runnable nontrivial check (user).
+
+- C-008: User authorizes installed official subscription/free CLI use and missing official CLI installation; use deterministic tools or lightweight models for simple tasks, no automatic paid API or quota-driven account rotation. Persona and model are separate decisions.
