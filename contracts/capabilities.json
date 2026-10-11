@@ -9,13 +9,10 @@
         "source_read",
         "native_task"
       ],
-      "verified": [
-        "reasoning",
-        "source_read",
-        "native_task"
-      ],
-      "evidence": ".factory/runs/native-delegation.json",
-      "quality_ceiling": "document smoke passed; premium implementation requires machine and independent review gates",
+      "verified": [],
+      "evidence": "docs/evidence/premium-provider-access.json",
+      "historical_evidence": ".factory/runs/native-delegation.json",
+      "quality_ceiling": "UNAVAILABLE: latest visible and direct official CLI probes rejected by provider access policy; historical smoke is not current availability",
       "vision": "UNVERIFIED",
       "quota": "not exposed; classify actual availability failures"
     },

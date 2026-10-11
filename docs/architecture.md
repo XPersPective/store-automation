@@ -131,8 +131,8 @@ SIMPLE: dar deterministic araç + gerekirse ücretsiz native worker.
 STANDARD: native worker; COMPLEX/SPECIALIZED: güçlü resmi subscription CLI veya
 capability kanıtlı model. Görsel görevde screenshot + vision zorunlu.
 Ücretsiz küçük model karmaşık görevi review geçmeden bitiremez.
-Bu kurulumda native default space-bunny-free; ücretsiz yedek longcat-2.5-preview-free.
-Bu seçim anlık resmi pricing ve local catalogue'a dayanır; kalıcı SLA yoktur.
+2026-10-11: SpaceBunny ACCESS_RESTRICTED; current verified capabilities disabled.
+LongCat source-read evidence is historical; reverify access before dispatch.
 Endpoint kaldırılırsa whitelist fiyat kontrolüyle insanın yerel güncellemesi gerekir.
 Codex ChatGPT CLI alternatif olarak kullanılabilir; Claude login var ama extra
 usage kontrolü yapılmadığı için otomatik fallback kapalı; Gemini unavailable.

@@ -160,6 +160,7 @@ class FactoryChecks(unittest.TestCase):
         path = factory.ROOT / 'contracts/capabilities.json'
         registry = factory.load(path)
         model = registry['models'][factory.FREE_MODELS[0]]
+        model['verified'] = list(model['capabilities'])  # Synthetic capability fixture, independent of live availability.
         model['access'] = 'paid'
         path.write_text(json.dumps(registry))
         self.assertEqual(factory.audit()['status'], 'REWORK_REQUIRED')
@@ -193,6 +194,21 @@ class FactoryChecks(unittest.TestCase):
         self.assertEqual(factory.classify({'exit_code': 0}), 'SUCCESS')
         self.assertEqual(factory.classify({'exit_code': 1, 'stderr': 'build failed at line 404, fixture 401'}), 'UNKNOWN_FAILURE')
         self.assertEqual(factory.classify({'exit_code': 1, 'stderr': 'HTTP status 429'}), 'RATE_LIMIT')
+        restricted = {'exit_code': 0, 'stdout': json.dumps({
+            'type': 'error', 'error': {'message': 'The free tier can only be used from within OpenCode. HTTP status 429'}})}
+        self.assertEqual(factory.classify(restricted), 'ACCESS_RESTRICTED')
+        calls = []
+        def invoke(model):
+            calls.append(model)
+            return restricted
+        result = factory.fallback_run(*factory.FREE_MODELS, invoke,
+                                      lambda: self.fail('Access restriction must not trigger a checkpoint or fallback'))
+        self.assertEqual(result['classification'], 'ACCESS_RESTRICTED')
+        self.assertEqual(calls, [factory.FREE_MODELS[0]])
+        for language, expected in [('tr', 'Sağlayıcı erişimi kısıtlı'), ('en', 'Provider access restricted')]:
+            text = factory.sessions.format_public(result, language)
+            self.assertIn(expected, text)
+            self.assertNotIn('free tier can only', text)
 
     def test_controlled_quota_fallback_checkpoints_and_never_uses_paid(self):
         calls = []
@@ -347,6 +363,48 @@ class FactoryChecks(unittest.TestCase):
 
 
 class PortableSkillChecks(unittest.TestCase):
+    def test_rebaseline_preview_archive_and_failed_initialization_preserve_plan(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(factory, 'ROOT', Path(tmp).resolve()):
+            root = factory.ROOT
+            self.assertEqual(factory.adopt()['status'], 'PROJECT_LOADED')
+            marker = root / '.project-brain/tasks/PB-901.md'
+            marker.write_text('Status: READY\nOld project task\n')
+            (root / 'app.txt').write_text('preserve user source')
+            before = {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            self.assertEqual(factory.rebaseline()['status'], 'REBASELINE_PREVIEW')
+            self.assertEqual(before, {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob('*') if p.is_file()})
+            with patch('pathlib.Path.rename', side_effect=OSError('transient archive failure')) as rename:
+                with self.assertRaisesRegex(OSError, 'transient archive'):
+                    factory.rebaseline(True)
+                self.assertEqual(rename.call_count, 1, 'Rollback must not attempt to rename the original Brain')
+            self.assertTrue(marker.exists(), 'A failed initial archive must not move the original Brain during rollback')
+            with patch.object(factory, 'adopt', return_value={'status': 'BLOCKED'}):
+                with self.assertRaisesRegex(RuntimeError, 'initialization failed'):
+                    factory.rebaseline(True)
+            self.assertEqual(marker.read_text(), 'Status: READY\nOld project task\n')
+            result = factory.rebaseline(True)
+            self.assertEqual(result['status'], 'REBASELINE_AUDIT_REQUIRED')
+            self.assertEqual((Path(result['archive']) / '.project-brain/tasks/PB-901.md').read_bytes(), before['.project-brain/tasks/PB-901.md'])
+            self.assertFalse(marker.exists())
+            self.assertIn('Status: DRAFT', (root / '.project-brain/target.md').read_text())
+            self.assertEqual((root / 'app.txt').read_text(), 'preserve user source')
+
+    def test_rebaseline_refuses_linked_archive_directory(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(factory, 'ROOT', Path(tmp).resolve()):
+            root = factory.ROOT
+            factory.adopt()
+            outside = root / 'outside'
+            outside.mkdir()
+            (root / '.factory').mkdir()
+            try:
+                (root / '.factory/brain-backups').symlink_to(outside, target_is_directory=True)
+            except OSError:
+                self.skipTest('Host does not allow symlink creation')
+            with self.assertRaisesRegex(ValueError, 'destination'):
+                factory.rebaseline(True)
+            self.assertTrue((root / '.project-brain/target.md').is_file())
+            self.assertEqual(list(outside.iterdir()), [])
+
     def test_linked_manifest_and_adoption_pointer_preserve_external_files(self):
         installer = runpy.run_path(str(factory.BUNDLE / 'tool/install-skill.py'))
         with tempfile.TemporaryDirectory() as tmp:

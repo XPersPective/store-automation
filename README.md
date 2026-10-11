@@ -94,3 +94,7 @@ Kurulum Codex ve OpenCode skill dizinlerine kendine yeterli kopyalar, kullanıc�
 Bu bilgisayarın varsayılanları: starter `D:/repositories/napp_app_template`, core `D:/repositories/napp-core`, publishing `D:/AppPublishing`. Başka kurulumlarda `STORE_AUTOMATION_STARTER`, `STORE_AUTOMATION_KIT`, `STORE_AUTOMATION_BRAIN` (brain.py yolu) ve preflight’ın `--publishing-root` seçeneği kullanılabilir. Çalışma sırasında bu araç geliştirme deposuna ihtiyaç yoktur.
 
 CI, haricî hesap/SDK gerektirmeyen süreç ve yayın kontrollerini çalıştırır; tam yerel entegrasyon yukarıdaki test komutuyla doğrulanır. Android cihaz/derleme, iOS/macOS, canlı mağaza/receipt ve sağlayıcı girişleri ayrı kanıt kapılarıdır. [Doğrulama raporu](docs/report.json).
+
+Global yükleyici kurulu araçların resmî skill yollarını keşfeder; `python tool/install-skill.py --list` önizler, argümansız yükleyici bütün doğrulanmış hedefleri kurar. Claude, Gemini, Qwen, OpenCode, Codex, MiniMax, MiMo, Antigravity ve ortak agents keşfi desteklenir. Sadece klasör izi kurulum kanıtı sayılmaz; bilinmeyen araç için dizin uydurulmaz.
+
+Canlı durum varsayılan olarak Türkçedir: **Yönetici / Uygulayıcı / İnceleyen**. `--language en` İngilizce, `--json` makine çıktısı verir. Eski planı koruyarak sürdürmek veya yedekleyip yeniden denetlemek için [yaşam döngüsü](skills/store-automation/references/lifecycle.md); ücretsiz iOS derleme/ekran kanıtı ve güncel mağaza kapıları için [iOS rehberi](skills/store-automation/references/ios-ci.md).

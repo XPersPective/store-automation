@@ -29,6 +29,114 @@ class ContainmentError(RuntimeError):
     """Dispatch must stay locked until owned process termination is reconciled."""
 
 
+def display_language(value='tr'):
+    if value not in ('tr', 'en'):
+        raise ValueError('Display language must be tr or en')
+    return value
+
+
+def role_name(role, language='tr'):
+    index = 0 if display_language(language) == 'tr' else 1
+    role = role if isinstance(role, str) else None
+    names = {'factory': ('Yönetici', 'Manager'), 'factory-worker': ('Uygulayıcı', 'Implementer'),
+             'factory-reviewer': ('İnceleyen', 'Reviewer'), 'activity': ('Ajan etkinliği', 'Agent activity')}
+    aliases = {'supervisor': 'factory', 'orchestrator': 'factory', 'manager': 'factory',
+               'worker': 'factory-worker', 'implementer': 'factory-worker', 'reviewer': 'factory-reviewer'}
+    return names.get(aliases.get(role, role), ('Ajan', 'Agent'))[index]
+
+
+def format_public(data, language=None):
+    """Human structural summary only; never render provider conversation/tool bodies."""
+    runs = data.get('runs')
+    recent_language = runs[0].get('language', 'tr') if isinstance(runs, list) and runs and isinstance(runs[0], dict) else 'tr'
+    language = display_language(language or data.get('language') or recent_language)
+    index = 0 if language == 'tr' else 1
+    def word(tr, en):
+        return (tr, en)[index]
+    def label(value):
+        return value if isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9_.:/-]{1,160}', value) else word('bilinmiyor', 'unknown')
+    def number(value):
+        return str(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0 else word('bilinmiyor', 'unknown')
+    states = {'running': ('Çalışıyor', 'Running'), 'busy': ('Çalışıyor', 'Running'),
+              'starting': ('Başlıyor', 'Starting'), 'idle': ('Bekliyor', 'Idle'),
+              'retry': ('Yeniden deniyor', 'Retrying'), 'pending': ('Beklemede', 'Pending'),
+              'completed': ('Tamamlandı', 'Completed'), 'finished': ('Çalıştırma sona erdi', 'Run ended'),
+              'failed': ('Başarısız', 'Failed'), 'error': ('Hata', 'Error'),
+              'timeout': ('Süre doldu', 'Timed out'), 'interrupted': ('Kesildi', 'Interrupted'),
+              'stopped': ('Durduruldu', 'Stopped'), 'watch_closed': ('İzleme kapandı', 'Watch closed'),
+              'unchanged': ('Değişmedi', 'Unchanged'), 'native_terminal_opened': ('Yerel oturum açıldı', 'Native session opened')}
+    def state(value):
+        return states.get(str(value).lower(), ('Bilinmiyor', 'Unknown'))[index]
+    def row(item):
+        usage = item.get('usage') if isinstance(item.get('usage'), dict) else item.get('reported_usage', {})
+        usage = usage if isinstance(usage, dict) else {}
+        parts = [role_name(item.get('agent') or item.get('role'), language)]
+        if item.get('state') is not None:
+            parts.append(state(item['state']))
+        if item.get('id') or item.get('session'):
+            parts.append(word('Oturum: ', 'Session: ') + label(item.get('id') or item.get('session')))
+        native_ids = item.get('native_sessions')
+        if isinstance(native_ids, list) and native_ids:
+            parts.append(word('Oturumlar: ', 'Sessions: ') + ', '.join(label(value) for value in native_ids))
+        if item.get('parent') or item.get('child_session'):
+            parts.append(word('Bağlı oturum: ', 'Related session: ') + label(item.get('parent') or item.get('child_session')))
+        parts.append(word('Model: ', 'Model: ') + label(item.get('model')))
+        tools = item.get('tools') if isinstance(item.get('tools'), list) else []
+        latest = item.get('latest') if isinstance(item.get('latest'), dict) else {}
+        if not tools and latest.get('tool'):
+            tools = [{'tool': latest['tool'], 'state': latest.get('state')}]
+        for tool in tools:
+            if isinstance(tool, dict):
+                parts.append(word('Araç: ', 'Tool: ') + label(tool.get('tool')) + ' (' + state(tool.get('state')) + ')')
+        parts.append(word('Token giriş/çıkış: ', 'Tokens in/out: ') + number(usage.get('input')) + '/' + number(usage.get('output')))
+        parts.append(word('Kalan kota: bilinmiyor', 'Remaining quota: unknown'))
+        if isinstance(item.get('exit_code'), int) and not isinstance(item['exit_code'], bool):
+            parts.append(word('Çıkış kodu: ', 'Exit code: ') + str(item['exit_code']))
+        if 'classification' in item:
+            classifications = {
+                'SUCCESS': ('Başarıyla sona erdi', 'Ended successfully'),
+                'BLOCKED': ('Engellendi', 'Blocked'), 'QUOTA_EXHAUSTED': ('Kota tükendi', 'Quota exhausted'),
+                'RATE_LIMIT': ('İstek sınırı', 'Rate limited'), 'MODEL_UNAVAILABLE': ('Model kullanılamıyor', 'Model unavailable'),
+                'TIMEOUT': ('Süre doldu', 'Timed out'), 'AUTH_REQUIRED': ('Giriş gerekiyor', 'Login required'),
+                'AUTH_ERROR': ('Giriş doğrulanamadı', 'Authentication failed'),
+                'ACCESS_RESTRICTED': ('Sağlayıcı erişimi kısıtlı', 'Provider access restricted'),
+                'UNKNOWN_FAILURE': ('Nedeni doğrulanmamış hata', 'Unverified failure'),
+            }
+            parts.append(word('Süreç: ', 'Process: ') + classifications.get(
+                item['classification'], ('Bilinmiyor', 'Unknown'))[index])
+        task = item.get('task_result')
+        if isinstance(task, dict):
+            verdicts = {'BLOCKED': ('Engellendi', 'Blocked'), 'UNVERIFIED': ('Doğrulanmadı', 'Unverified'),
+                        'FAIL': ('Başarısız', 'Failed'), 'FAILED': ('Başarısız', 'Failed'),
+                        'REWORK_REQUIRED': ('Düzeltme gerekiyor', 'Rework required'),
+                        'PASS': ('Geçti', 'Passed'), 'DONE': ('Tamamlandı', 'Completed'),
+                        'SUCCESS': ('Başarılı', 'Successful'), 'COMPLETED': ('Tamamlandı', 'Completed')}
+            for key in ('status', 'verdict'):
+                if key in task:
+                    value = task[key] if isinstance(task[key], str) else None
+                    parts.append(word('Ajan beyanı: ', 'Agent report: ') + verdicts.get(
+                        value, ('Bilinmiyor', 'Unknown'))[index])
+            parts.append(word('Görev kabulü: ayrı doğrulama ve inceleme gerekiyor',
+                              'Task acceptance: separate verification and review required'))
+        return ' | '.join(parts)
+    if 'event' in data:
+        events = {'thread.started': ('Oturum başladı', 'Session started'), 'turn.started': ('Yanıt başladı', 'Turn started'),
+                  'turn.completed': ('Yanıt tamamlandı', 'Turn completed'), 'turn.failed': ('Yanıt başarısız', 'Turn failed'),
+                  'step_start': ('Adım başladı', 'Step started'), 'step_finish': ('Adım sona erdi', 'Step ended'),
+                  'tool_use': ('Araç çalışması', 'Tool activity'), 'item.started': ('İş başladı', 'Item started'),
+                  'item.completed': ('İş sona erdi', 'Item ended'), 'error': ('Hata', 'Error')}
+        item = dict(data, tools=[{'tool': data['tool'], 'state': data.get('state')}] if data.get('tool') else [])
+        return events.get(data['event'], ('Etkinlik', 'Activity'))[index] + ' | ' + row(item)
+    if 'sessions' in data or 'runs' in data:
+        rows = data.get('sessions', data.get('runs', []))
+        heading = word('Ajan durumu', 'Agent status') if 'sessions' in data else word('Çalıştırmalar', 'Runs')
+        if data.get('server') is not None:
+            heading += ': ' + state(data['server'])
+        return '\n'.join([heading, *(row(item) for item in rows if isinstance(item, dict))] +
+                         ([] if rows else [word('Henüz ajan oturumu yok.', 'No agent sessions yet.')]))
+    return row(data)
+
+
 class ProcessTree:
     """Contain descendants before the first instruction of a Windows child."""
     def __init__(self, name=None, existing=False):
@@ -284,8 +392,9 @@ def api(project, state, env, endpoint):
         return json.load(response)
 
 
-def start(project, binary, env):
+def start(project, binary, env, language='tr'):
     project = Path(project).resolve(strict=True)
+    language = display_language(language)
     if not env.get('OPENCODE_SERVER_PASSWORD'):
         raise ValueError('Supply a private local server password before starting')
     fingerprint = config_digest(env)
@@ -310,7 +419,7 @@ def start(project, binary, env):
         identity = process_identity(proc.pid)
         data = {'project': str(project), 'pid': proc.pid, 'identity': identity,
                 'url': f'http://127.0.0.1:{port}', 'binary': str(Path(binary).resolve()),
-                'state': 'STARTING', 'started_at': time.time(), 'config_sha256': fingerprint,
+                'state': 'STARTING', 'language': language, 'started_at': time.time(), 'config_sha256': fingerprint,
                 'job': tree.name, 'terminal_window': 'store-' + uuid.uuid4().hex}
         try:
             store(project, data)
@@ -411,12 +520,13 @@ def stream_run(argv, project, env, timeout=300, input_text=None, emit=None, meta
     Full output is returned in memory for existing verdict parsing; activity files
     contain no message bodies. Caller still owns dispatch lock/contract validation.
     """
+    language = display_language((metadata or {}).get('language', 'tr'))
     root = state_path(project).parent
     stem = root / ('live-' + uuid.uuid4().hex)
     lifecycle = stem.with_suffix('.json')
     events = stem.with_suffix('.jsonl')
     started = time.monotonic()
-    data = {'project': str(Path(project).resolve()), 'state': 'STARTING', 'pid': None,
+    data = {'project': str(Path(project).resolve()), 'state': 'STARTING', 'pid': None, 'language': language,
             'started_at': time.time(), 'events': events.name, 'usage': normalize_usage({})}
     data['native_sessions'] = []
     for key in ('provider', 'model', 'task_id', 'role', 'contract_sha256'):
@@ -509,7 +619,8 @@ def stream_run(argv, project, env, timeout=300, input_text=None, emit=None, meta
         return {'command': argv, 'exit_code': code, 'stdout': stdout,
                 'stderr': stderr + ('\nTIMEOUT; inspect checkpoint before retry' if timed_out else ''),
                 'duration_seconds': round(time.monotonic() - started, 2),
-                'lifecycle': str(lifecycle), 'reported_usage': data['usage']}
+                'lifecycle': str(lifecycle), 'reported_usage': data['usage'],
+                **{key: data[key] for key in ('provider', 'model', 'task_id', 'role', 'language') if key in data}}
     except BaseException:
         if tree is not None:
             tree.close()
@@ -549,7 +660,8 @@ def status(project, env):
         parent = row.get('parentID')
         sessions.append({'id': row['id'], 'parent': parent if parent in {r['id'] for r in rows} else None,
                          'state': states.get(row['id'], {}).get('type', 'idle'), **info})
-    return {'project': data['project'], 'server': data['state'], 'sessions': sessions}
+    return {'project': data['project'], 'server': data['state'], 'sessions': sessions,
+            'language': display_language(data.get('language', 'tr'))}
 
 
 def attach_command(project, env, session_id=None):
@@ -565,7 +677,7 @@ def attach_command(project, env, session_id=None):
     return argv
 
 
-def terminal_command(project, argv, split=False):
+def terminal_command(project, argv, split=False, role='factory', language='tr'):
     if any(';' in str(arg) for arg in argv):
         raise ValueError('Windows Terminal command separator in an argument refused')
     terminal = shutil.which('wt.exe')
@@ -575,13 +687,17 @@ def terminal_command(project, argv, split=False):
     if not isinstance(name, str) or not re.fullmatch(r'store-[a-f0-9]{32}', name):
         raise ValueError('Invalid owned terminal window')
     # argv stays an argv vector, with no PowerShell/cmd string evaluation.
-    return [terminal, '-w', name, 'split-pane' if split else 'new-tab', '--title', 'Store Automation', *argv]
+    return [terminal, '-w', name, 'split-pane' if split else 'new-tab', '--title', role_name(role, language), *argv]
 
 
-def attach(project, env, session_id=None, pane=False):
+def attach(project, env, session_id=None, pane=False, role=None, language=None):
     argv = attach_command(project, env, session_id)
     if pane:
-        command = terminal_command(project, argv, split=True)
+        language = display_language(language or load_state(project).get('language', 'tr'))
+        if role is None and session_id:
+            role = next((row.get('agent') for row in status(project, env)['sessions']
+                         if row['id'] == session_id), None)
+        command = terminal_command(project, argv, split=True, role=role, language=language)
         subprocess.run(command, env=env, check=True)
         return {'state': 'NATIVE_TERMINAL_OPENED', 'session': session_id}
     return {'exit_code': subprocess.call(argv, cwd=project, env=env)}
@@ -614,54 +730,63 @@ def stop(project):
     state['state'] = 'STOPPED'
     state['stopped_at'] = time.time()
     store(project, state)
-    return {'state': 'STOPPED', 'pid': state['pid']}
+    return {'state': 'STOPPED', 'pid': state['pid'], 'language': display_language(state.get('language', 'tr'))}
 
 
-def watch(project, env, interval=2, emit=print, auto_panes=False):
+def watch(project, env, interval=2, emit=print, auto_panes=False, language=None, json_output=False):
+    if language is not None:
+        display_language(language)
     previous = None
     attached = set()
     try:
         while True:
             current = status(project, env)
+            language = language or current.get('language', 'tr')
             if auto_panes:
                 for session in current['sessions']:
                     if session['id'] not in attached and len(attached) < 3:
-                        attach(project, env, session['id'], pane=True)
+                        attach(project, env, session['id'], pane=True,
+                               role=session.get('agent'), language=language or current.get('language', 'tr'))
                         attached.add(session['id'])
             rendered = json.dumps(current, ensure_ascii=True, sort_keys=True)
             if rendered != previous:
-                emit(rendered)
+                emit(rendered if json_output else format_public(current, language))
                 previous = rendered
             time.sleep(max(1, interval))
     except KeyboardInterrupt:
-        return {'state': 'WATCH_CLOSED', 'server': 'unchanged'}
+        return {'state': 'WATCH_CLOSED', 'server': 'unchanged', 'language': language or 'tr'}
     except (OSError, RuntimeError) as error:
         state = load_state(project, require_live=False)
+        language = language or state.get('language', 'tr')
         if state.get('state') in ('STOPPED', 'FAILED') or process_identity(state['pid']) != state.get('identity'):
-            final = {'state': 'WATCH_CLOSED', 'server': state['state'] if state.get('state') in ('STOPPED', 'FAILED') else 'STOPPED'}
-            emit(json.dumps(final))
+            final = {'state': 'WATCH_CLOSED', 'server': state['state'] if state.get('state') in ('STOPPED', 'FAILED') else 'STOPPED',
+                     'language': language}
+            emit(json.dumps(final) if json_output else format_public(final, language))
             return final
         raise error
 
 
-def handle(action, project, binary, env, session_id=None, pane=False):
+def handle(action, project, binary, env, session_id=None, pane=False, language=None, json_output=False):
+    if language is not None:
+        display_language(language)
     if action == 'start':
-        data = start(project, binary, env)
+        data = start(project, binary, env, language or 'tr')
         if pane:
             argv = attach_command(project, env)
-            command = terminal_command(project, argv)
-            watch_argv = [sys.executable, str(Path(__file__).resolve()), 'watch', '--project', str(Path(project).resolve())]
+            command = terminal_command(project, argv, language=data['language'])
+            watch_argv = [sys.executable, str(Path(__file__).resolve()), 'watch', '--project', str(Path(project).resolve()),
+                          '--language', data['language']]
             if any(';' in arg for arg in watch_argv):
                 raise ValueError('Windows Terminal separator refused')
-            command += [';', 'split-pane', '--title', 'Agent activity', *watch_argv]
+            command += [';', 'split-pane', '--title', role_name('activity', data['language']), *watch_argv]
             subprocess.run(command, env=env, check=True)
         return data
     if action == 'status':
         return status(project, env)
     if action == 'watch':
-        return watch(project, env)
+        return watch(project, env, language=language, json_output=json_output)
     if action == 'attach':
-        return attach(project, env, session_id, pane)
+        return attach(project, env, session_id, pane, language=language)
     if action == 'stop':
         return stop(project)
     raise ValueError('Unknown native session action')
@@ -674,12 +799,15 @@ if __name__ == '__main__':
     parser.add_argument('--binary', default=shutil.which('opencode.exe'))
     parser.add_argument('--session')
     parser.add_argument('--pane', action='store_true')
+    parser.add_argument('--language', choices=['tr', 'en'])
+    parser.add_argument('--json', action='store_true', help='Machine-readable structural output')
     parser.add_argument('--auto-panes', action='store_true', help='Watch and open up to three current native session panes')
     args = parser.parse_args()
     if args.auto_panes:
         if args.action != 'watch':
             parser.error('--auto-panes requires watch')
-        result = watch(args.project, dict(os.environ), auto_panes=True)
+        result = watch(args.project, dict(os.environ), auto_panes=True, language=args.language, json_output=args.json)
     else:
-        result = handle(args.action, args.project, args.binary, dict(os.environ), args.session, args.pane)
-    print(json.dumps(result))
+        result = handle(args.action, args.project, args.binary, dict(os.environ), args.session, args.pane,
+                        language=args.language, json_output=args.json)
+    print(json.dumps(result) if args.json else format_public(result, args.language))

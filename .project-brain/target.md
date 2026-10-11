@@ -27,7 +27,7 @@ Status: CONFIRMED
 
 ## Non-Goals
 
-- Example app, paid AI, uncontrolled backend deployment, production publication.
+- Paid AI, uncontrolled backend deployment, unselected production publication. Separate medication app is included by confirmed scope extension below.
 
 ## Open Decisions
 

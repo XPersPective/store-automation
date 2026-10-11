@@ -1,0 +1,111 @@
+# Opt-in template: copy into the SELECTED public Flutter app repository only.
+# No artifact/cache upload: bounded public screenshots travel in built-in job logs.
+name: iOS simulator evidence (opt-in)
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_path:
+        description: Flutter application directory inside this repository
+        required: true
+        default: .
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-simulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    # Approves public source/synthetic screenshots, not private quota or billing.
+    if: ${{ github.event.repository.private == false && vars.STORE_AUTOMATION_PUBLIC_CI_APPROVED == 'true' }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      APP_PATH: ${{ inputs.app_path }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate selected project and record tools
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          if '\n' in os.environ['APP_PATH'] or '\r' in os.environ['APP_PATH']:
+              raise SystemExit('Invalid project directory')
+          project = (root / os.environ['APP_PATH']).resolve()
+          if not project.is_relative_to(root) or not (project / 'pubspec.yaml').is_file():
+              raise SystemExit('Select a Flutter project inside this repository')
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write('APP_ROOT=' + str(project) + '\n')
+          PY
+          xcodebuild -version
+          xcrun simctl list runtimes
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: false
+      - name: Verify and build unsigned simulator app
+        working-directory: ${{ env.APP_ROOT }}
+        run: |
+          flutter --version
+          flutter pub get
+          flutter analyze --fatal-infos
+          flutter test
+          flutter build ios --simulator --debug --no-codesign
+      - name: Select available iPhone and identify the actual build
+        working-directory: ${{ env.APP_ROOT }}
+        run: |
+          python3 - <<'PY'
+          import json, os, plistlib, re, subprocess
+          from pathlib import Path
+          rows = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json']))['devices']
+          candidates = [(tuple(map(int, re.findall(r'\d+', runtime))), device)
+                        for runtime, devices in rows.items() if '.iOS-' in runtime
+                        for device in devices if device.get('isAvailable') and device['name'].startswith('iPhone')]
+          if not candidates:
+              raise SystemExit('No available iPhone simulator; do not fabricate iOS evidence')
+          device = max(candidates, key=lambda pair: pair[0])[1]
+          with Path('build/ios/iphonesimulator/Runner.app/Info.plist').open('rb') as stream:
+              bundle = plistlib.load(stream)['CFBundleIdentifier']
+          if not re.fullmatch(r'[A-Za-z0-9.-]+', bundle):
+              raise SystemExit('Invalid built bundle identifier')
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write('SIMULATOR_UDID=' + device['udid'] + '\nBUNDLE_ID=' + bundle + '\n')
+          if device['state'] != 'Booted':
+              subprocess.run(['xcrun', 'simctl', 'boot', device['udid']], check=True)
+          subprocess.run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b'], check=True)
+          PY
+      - name: Launch and capture simulator evidence
+        working-directory: ${{ env.APP_ROOT }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/ios-evidence"
+          xcrun simctl install "$SIMULATOR_UDID" build/ios/iphonesimulator/Runner.app
+          xcrun simctl launch "$SIMULATOR_UDID" "$BUNDLE_ID"
+          # ponytail: screenshot-only smoke waits 10 seconds; add app integration readiness for product acceptance.
+          sleep 10
+          xcrun simctl io "$SIMULATOR_UDID" screenshot "$RUNNER_TEMP/ios-evidence/launch.png"
+          xcodebuild -version > "$RUNNER_TEMP/ios-evidence/xcode.txt"
+          printf '%s\n' "source=$GITHUB_SHA" "bundle=$BUNDLE_ID" "simulator=$SIMULATOR_UDID" > "$RUNNER_TEMP/ios-evidence/provenance.txt"
+      - name: Retain bounded public screenshot in built-in job logs
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, os, textwrap
+          from pathlib import Path
+          data = (Path(os.environ['RUNNER_TEMP']) / 'ios-evidence/launch.png').read_bytes()
+          if not 0 < len(data) <= 6 * 1024 * 1024:
+              raise SystemExit('Screenshot exceeds bounded log transport; do not upload metered artifacts')
+          print('STORE_AUTOMATION_PNG_BEGIN launch', len(data), hashlib.sha256(data).hexdigest())
+          for line in textwrap.wrap(base64.b64encode(data).decode('ascii'), 120):
+              print('STORE_AUTOMATION_PNG_DATA', line)
+          print('STORE_AUTOMATION_PNG_END launch')
+          PY
+          cat "$RUNNER_TEMP/ios-evidence/provenance.txt" "$RUNNER_TEMP/ios-evidence/xcode.txt"
+      - name: Shut down selected disposable simulator
+        if: ${{ always() && env.SIMULATOR_UDID != '' }}
+        run: xcrun simctl shutdown "$SIMULATOR_UDID"

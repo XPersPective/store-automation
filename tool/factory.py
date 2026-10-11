@@ -180,15 +180,19 @@ def clean_ai_env(env):
         r'OPENAI|ANTHROPIC|AZURE|BEDROCK|VERTEX|OPENCODE_CONFIG|OPENCODE_MODEL|GEMINI|GOOGLE_API_KEY', k, re.I)}
 
 
-def native_env(overlay=None):
+def native_env(overlay=None, language='tr'):
     """Load installed roles while all work/state stays in the current project."""
     cfg = load(BUNDLE / 'opencode.json')
     cli = f'python "{Path(__file__).resolve().as_posix()}"'
-    for agent in cfg['agent'].values():
+    sessions.display_language(language)
+    for name, agent in cfg['agent'].items():
         prompt = agent['prompt']
         if prompt.startswith('{file:'):
             agent['prompt'] = (BUNDLE / prompt[6:-1]).read_text(encoding='utf-8')
         agent['prompt'] = agent['prompt'].replace('python tool/factory.py', cli).replace('app-factory', 'store-automation')
+        agent['prompt'] += ('\nYour visible role is ' + sessions.role_name(name, language) +
+                            '. User-facing updates must be in ' + ('Turkish' if language == 'tr' else 'English') +
+                            '; retain code identifiers. Report progress, completion, evidence and blockers to the manager.')
         permission = agent['permission']
         if isinstance(permission.get('bash'), dict):
             permission['bash'].pop('python tool/factory.py *', None)
@@ -228,6 +232,49 @@ def brain_run(action, args=(), env=None):
     if any(ROOT not in path.resolve().parents for path in brain.rglob('*')):
         raise ValueError('Project Brain path escapes the selected project')
     return run([sys.executable, str(BRAIN), action, *args], env=env)
+
+
+def rebaseline(apply=False):
+    """Archive only this project's plan after an explicit choice; never delete it."""
+    sources = [ROOT / name for name in ('.project-brain', 'PROJECT_BRAIN.md') if (ROOT / name).exists()]
+    if not sources:
+        raise ValueError('No existing Project Brain to rebaseline; use adopt')
+    for source in sources:
+        if source.resolve() != source.absolute() or any(
+                p.is_symlink() or (hasattr(p, 'is_junction') and p.is_junction())
+                for p in [source, *(source.rglob('*') if source.is_dir() else [])]):
+            raise ValueError('Linked Brain archive input refused')
+    if not apply:
+        return {'status': 'REBASELINE_PREVIEW', 'project_root': str(ROOT),
+                'preserved_sources': [p.name for p in sources],
+                'next': 'Choose preserve/resume or adopt --rebaseline --apply: archive existing Brain, then audit source into a fresh DRAFT plan'}
+    destination = ROOT / '.factory/brain-backups' / (time.strftime('%Y%m%d-%H%M%S') + '-' + secrets.token_hex(4))
+    if destination.resolve() != destination.absolute() or ROOT not in destination.resolve().parents:
+        raise ValueError('Brain archive destination escapes or traverses a link')
+    destination.mkdir(parents=True, exist_ok=False)
+    moved = []
+    try:
+        for source in sources:
+            source.rename(destination / source.name)
+            moved.append(source)
+        result = adopt()
+        if result['status'] != 'PROJECT_LOADED':
+            raise RuntimeError('Fresh Brain initialization failed')
+    except Exception:
+        # Preserve even a partial fresh skeleton before restoring the old plan.
+        fresh = ROOT / '.project-brain'
+        original_moved = any(p.name == '.project-brain' for p in moved)
+        originally_present = any(p.name == '.project-brain' for p in sources)
+        if fresh.exists() and (original_moved or not originally_present):
+            fresh.rename(destination / 'failed-new-brain')
+        for source in reversed(moved):
+            (destination / source.name).rename(source)
+        raise
+    result.update(status='REBASELINE_AUDIT_REQUIRED', archive=str(destination),
+                  next='Supervisor audits actual source/history and restores the user goal deliberately; archived tasks are evidence, never imported automatically')
+    save(destination / 'archive.json', {'project': str(ROOT), 'sources': [p.name for p in sources],
+                                      'status': 'PRESERVED', 'new_target': 'DRAFT'})
+    return result
 
 
 def adopt():
@@ -287,7 +334,8 @@ def classify(result):
     if result['exit_code'] == 0 and not error_event:
         return 'SUCCESS'
     # ponytail: error-text matching is heuristic; use structured provider codes when CLI schemas stabilize.
-    for label, pattern in [('QUOTA_EXHAUSTED', 'quota|usage limit'),
+    for label, pattern in [('ACCESS_RESTRICTED', r'free tier can only be used from within OpenCode'),
+                           ('QUOTA_EXHAUSTED', 'quota|usage limit'),
                            ('RATE_LIMIT', r'rate.?limit|(?:http|status|error)[^\n]{0,40}\b429\b'),
                            ('AUTH_ERROR', r'unauthorized|authentication|(?:http|status|error)[^\n]{0,40}\b401\b'),
                            ('MODEL_UNAVAILABLE', r'model.*not found|model.*unavailable|UpgradeRequired|(?:http|status|error)[^\n]{0,40}\b(?:426|404)\b')]:
@@ -338,7 +386,9 @@ def task_result(result):
     return data if isinstance(data, dict) else {'status': 'UNVERIFIED'}
 
 
-def model_run(provider, prompt, contract, timeout=300, session=None, visible=False):
+def model_run(provider, prompt, contract, timeout=300, session=None, visible=False, language='tr', json_output=False):
+    sessions.display_language(language)
+    prompt += '\nUser-facing updates in ' + ('Turkish' if language == 'tr' else 'English') + '; retain code identifiers.'
     lock = project_dir('.factory') / 'dispatch.lock'
     lock.parent.mkdir(parents=True, exist_ok=True)
     # ponytail: one project lock serializes its tasks; cross-project scheduling remains supervisor-owned.
@@ -351,7 +401,7 @@ def model_run(provider, prompt, contract, timeout=300, session=None, visible=Fal
         with stream:
             stream.write(str(os.getpid()))
             stream.flush()
-            return _model_run(provider, prompt, contract, timeout, session, visible)
+            return _model_run(provider, prompt, contract, timeout, session, visible, language, json_output)
     except sessions.ContainmentError:
         release = False
         raise
@@ -360,7 +410,7 @@ def model_run(provider, prompt, contract, timeout=300, session=None, visible=Fal
             lock.unlink()
 
 
-def _model_run(provider, prompt, contract, timeout=300, session=None, visible=False):
+def _model_run(provider, prompt, contract, timeout=300, session=None, visible=False, language='tr', json_output=False):
     env = clean_ai_env(os.environ)
     contract = trusted_input(contract, '.json')
     task = validate_contract(load(contract))
@@ -387,8 +437,8 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
         if visible:
             raise ValueError('Codex handoff streams activity; interactive panes require its native host, not OpenCode attach')
         result = sessions.stream_run(argv, ROOT, env, timeout=timeout,
-                   metadata={'provider': provider, 'task_id': task['task_id'], 'role': task['persona']['role']},
-                   emit=lambda event: print(json.dumps(event), file=sys.stderr, flush=True),
+                   metadata={'provider': provider, 'task_id': task['task_id'], 'role': 'factory-reviewer', 'language': language},
+                   emit=lambda event: print(json.dumps(event) if json_output else sessions.format_public(dict(event, role='factory-reviewer'), language), file=sys.stderr, flush=True),
                    input_text=prompt + '\nValidated task contract:\n' + json.dumps(task) +
                    '\nExact read-only source snapshots captured by the runner. Verify these; '
                    'do not execute shell or reimplement. Parent rechecks hashes before acceptance.\n' +
@@ -397,7 +447,7 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
         return result
     if provider not in FREE_MODELS:
         raise ValueError('Paid/unverified model refused; choose an explicit free allowlisted model')
-    env = native_env(worker_permissions(task))
+    env = native_env(worker_permissions(task), language)
     boot = brain_run('boot', env=env)
     if boot['exit_code']:
         raise RuntimeError('Project Brain boot failed before native dispatch')
@@ -410,21 +460,21 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
         validate_resume(session, contract)
         argv += ['--session', session]
     metadata = {'provider': 'opencode', 'model': provider, 'task_id': task['task_id'],
-                'role': task['persona']['role'], 'contract_sha256': digest_file(contract)}
+                'role': 'factory', 'language': language, 'contract_sha256': digest_file(contract)}
     server = None
     def activity(event):
-        print(json.dumps(event), file=sys.stderr, flush=True)
+        print(json.dumps(event) if json_output else sessions.format_public(dict(event, role='factory'), language), file=sys.stderr, flush=True)
     try:
         if visible:
             env['OPENCODE_SERVER_PASSWORD'] = secrets.token_urlsafe(32)
-            server = sessions.start(ROOT, executable('opencode'), env)
+            server = sessions.start(ROOT, executable('opencode'), env, language)
             sessions.validate_config(server, env)
             if session:
                 server['resume_sessions'] = [session]
                 sessions.store(ROOT, server)
             argv += ['--attach', server['url']]
-            watcher = [sys.executable, str(BUNDLE / 'tool/sessions.py'), 'watch', '--project', str(ROOT), '--auto-panes']
-            subprocess.run(sessions.terminal_command(ROOT, watcher), env=env, check=True)
+            watcher = [sys.executable, str(BUNDLE / 'tool/sessions.py'), 'watch', '--project', str(ROOT), '--auto-panes', '--language', language]
+            subprocess.run(sessions.terminal_command(ROOT, watcher, role='activity', language=language), env=env, check=True)
         argv += ['--', prompt]
         return sessions.stream_run(argv, ROOT, env, timeout=timeout, metadata=metadata, emit=activity)
     finally:
@@ -662,15 +712,22 @@ def main():
     commands.add_parser('open')
     starter = commands.add_parser('start')
     starter.add_argument('--host', choices=['opencode', 'codex'], default='opencode')
+    starter.add_argument('--language', choices=['tr', 'en'], default='tr')
     starter.add_argument('goal', nargs='*')
-    commands.add_parser('adopt')
-    commands.add_parser('activity')
+    adoption = commands.add_parser('adopt')
+    adoption.add_argument('--rebaseline', action='store_true', help='Preview reversible existing Brain archive and fresh audit')
+    adoption.add_argument('--apply', action='store_true', help='Explicitly choose the previewed rebaseline')
+    activity_parser = commands.add_parser('activity')
+    activity_parser.add_argument('--language', choices=['tr', 'en'])
+    activity_parser.add_argument('--json', action='store_true')
     commands.add_parser('providers')
     native = commands.add_parser('sessions')
     native.add_argument('action', choices=['start', 'status', 'watch', 'attach', 'stop'])
     native.add_argument('--session')
     native.add_argument('--pane', action='store_true')
     native.add_argument('--contract')
+    native.add_argument('--language', choices=['tr', 'en'])
+    native.add_argument('--json', action='store_true')
     router = commands.add_parser('route')
     router.add_argument('--contract', required=True)
     router.add_argument('--complexity', choices=['SIMPLE', 'STANDARD', 'COMPLEX', 'SPECIALIZED'], default='STANDARD')
@@ -694,6 +751,8 @@ def main():
     runner.add_argument('--session')
     runner.add_argument('--visible', action='store_true', help='Actual OpenCode session panes; Windows Terminal required')
     runner.add_argument('--fallback', choices=FREE_MODELS)
+    runner.add_argument('--language', choices=['tr', 'en'], default='tr')
+    runner.add_argument('--json', action='store_true')
     gate = commands.add_parser('gate')
     gate.add_argument('--root', default=str(ROOT))
     gate.add_argument('--evidence', required=True)
@@ -717,7 +776,9 @@ def main():
         prompt = None
         if args.command == 'start':
             adopted = adopt()
-            print(json.dumps(adopted, ensure_ascii=False, indent=2), flush=True)
+            print(('Proje yüklendi: ' if args.language == 'tr' else 'Project loaded: ') + str(ROOT), flush=True)
+            if adopted['status'] != 'PROJECT_LOADED':
+                print(json.dumps(adopted, ensure_ascii=False, indent=2), flush=True)
             if adopted['status'] == 'BLOCKED':
                 return 1
             prompt = ('Use $store-automation and canonical project-brain in this selected project. '
@@ -726,6 +787,7 @@ def main():
                       'actual user goal. Never import another project history. Give each task a detailed '
                       'persona and least sufficient verified model, with quality gates and fresh review. '
                       'Expose real agent sessions/status for user intervention. '
+                      'User-facing updates in ' + ('Turkish. ' if args.language == 'tr' else 'English. ')
                       + ('User goal: ' + ' '.join(args.goal) if args.goal else
                          'No new product goal supplied: inspect and report verified state, then resume only confirmed work.'))
             if args.host == 'codex':
@@ -735,9 +797,11 @@ def main():
         if prompt:
             argv += ['--prompt', prompt]
         return subprocess.call(argv,
-                               cwd=ROOT, env=native_env())
+                               cwd=ROOT, env=native_env(language=getattr(args, 'language', 'tr')))
     elif args.command == 'adopt':
-        result = adopt()
+        if args.apply and not args.rebaseline:
+            raise ValueError('--apply requires --rebaseline')
+        result = rebaseline(args.apply) if args.rebaseline else adopt()
     elif args.command == 'activity':
         records = []
         for path in sorted(project_dir('.factory/runs').glob('live-*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[:20]:
@@ -760,7 +824,8 @@ def main():
                   'glm': 'Official ZCode account route; no verified headless adapter', 'quota_remaining': None}
     elif args.command == 'sessions':
         overlay = worker_permissions(validate_contract(load(trusted_input(args.contract, '.json')))) if args.contract else None
-        result = sessions.handle(args.action, ROOT, executable('opencode'), native_env(overlay), args.session, args.pane)
+        language = args.language or ('tr' if args.action == 'start' else sessions.load_state(ROOT).get('language', 'tr'))
+        result = sessions.handle(args.action, ROOT, executable('opencode'), native_env(overlay, language), args.session, args.pane, language, args.json)
     elif args.command == 'route':
         task = validate_contract(load(trusted_input(args.contract, '.json')))
         registry = load(BUNDLE / 'contracts/capabilities.json')
@@ -801,10 +866,10 @@ def main():
                 if boot['exit_code'] or {str(root): source_digest(root) for root in roots} != initial:
                     raise RuntimeError('BLOCKED: reconcile changed source before model fallback')
             result = fallback_run(args.provider, args.fallback,
-                                  lambda provider: model_run(provider, prompt, args.contract, args.timeout, visible=args.visible),
+                                  lambda provider: model_run(provider, prompt, args.contract, args.timeout, visible=args.visible, language=args.language, json_output=args.json),
                                   checkpoint)
         else:
-            result = model_run(args.provider, prompt, args.contract, args.timeout, args.session, visible=args.visible)
+            result = model_run(args.provider, prompt, args.contract, args.timeout, args.session, visible=args.visible, language=args.language, json_output=args.json)
             result['classification'] = classify(result)
             result['task_result'] = task_result(result)
         save(args.output, result)
@@ -825,8 +890,17 @@ def main():
     printed = result
     if args.command == 'run':
         printed = {k: v for k, v in result.items() if k not in ('stdout', 'stderr', 'attempts')}
+        if result.get('attempts'):
+            printed.update({k: result['attempts'][-1][k] for k in
+                            ('provider', 'model', 'role', 'language', 'reported_usage', 'exit_code')
+                            if k in result['attempts'][-1]})
         printed['evidence_path'] = str(Path(args.output).resolve())
-    print(json.dumps(printed, ensure_ascii=False, indent=2))
+    if args.command in ('activity', 'sessions', 'run') and not args.json:
+        print(sessions.format_public(printed, args.language))
+        if args.command == 'run':
+            print(('Kanıt: ' if args.language == 'tr' else 'Evidence: ') + printed['evidence_path'])
+    else:
+        print(json.dumps(printed, ensure_ascii=False, indent=2))
     if result.get('exit_code', 0) or result.get('classification', 'SUCCESS') != 'SUCCESS' or result.get('status') in ('BLOCKED', 'REWORK_REQUIRED') or result.get('task_result', {}).get('status') in ('BLOCKED', 'REWORK_REQUIRED', 'FAILED', 'FAIL', 'UNVERIFIED') or result.get('task_result', {}).get('verdict') in ('FAIL', 'REWORK_REQUIRED', 'BLOCKED'):
         return 1
     return 0
@@ -834,8 +908,13 @@ def main():
 
 if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     try:
         sys.exit(main())
     except (ValueError, RuntimeError, OSError, KeyError, TypeError) as error:
-        print(json.dumps({'status': 'BLOCKED', 'reason': str(error)}, ensure_ascii=False))
+        if sys.argv[1:2] and sys.argv[1] in ('activity', 'sessions', 'run', 'start') and '--json' not in sys.argv:
+            english = '--language' in sys.argv and sys.argv[sys.argv.index('--language') + 1:][:1] == ['en']
+            print(('Blocked: ' if english else 'Engellendi: ') + json.dumps(str(error), ensure_ascii=False))
+        else:
+            print(json.dumps({'status': 'BLOCKED', 'reason': str(error)}, ensure_ascii=False))
         sys.exit(1)

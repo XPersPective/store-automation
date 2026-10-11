@@ -10,17 +10,28 @@
   },
   "installed": {
     "hosts": [
-      "Codex",
-      "OpenCode"
+      "codex",
+      "claude",
+      "gemini",
+      "qwen",
+      "opencode",
+      "mcode",
+      "mimo",
+      "agy",
+      "antigravity-ide",
+      "antigravity",
+      "freebuff",
+      "agents"
     ],
     "launcher": "C:/Users/rubicon/.local/bin/store-automation.cmd",
-    "files_per_host": 18,
+    "files_per_host": 22,
     "source_hashes_match": true,
     "unrelated_project_adoption": "PASS: preserved source, fresh project-owned Brain, no imported tasks",
-    "details": "docs/evidence/premium-installed.json"
+    "details": "docs/evidence/premium-all-hosts.json",
+    "unique_destinations": 10
   },
   "verification": {
-    "factory_stdlib": "53 tests PASS; syntax PASS",
+    "factory_stdlib": "71 tests PASS; expanded installer, localization, rebaseline rollback and iOS log extractor checks included",
     "workspace": "163 tests PASS: core116, pro23, ads20, examples4; five fatal analyses PASS",
     "local_generated_modes": "Eight modes analyze/test PASS before final branding patch; APK deliberately separate",
     "final_remote_modes": "free22, both_ads23, cloud22 widget tests, fatal analysis and unchanged-source rerun PASS; no local path dependencies",
@@ -39,7 +50,7 @@
     },
     "independent_review": "PASS: 19 privacy and 15 branding tests independently repeated; earlier lifecycle/security findings fixed",
     "gitleaks": "PASS: exact historical public SHA-256 digest false-positive fingerprint suppressed; no broad exclusion",
-    "native_agents": "Actual read-only supervisor/worker/fresh-reviewer smoke PASS; owned task server STOPPED; real descendant cleanup checks PASS",
+    "native_agents": "Historical read-only supervisor/worker/reviewer smoke PASS. Latest SpaceBunny direct and visible official CLI probes ACCESS_RESTRICTED; capabilities disabled, no paid fallback. Current Codex host native work continues.",
     "native_evidence": "docs/evidence/premium-native.json",
     "root_ci": {
       "url": "https://github.com/XPersPective/store-automation/actions/runs/38096595860",
@@ -50,9 +61,10 @@
       "url": "https://github.com/XPersPective/napp_kit/actions/runs/38096491598",
       "commit": "028b0ffd4545e62f3af074e0a565abba5998ec73",
       "status": "PASS",
-      "prior_emulator_failure": "Previous run failed before app install: runner disk insufficient. Native artifact reuse/KVM patch published; no new CI acceptance claimed yet.",
+      "prior_emulator_failure": "Earlier disk failure resolved by native artifact reuse/KVM patch; subsequent all-five-job run PASS.",
       "all_five_jobs": "PASS including Android build/core_only/full emulator smoke"
-    }
+    },
+    "native_current_access": "docs/evidence/premium-provider-access.json"
   },
   "sources": {
     "core": {
@@ -92,5 +104,21 @@
   ],
   "known_nonblocking_warning": "in_app_review uses legacy Kotlin Gradle Plugin integration; current build passes, future Flutter compatibility needs provider migration.",
   "publishing_source_of_truth": "D:/AppPublishing/README.md",
-  "expanded_scope": "New2026-10-11 request underway in PB012-PB015: all local hosts/localized live output/free iOS CI/maintenance/rebaseline/separate medication app"
+  "expanded_scope": "New2026-10-11 request underway in PB012-PB015: all local hosts/localized live output/free iOS CI/maintenance/rebaseline/separate medication app",
+  "maintenance": {
+    "native_automation": "store-automation-haftal-k-bak-m",
+    "status": "ACTIVE",
+    "schedule": "Monday 10:00 local time",
+    "repositories": [
+      "D:/repositories/store-otomaston",
+      "D:/repositories/ilac-vakti when created"
+    ],
+    "production": "requires exact app/account/track authorization and verified release gates"
+  },
+  "extension_status": {
+    "global_install_and_localized_status": "PASS",
+    "rebaseline": "PASS including first-rename and initialization rollback",
+    "ios_workflow": "Prepared and extractor tests PASS; actual app iOS run pending",
+    "medication_app": "Not yet implemented; PB-015 is the next milestone"
+  }
 }

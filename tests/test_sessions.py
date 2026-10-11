@@ -163,17 +163,22 @@ class SessionChecks(unittest.TestCase):
              patch.object(sessions, 'process_identity', return_value=None):
             result = sessions.watch(self.project, self.env, emit=output.append)
         self.assertEqual(result['state'], 'WATCH_CLOSED')
-        self.assertEqual(json.loads(output[-1])['server'], 'STOPPED')
+        self.assertIn('İzleme kapandı', output[-1])
 
     def test_live_process_records_structural_events_before_exit_and_timeout(self):
         script = "import json; print(json.dumps({'type':'turn.completed','usage':{'input_tokens':2,'output_tokens':3}})); print('SECRET_BODY')"
         emitted = []
-        result = sessions.stream_run([sys.executable, '-c', script], self.project, dict(os.environ), emit=emitted.append)
+        result = sessions.stream_run([sys.executable, '-c', script], self.project, dict(os.environ),
+                                     emit=emitted.append, metadata={'language': 'en', 'role': 'factory-reviewer', 'model': 'native-test'})
         self.assertEqual(result['exit_code'], 0)
         self.assertEqual(result['reported_usage']['output'], 3)
         lifecycle = Path(result['lifecycle'])
         record = json.loads(lifecycle.read_text())
         self.assertEqual(record['state'], 'FINISHED')
+        self.assertEqual(record['language'], 'en')
+        self.assertEqual(result['role'], 'factory-reviewer')
+        self.assertEqual(result['model'], 'native-test')
+        self.assertEqual(result['language'], 'en')
         self.assertNotIn('SECRET_BODY', lifecycle.read_text())
         self.assertNotIn('SECRET_BODY', lifecycle.with_suffix('.jsonl').read_text())
         self.assertEqual(len(emitted), 1)
@@ -181,6 +186,95 @@ class SessionChecks(unittest.TestCase):
                                     self.project, dict(os.environ), timeout=.2)
         self.assertEqual(timed['exit_code'], 124)
         self.assertEqual(json.loads(Path(timed['lifecycle']).read_text())['state'], 'TIMEOUT')
+
+    def test_human_roles_usage_and_language_do_not_render_private_fields(self):
+        data = {'server': 'RUNNING', 'sessions': [
+            {'id': 'ses_manager', 'agent': 'factory', 'state': 'busy', 'model': 'opencode/free',
+             'usage': {'input': 0, 'output': 7}, 'content': 'SECRET_PROMPT'},
+            {'id': 'ses_worker', 'parent': 'ses_manager', 'agent': 'factory-worker', 'state': 'idle',
+             'tools': [{'tool': 'read', 'state': 'completed', 'output': 'SECRET_BODY'}]},
+            {'id': 'ses_review', 'agent': 'factory-reviewer', 'state': 'busy', 'reasoning': 'SECRET_REASONING'},
+        ]}
+        tr = sessions.format_public(data)
+        for expected in ('Yönetici', 'Uygulayıcı', 'İnceleyen', 'Çalışıyor', 'Bekliyor',
+                         'ses_worker', 'ses_manager', 'Token giriş/çıkış: 0/7', 'Kalan kota: bilinmiyor'):
+            self.assertIn(expected, tr)
+        en = sessions.format_public(data, 'en')
+        for expected in ('Manager', 'Implementer', 'Reviewer', 'Tokens in/out: 0/7', 'Remaining quota: unknown'):
+            self.assertIn(expected, en)
+        for output in (tr, en):
+            self.assertNotIn('SECRET', output)
+        self.assertIn('bilinmiyor', sessions.format_public({'usage': {'input': True, 'output': float('nan')}}))
+        self.assertEqual(sessions.role_name({'private': 'SECRET'}), 'Ajan')
+        history = sessions.format_public({'runs': [{'role': 'worker', 'state': 'FINISHED',
+            'native_sessions': ['ses_parent', 'ses_child'], 'exit_code': 0,
+            'latest': {'tool': 'edit', 'state': 'completed', 'output': 'SECRET'}}]})
+        for expected in ('Çalıştırmalar', 'Uygulayıcı', 'ses_parent', 'ses_child', 'Araç: edit', 'Çıkış kodu: 0'):
+            self.assertIn(expected, history)
+        self.assertNotIn('SECRET', history)
+        with self.assertRaises(ValueError):
+            sessions.format_public(data, 'fr')
+
+    def test_watcher_persists_selected_language_in_panes_and_explicit_json(self):
+        current = {'language': 'en', 'server': 'RUNNING', 'sessions': [
+            {'id': 'ses_worker', 'agent': 'factory-worker', 'state': 'busy'}]}
+        outputs = []
+        with patch.object(sessions, 'status', return_value=current), \
+             patch.object(sessions, 'attach') as attach, \
+             patch.object(sessions.time, 'sleep', side_effect=KeyboardInterrupt):
+            result = sessions.watch(self.project, self.env, emit=outputs.append, auto_panes=True)
+        self.assertIn('Implementer', outputs[0])
+        self.assertEqual(result['language'], 'en')
+        self.assertEqual(attach.call_args.kwargs['language'], 'en')
+        self.assertEqual(attach.call_args.kwargs['role'], 'factory-worker')
+        outputs.clear()
+        with patch.object(sessions, 'status', return_value=current), \
+             patch.object(sessions.time, 'sleep', side_effect=KeyboardInterrupt):
+            sessions.watch(self.project, self.env, emit=outputs.append, json_output=True)
+        self.assertEqual(json.loads(outputs[0]), current)
+
+    def test_event_output_is_structural_and_terminal_titles_are_localized(self):
+        output = sessions.format_public({'event': 'tool_use', 'session': 'ses_parent',
+            'child_session': 'ses_child', 'role': 'worker', 'tool': 'task', 'state': 'completed',
+            'output': 'SECRET_BODY'})
+        self.assertIn('Uygulayıcı', output)
+        self.assertIn('ses_child', output)
+        self.assertNotIn('SECRET', output)
+        data = self.record()
+        with patch.object(sessions.shutil, 'which', return_value='C:/Windows/wt.exe'), \
+             patch.object(sessions, 'process_identity', return_value=data['identity']):
+            command = sessions.terminal_command(self.project, ['native'], role='factory-reviewer')
+            self.assertEqual(command[command.index('--title') + 1], 'İnceleyen')
+            command = sessions.terminal_command(self.project, ['native'], role='factory-worker', language='en')
+            self.assertEqual(command[command.index('--title') + 1], 'Implementer')
+        with patch.object(sessions, 'attach_command', return_value=['native', '--session', 'ses_review']), \
+             patch.object(sessions, 'load_state', return_value={'language': 'tr'}), \
+             patch.object(sessions, 'status', return_value={'sessions': [{'id': 'ses_review', 'agent': 'factory-reviewer'}]}), \
+             patch.object(sessions, 'terminal_command', return_value=['wt.exe']) as terminal, \
+             patch.object(sessions.subprocess, 'run'):
+            sessions.attach(self.project, self.env, 'ses_review', pane=True)
+        self.assertEqual(terminal.call_args.kwargs['role'], 'factory-reviewer')
+        self.assertEqual(terminal.call_args.kwargs['language'], 'tr')
+
+    def test_process_success_never_implies_task_acceptance(self):
+        result = {'classification': 'SUCCESS', 'exit_code': 0,
+                  'reported_usage': {'input': 2, 'output': 3},
+                  'task_result': {'status': 'BLOCKED', 'reason': 'SECRET_PROVIDER_MESSAGE'}}
+        tr = sessions.format_public(result)
+        self.assertIn('Süreç: Başarıyla sona erdi', tr)
+        self.assertIn('Ajan beyanı: Engellendi', tr)
+        self.assertIn('Görev kabulü: ayrı doğrulama ve inceleme gerekiyor', tr)
+        self.assertIn('Token giriş/çıkış: 2/3', tr)
+        self.assertNotIn('SECRET', tr)
+        result['task_result'] = {'verdict': 'PASS'}
+        en = sessions.format_public(result, 'en')
+        self.assertIn('Agent report: Passed', en)
+        self.assertIn('Task acceptance: separate verification and review required', en)
+        result['task_result'] = {'status': {'private': 'SECRET'}}
+        self.assertIn('Agent report: Unknown', sessions.format_public(result, 'en'))
+        history = {'runs': [{'language': 'en', 'state': 'FINISHED', 'role': 'worker'}]}
+        self.assertIn('Implementer', sessions.format_public(history))
+        self.assertIn('Uygulayıcı', sessions.format_public(history, 'tr'))
 
 
 if __name__ == '__main__':
