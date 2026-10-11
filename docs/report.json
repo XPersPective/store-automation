@@ -53,8 +53,8 @@
     "native_agents": "Historical read-only supervisor/worker/reviewer smoke PASS. Latest SpaceBunny direct and visible official CLI probes ACCESS_RESTRICTED; capabilities disabled, no paid fallback. Current Codex host native work continues.",
     "native_evidence": "docs/evidence/premium-native.json",
     "root_ci": {
-      "url": "https://github.com/XPersPective/store-automation/actions/runs/38096595860",
-      "commit": "42fcc0cda7b53485e89af7b8b7fce0fcf19998df",
+      "url": "https://github.com/XPersPective/store-automation/actions/runs/38124295212",
+      "commit": "82285c7bf33a5a478583fee0b7fe68fda7b0895d",
       "windows_linux": "PASS"
     },
     "source_ci": {
@@ -120,5 +120,18 @@
     "rebaseline": "PASS including first-rename and initialization rollback",
     "ios_workflow": "Prepared and extractor tests PASS; actual app iOS run pending",
     "medication_app": "Not yet implemented; PB-015 is the next milestone"
+  },
+  "medication_app": {
+    "source": "D:/repositories/ilac-vakti",
+    "repository": "https://github.com/XPersPective/ilac-vakti",
+    "visibility": "public app-owned code and synthetic fixtures only",
+    "project_brain": "independent, PB004 IN_PROGRESS",
+    "checks": "48 app tests, fatal analyzer, actual shipped icon check PASS; GMT native alias regression fixed without record reset",
+    "android": "Preliminary debug APK build PASS; final icon/source x64 build and native runtime QA pending",
+    "ios_first_run": "https://github.com/XPersPective/ilac-vakti/actions/runs/38127490115 — 46tests PASS, native link FAIL on arm64 simulator",
+    "ios_intel_run": "https://github.com/XPersPective/ilac-vakti/actions/runs/38128471635 — native linker FAIL; actual hybrid graph omits Pods-Runner aggregate",
+    "publishing": "D:/AppPublishing/apps/ilac-vakti — bilingual draft metadata/privacy; accounts/signing/actual store submission not verified",
+    "scope": "No clinical recommendations, default cloud or guaranteed unattended reminders/email",
+    "ios_cocoapods_run": "https://github.com/XPersPective/ilac-vakti/actions/runs/38129164165 — pending official per-project opt-out native compile"
   }
 }

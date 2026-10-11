@@ -24,6 +24,10 @@ Fetch the completed run's built-in logs using native `gh run view RUN_ID --repo 
 
 A screenshot after launch proves only a simulator capture was produced. Review it for the actual app screen, errors and localization; then run project integration flows for launch stability, navigation, persistence, permissions, accessibility and selected modules. It does not prove physical-device behavior, purchase/reward callbacks, signed release performance, App Store acceptance or availability. Add an iPad/tablet run only when the product targets that form factor; screenshots must retain actual platform/locale/device provenance. App-specific startup and missing-plugin failures remain blockers, not reasons to replace evidence with Android screenshots.
 
+## Native dependency compatibility
+
+Check simulator architecture and native integration before choosing the runner. Google ML Kit9 excludes arm64 simulator builds; a supported standard Intel label such as `macos-15-intel` is appropriate after verifying current [GitHub standard runner eligibility](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Public/free guards still apply. When a real mixed SwiftPM/CocoaPods build omits its aggregate framework, inspect the verbose target graph and generated configuration. Flutter supports [per-project SwiftPM opt-out](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers#turn-off-swiftpm-for-a-single-project) through `flutter: config: enable-swift-package-manager: false`; verify the selected app's subsequent native build. Do not patch vendor binary platform labels, invent target UUIDs or apply this workaround to every app without evidence.
+
 ## Fresh release gate
 
 For each proposed release, record checked date, authoritative links, applicable requirement, actual source/artifact finding and remaining remote gate in that project's Brain task/evidence. Old PASS results do not carry across a changed SDK/dependency/permission set. Do not auto-edit targets just to satisfy a dated checklist without compatibility tests.
