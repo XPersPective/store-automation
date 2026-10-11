@@ -22,11 +22,16 @@ import threading
 import time
 import uuid
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 class ContainmentError(RuntimeError):
     """Dispatch must stay locked until owned process termination is reconciled."""
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, file, code, message, headers, url):
+        return None
 
 
 def display_language(value='tr'):
@@ -382,15 +387,142 @@ def validate_config(state, env):
         raise ValueError('Server permissions differ; start an exact task-scoped server')
 
 
-def api(project, state, env, endpoint):
+def api(project, state, env, endpoint, method='GET', body=None):
+    if method not in ('GET', 'POST') or not re.fullmatch(r'/[A-Za-z0-9_/-]+', endpoint):
+        raise ValueError('Unsupported native API request')
+    if method == 'POST':
+        current = load_state(project)
+        validate_config(current, env)
+        if any(current.get(key) != state.get(key) for key in ('url', 'pid', 'identity')):
+            raise ValueError('Native server changed before intervention')
     password = env.get('OPENCODE_SERVER_PASSWORD')
     if not password:
         raise ValueError('Local server password required in native environment')
     auth = base64.b64encode(('opencode:' + password).encode()).decode()
     url = state['url'] + endpoint + '?' + urlencode({'directory': str(Path(project).resolve())})
-    request = Request(url, headers={'Authorization': 'Basic ' + auth})
-    with urlopen(request, timeout=3) as response:
-        return json.load(response)
+    payload = json.dumps(body).encode('utf-8') if body is not None else None
+    request = Request(url, data=payload, method=method,
+                      headers={'Authorization': 'Basic ' + auth, 'Content-Type': 'application/json'})
+    with build_opener(NoRedirect).open(request, timeout=3) as response:
+        payload = response.read()
+        return json.loads(payload) if payload else None
+
+
+def owned_session(project, env, session_id):
+    state = load_state(project)
+    validate_config(state, env)
+    if not isinstance(session_id, str) or not re.fullmatch(r'ses_[A-Za-z0-9]+', session_id):
+        raise ValueError('Invalid native session ID')
+    rows = project_sessions(project, api(project, state, env, '/session'))
+    if session_id not in {row['id'] for row in rows}:
+        raise ValueError('Session is not owned by the selected project')
+    return state
+
+
+def intervene(project, env, session_id, prompt=None, abort=False):
+    state = owned_session(project, env, session_id)
+    if abort:
+        if api(project, state, env, '/session/' + session_id + '/abort', method='POST') is not True:
+            raise RuntimeError('Native abort was not acknowledged')
+        return {'event': 'intervention', 'session': session_id, 'state': 'interrupted'}
+    if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 16000:
+        raise ValueError('Intervention requires 1..16000 characters')
+    api(project, state, env, '/session/' + session_id + '/prompt_async', method='POST',
+        body={'parts': [{'type': 'text', 'text': prompt}]})
+    return {'event': 'intervention', 'session': session_id, 'state': 'pending'}
+
+
+def report_contract(project, env, path):
+    project = Path(project).resolve(strict=True)
+    path = Path(path).absolute()
+    if project not in path.parents or any(p.is_symlink() or (hasattr(p, 'is_junction') and p.is_junction())
+                                        for p in (path, *path.parents) if p != project):
+        raise ValueError('Report contract must be an unlinked project file')
+    path = path.resolve(strict=True)
+    if project not in path.parents:
+        raise ValueError('Report contract escaped the project')
+    raw = path.read_bytes()
+    if len(raw) > 64000:
+        raise ValueError('Report contract exceeds the native record limit')
+    state = load_state(project)
+    validate_config(state, env)
+    if hashlib.sha256(raw).hexdigest() != state.get('contract_sha256'):
+        raise ValueError('Report contract differs from validated dispatch')
+    contract = json.loads(raw)
+    if contract.get('task_id') != state.get('task_id'):
+        raise ValueError('Report contract task differs from dispatch')
+    return contract
+
+
+def relay_updates(project, env, contract=None):
+    """Observe native messages; notify parents without launching an inference turn."""
+    state = load_state(project)
+    validate_config(state, env)
+    rows = project_sessions(project, api(project, state, env, '/session'))
+    rows = [row for row in rows if row.get('time', {}).get('created', 0) >= state['started_at'] * 1000
+            or row['id'] in state.get('resume_sessions', [])]
+    ids = {row['id'] for row in rows}
+    observed = state.get('relay_observed', {})
+    delivered = set(state.get('relay_delivered', []))
+    notice_ids = {'msg_' + hashlib.sha256(key.encode()).hexdigest()[:24] for key in delivered}
+    reports = state.get('agent_reports', {})
+    events = []
+    for row in rows:
+        sid, parent = row['id'], row.get('parentID')
+        messages = api(project, state, env, '/session/' + sid + '/message')
+        user_order = [m.get('info', {}).get('id') for m in messages if m.get('info', {}).get('role') == 'user']
+        user_order = [mid for mid in user_order if isinstance(mid, str) and re.fullmatch(r'msg_[A-Za-z0-9]+', mid) and mid not in notice_ids]
+        user_ids = set(user_order)
+        # Only the first native user message is the delegated prompt, even before first poll.
+        previous = set(observed.get(sid, user_order[:1]))
+        notices = [('intervention', mid) for mid in sorted(user_ids - previous)]
+        if contract is not None:
+            if not isinstance(contract.get('task_id'), str) or contract.get('task_id') != state.get('task_id'):
+                raise ValueError('Report task differs from dispatch')
+            try:
+                from .subscriptions import REPORT_FIELDS, report_valid
+            except ImportError:
+                from subscriptions import REPORT_FIELDS, report_valid
+            for message in messages:
+                info = message.get('info', {})
+                mid = info.get('id')
+                if info.get('role') != 'assistant' or not info.get('time', {}).get('completed') or not isinstance(mid, str) or not re.fullmatch(r'msg_[A-Za-z0-9]+', mid):
+                    continue
+                text_parts = [part.get('text', '') for part in message.get('parts', [])
+                              if part.get('type') == 'text' and isinstance(part.get('text'), str)]
+                text_body = '\n'.join(text_parts)
+                if len(text_body) > 64000:
+                    continue
+                try:
+                    report = json.loads(text_body)
+                except (ValueError, TypeError):
+                    continue
+                if report_valid(report, contract['task_id']):
+                    key = sid + ':' + mid
+                    if key not in reports:
+                        reports[key] = {field: report[field] for field in REPORT_FIELDS}
+                        notices.append(('report', mid))
+        for kind, mid in notices:
+            key = sid + ':' + kind + ':' + mid
+            if parent not in ids or key in delivered:
+                continue
+            notice = {'event': kind, 'child_session': sid, 'message': mid,
+                      'task_id': state.get('task_id'), 'source': 'native_session_messages'}
+            # Deterministic message ID makes a crash after POST safe to retry without a new turn.
+            notice_id = 'msg_' + hashlib.sha256(key.encode()).hexdigest()[:24]
+            receipt = api(project, owned_session(project, env, parent), env, '/session/' + parent + '/message', method='POST',
+                body={'messageID': notice_id, 'noReply': True,
+                      'parts': [{'type': 'text', 'text': json.dumps(notice, separators=(',', ':'))}]})
+            if not isinstance(receipt, dict) or receipt.get('info', {}).get('role') != 'user' or receipt['info'].get('id') != notice_id:
+                raise RuntimeError('Native noReply notification was not acknowledged')
+            delivered.add(key)
+            notice_ids.add('msg_' + hashlib.sha256(key.encode()).hexdigest()[:24])
+            events.append({'event': kind, 'session': parent, 'child_session': sid, 'state': 'completed'})
+        observed[sid] = sorted(user_ids)
+    current = load_state(project)
+    current.update(relay_observed=observed, relay_delivered=sorted(delivered), agent_reports=reports)
+    store(project, current)
+    return events
 
 
 def start(project, binary, env, language='tr'):
@@ -762,7 +894,7 @@ def stop(project):
     return {'state': 'STOPPED', 'pid': state['pid'], 'language': display_language(state.get('language', 'tr'))}
 
 
-def watch(project, env, interval=2, emit=print, auto_panes=False, language=None, json_output=False):
+def watch(project, env, interval=2, emit=print, auto_panes=False, language=None, json_output=False, relay=False, contract=None):
     if language is not None:
         display_language(language)
     previous = None
@@ -771,6 +903,9 @@ def watch(project, env, interval=2, emit=print, auto_panes=False, language=None,
         while True:
             current = status(project, env)
             language = language or current.get('language', 'tr')
+            if relay:
+                for event in relay_updates(project, env, contract):
+                    emit(json.dumps(event) if json_output else format_public(event, language))
             if auto_panes:
                 # Parents precede specialists so the director retains the first agent pane.
                 for session in sorted(current['sessions'], key=lambda item: bool(item.get('parent'))):
@@ -834,11 +969,16 @@ if __name__ == '__main__':
     parser.add_argument('--language', choices=['tr', 'en'])
     parser.add_argument('--json', action='store_true', help='Machine-readable structural output')
     parser.add_argument('--auto-panes', action='store_true', help='Watch and open every observed native agent session in balanced panes')
+    parser.add_argument('--relay', action='store_true', help='Relay structural intervention/report notices without inference')
+    parser.add_argument('--contract', help='Exact validated dispatch contract for native report collection')
     args = parser.parse_args()
-    if args.auto_panes:
-        if args.action != 'watch':
-            parser.error('--auto-panes requires watch')
-        result = watch(args.project, dict(os.environ), auto_panes=True, language=args.language, json_output=args.json)
+    if args.action == 'watch':
+        env = dict(os.environ)
+        contract = report_contract(args.project, env, args.contract) if args.contract else None
+        result = watch(args.project, env, auto_panes=args.auto_panes, language=args.language, json_output=args.json,
+                       relay=args.relay, contract=contract)
+    elif args.auto_panes or args.relay or args.contract:
+        parser.error('--auto-panes, --relay and --contract require watch')
     else:
         result = handle(args.action, args.project, args.binary, dict(os.environ), args.session, args.pane,
                         language=args.language, json_output=args.json)

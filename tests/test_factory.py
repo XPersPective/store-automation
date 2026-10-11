@@ -1,4 +1,5 @@
 import copy
+from datetime import datetime, timezone
 from contextlib import redirect_stdout
 import io
 import json
@@ -216,6 +217,82 @@ class FactoryChecks(unittest.TestCase):
                   'item': {'type': 'agent_message', 'text': '{"status":"BLOCKED"}'}})}
         self.assertEqual(factory.classify(result), 'SUCCESS')
         self.assertEqual(factory.task_result(result)['status'], 'BLOCKED')
+
+    def test_actual_report_requires_identity_and_projects_only_public_fields(self):
+        report = dict(task=self.contract['task_id'], role='auditor', provider='codex', model='gpt-5.6-luna',
+                      effort='low', state='COMPLETED', changed_files=[], evidence=['source read'],
+                      usage=None, blockers=[], next_action='Supervisor checks', private_extra='discard')
+        def result(value):
+            return {'stdout': json.dumps({'type': 'item.completed', 'item': {'type': 'agent_message', 'text': json.dumps(value)}})}
+        checked = factory.task_result(result(report), self.contract)
+        self.assertEqual(checked['state'], 'COMPLETED')
+        self.assertNotIn('private_extra', checked)
+        for invalid in ({'status': 'PASS'}, dict(report, task='PB-999'), dict(report, usage={'input': True})):
+            self.assertEqual(factory.task_result(result(invalid), self.contract)['status'], 'UNVERIFIED')
+        self.assertEqual(factory.task_result(result({'verdict': 'PASS'}))['verdict'], 'PASS')
+
+    def test_startup_scans_before_inference_and_reserve_prevents_launch(self):
+        snapshot = {'captured_at': datetime.now(timezone.utc).isoformat(), 'providers': [{
+            'cli': 'codex', 'auth': 'SUBSCRIPTION_LOGIN', 'access': 'METADATA_VERIFIED',
+            'billing': 'SUBSCRIPTION_ONLY_REQUIRED', 'models': [{'id': 'gpt-5.6-sol', 'supported_efforts': ['high']}],
+            'quota_groups': [{'name': 'Codex Models', 'buckets': [{'remaining_fraction': .8}]}]}]}
+        seen = []
+        def scan(*args, **kwargs):
+            seen.append('scan')
+            return snapshot
+        def launch(argv, **kwargs):
+            seen.append('launch')
+            self.assertEqual(seen, ['scan', 'launch'])
+            self.assertEqual(argv[argv.index('--model') + 1], 'gpt-5.6-sol')
+            self.assertIn('model_reasoning_effort="high"', argv)
+            self.assertTrue(list((factory.ROOT / '.factory/runs').glob('inventory-*.json')))
+            return 0
+        argv = ['factory', 'start', '--host', 'codex', 'Audit']
+        with patch.object(sys, 'argv', argv), patch.object(factory, 'adopt', return_value={'status': 'PROJECT_LOADED'}), \
+                patch.object(factory.subscriptions, 'inventory', side_effect=scan), \
+                patch.object(factory, 'executable', return_value='codex'), \
+                patch.object(factory.subprocess, 'call', side_effect=launch) as launched, redirect_stdout(io.StringIO()):
+            self.assertEqual(factory.main(), 0)
+            snapshot['providers'][0]['quota_groups'][0]['buckets'][0]['remaining_fraction'] = .10
+            self.assertEqual(factory.main(), 1)
+            self.assertEqual(launched.call_count, 1)
+
+    def test_blocked_report_state_fails_even_with_successful_transport(self):
+        contract = factory.ROOT / 'contracts/delegation-smoke.json'
+        prompt = factory.ROOT / 'contracts/report.txt'
+        prompt.write_text('Report only')
+        report = dict(task=self.contract['task_id'], role='auditor', provider='codex', model='gpt-5.6-sol',
+                      effort='high', state='BLOCKED', changed_files=[], evidence=[], usage=None,
+                      blockers=['Missing evidence'], next_action='Wait')
+        output = factory.ROOT / '.factory/runs/report.json'
+        native = {'exit_code': 0, 'stdout': json.dumps({'type': 'text', 'part': {'text': json.dumps(report)}})}
+        argv = ['factory', 'run', '--provider', 'codex', '--contract', str(contract),
+                '--prompt-file', str(prompt), '--output', str(output), '--json']
+        with patch.object(sys, 'argv', argv), patch.object(factory, 'model_run', return_value=native), redirect_stdout(io.StringIO()):
+            self.assertEqual(factory.main(), 1)
+        self.assertEqual(json.loads(output.read_text())['task_result']['state'], 'BLOCKED')
+        report['state'] = 'COMPLETED'
+        native['stdout'] = json.dumps({'type': 'text', 'part': {'text': json.dumps(report)}})
+        native['selected'] = {'provider': 'codex', 'model': 'gpt-5.6-luna', 'effort': 'low'}
+        output = factory.ROOT / '.factory/runs/wrong-route.json'
+        argv[argv.index('--output') + 1] = str(output)
+        argv.extend(['--fallback', factory.FREE_MODELS[1]])
+        with patch.object(sys, 'argv', argv), patch.object(factory, 'source_digest', return_value='unchanged'), patch.object(factory, 'fallback_run', return_value={
+                'classification': 'SUCCESS', 'attempts': [native]}), redirect_stdout(io.StringIO()):
+            self.assertEqual(factory.main(), 1)
+        self.assertEqual(json.loads(output.read_text())['task_result']['status'], 'UNVERIFIED')
+
+    def test_free_dispatch_preserves_explicit_model_and_effort(self):
+        contract = factory.ROOT / 'contracts/delegation-smoke.json'
+        for field, value in (('model', 'different-model'), ('effort', 'high')):
+            task = factory.load(contract)
+            task['delegation'][field] = value
+            registry = {'models': {factory.FREE_MODELS[0]: {'verified': task['required_capabilities'], 'access': 'native_free'}}}
+            with patch.object(factory, 'load', side_effect=lambda path: task if path == contract else registry), \
+                    patch.object(factory, 'brain_run') as boot:
+                with self.assertRaisesRegex(ValueError, 'conflicts with delegation'):
+                    factory._model_run(factory.FREE_MODELS[0], 'test', contract)
+                boot.assert_not_called()
 
     def test_fallback_error_classification_controlled_not_live(self):
         self.assertEqual(factory.classify({'exit_code': 1, 'stderr': 'quota exhausted'}), 'QUOTA_EXHAUSTED')

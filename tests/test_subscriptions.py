@@ -1,6 +1,7 @@
 import copy
 from datetime import datetime, timedelta, timezone
 import json
+import io
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -24,6 +25,85 @@ class SubscriptionChecks(unittest.TestCase):
         self.assertEqual(s.route(self.snapshot, 'SIMPLE')['selected']['model'], 'gemini-3.8-flash-low')
         self.assertEqual(s.route(self.snapshot, 'STANDARD')['selected']['effort'], 'medium')
         self.assertEqual(s.route(self.snapshot, 'COMPLEX')['selected']['model'], 'gemini-3.1-pro-high')
+
+    def test_fresh_codex_equivalent_route_survives_agy_shared_exhaustion(self):
+        self.snapshot['providers'].append({'cli': 'codex', 'auth': 'SUBSCRIPTION_LOGIN',
+            'access': 'METADATA_VERIFIED', 'billing': 'SUBSCRIPTION_ONLY_REQUIRED',
+            'models': [{'id': name, 'supported_efforts': ['low', 'medium', 'high']}
+                       for name in s.CODEX_TIERS],
+            'quota_groups': [{'name': 'Codex Models', 'buckets': [{'remaining_fraction': .62}, {'remaining_fraction': .53}]}]})
+        self.groups[0]['buckets'][0]['remaining_fraction'] = .1
+        self.snapshot['excluded_model_prefixes'] = ['claude-']
+        selected = s.route(self.snapshot, 'COMPLEX')['selected']
+        self.assertEqual((selected['provider'], selected['model'], selected['effort']),
+                         ('codex', 'gpt-5.6-sol', 'high'))
+        self.assertEqual(s.route(self.snapshot, 'SIMPLE')['selected']['model'], 'gpt-5.6-luna')
+        self.assertEqual(s.route(self.snapshot, 'STANDARD')['selected']['model'], 'gpt-5.6-terra')
+        provider = self.snapshot['providers'][1]
+        for field, value in (('auth', 'UNKNOWN'), ('access', 'NOT_PROBED'), ('billing', 'PAID_API')):
+            old = provider[field]
+            provider[field] = value
+            self.assertEqual(s.route(self.snapshot, 'COMPLEX')['status'], 'BLOCKED')
+            provider[field] = old
+        provider['quota_groups'][0]['buckets'][0]['remaining_fraction'] = None
+        self.assertEqual(s.route(self.snapshot, 'COMPLEX')['status'], 'BLOCKED')
+        provider['quota_groups'][0]['buckets'][0]['remaining_fraction'] = .8
+        provider['models'] = [{'id': 'gpt-999-sol', 'supported_efforts': ['high']}]
+        self.assertEqual(s.route(self.snapshot, 'COMPLEX')['status'], 'BLOCKED')
+
+    def test_codex_metadata_rpc_is_sanitized_bounded_and_owned(self):
+        model = {'id': 'gpt-5.6-luna', 'supportedReasoningEfforts': [{'reasoningEffort': 'low'}],
+                 'private': 'synthetic-secret'}
+        quota = {'rateLimitsByLimitId': {'codex': {'primary': {'usedPercent': 47},
+                   'secondary': {'usedPercent': 38}}}, 'accountId': 'synthetic-account'}
+        frames = [{'id': 1, 'result': {}}, {'id': 2, 'result': {'data': [model], 'nextCursor': None}},
+                  {'id': 20, 'result': quota}]
+        proc = MagicMock(stdin=io.StringIO(), stdout=io.StringIO('\n'.join(json.dumps(frame) for frame in frames)+'\n'))
+        tree = MagicMock()
+        tree.spawn.return_value = proc
+        with patch('tool.sessions.ProcessTree', return_value=tree):
+            result = s.codex_metadata(lambda cli: cli, {'safe': 'env'})
+        tree.close.assert_called_once_with()
+        self.assertIn('forced_login_method="chatgpt"', tree.spawn.call_args.args[0])
+        self.assertEqual(result['access'], 'METADATA_VERIFIED')
+        self.assertEqual(result['models'], [{'id': 'gpt-5.6-luna', 'supported_efforts': ['low'], 'access': 'CATALOGUE_ONLY'}])
+        self.assertEqual([window['remaining_fraction'] for window in result['quota_groups'][0]['buckets']], [.53, .62])
+        self.assertNotIn('synthetic', json.dumps(result))
+
+    def test_codex_metadata_malformed_or_process_failure_never_authorizes_access(self):
+        failures = [[], [{'id': 1, 'error': {'code': -1}}],
+                    [{'id': 1, 'result': {}}, {'id': 2, 'result': {'data': [{}]}}],
+                    [{'id': 1, 'result': {}}, {'id': 2, 'result': {'data': [], 'nextCursor': None}},
+                     {'id': 20, 'result': {'rateLimits': {'primary': {'usedPercent': None}, 'secondary': {}}}}],
+                    [{'id': 1, 'result': {}}] + [{'id': page + 2, 'result': {'data': [], 'nextCursor': 'more'}} for page in range(10)]]
+        for frames in failures:
+            proc = MagicMock(stdin=io.StringIO(), stdout=io.StringIO('\n'.join(json.dumps(frame) for frame in frames)+'\n'))
+            tree = MagicMock()
+            tree.spawn.return_value = proc
+            with patch('tool.sessions.ProcessTree', return_value=tree):
+                result = s.codex_metadata(lambda cli: cli, {}, timeout=.2)
+            self.assertEqual(result['access'], 'NOT_PROBED')
+            self.assertEqual(result['models'], [])
+            tree.close.assert_called_once_with()
+        tree = MagicMock()
+        tree.spawn.side_effect = OSError('process unavailable')
+        with patch('tool.sessions.ProcessTree', return_value=tree):
+            self.assertEqual(s.codex_metadata(lambda cli: cli, {})['access'], 'NOT_PROBED')
+        tree.close.assert_called_once_with()
+
+    def test_public_report_requires_identity_types_and_authoritative_usage(self):
+        report = {'task': 'PB-123', 'role': 'Reviewer', 'provider': 'codex', 'model': 'gpt-5.6-luna',
+                  'effort': 'low', 'state': 'BLOCKED', 'changed_files': [], 'evidence': ['observed check'],
+                  'usage': {'input_tokens': 0, 'output_tokens': None}, 'blockers': ['missing access'], 'next_action': 'wait'}
+        self.assertTrue(s.report_valid(report, 'PB-123'))
+        self.assertFalse(s.report_valid(report, 'PB-124'))
+        for field in s.REPORT_FIELDS:
+            bad = dict(report)
+            del bad[field]
+            self.assertFalse(s.report_valid(bad))
+        for usage in ([], {'input_tokens': True}, {'input_tokens': -1}, {'input_tokens': float('inf')}, {'input_tokens': '5'}):
+            self.assertFalse(s.report_valid(dict(report, usage=usage)))
+        self.assertTrue(s.report_valid(dict(report, usage=None)))
 
     def test_shared_bucket_reserve_excludes_all_gemini_siblings(self):
         self.groups[0]['buckets'][1]['remaining_fraction'] = .10

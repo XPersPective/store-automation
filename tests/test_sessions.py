@@ -1,10 +1,14 @@
 import json
+import base64
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
+import threading
+from urllib.error import HTTPError
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -26,6 +30,143 @@ class SessionChecks(unittest.TestCase):
         data.update(overrides)
         sessions.store(self.project, data)
         return data
+
+    def http_server(self, respond):
+        requests = []
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.handle_request()
+            def do_POST(self):
+                self.handle_request()
+            def handle_request(self):
+                size = int(self.headers.get('Content-Length', 0))
+                body = json.loads(self.rfile.read(size)) if size else None
+                requests.append((self.command, self.path.split('?')[0], body, self.headers.get('Authorization')))
+                result = respond(*requests[-1][:3])
+                status, response = result[:2]
+                self.send_response(status)
+                for key, value in (result[2] if len(result) == 3 else {}).items():
+                    self.send_header(key, value)
+                self.end_headers()
+                if response is not None:
+                    self.wfile.write(json.dumps(response).encode())
+            def log_message(self, *args):
+                pass
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return 'http://127.0.0.1:' + str(server.server_port), requests
+
+    def test_native_api_refuses_redirect_without_forwarding_local_password(self):
+        target, contacted = self.http_server(lambda *args: (200, {'unexpected': True}))
+        url, requests = self.http_server(lambda *args: (302, None, {'Location': target + '/foreign'}))
+        data = self.record(url=url)
+        env = dict(self.env, OPENCODE_SERVER_PASSWORD='synthetic-local-test')
+        with self.assertRaises(HTTPError):
+            sessions.api(self.project, data, env, '/session')
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(contacted, [])
+
+    def test_authenticated_intervention_abort_and_empty_async_response(self):
+        rows = [{'id': 'ses_owned', 'directory': str(self.project)}]
+        url, requests = self.http_server(lambda method, path, body: (200, rows) if path == '/session'
+                                        else (200, True) if path.endswith('/abort') else (204, None))
+        data = self.record(url=url)
+        env = dict(self.env, OPENCODE_SERVER_PASSWORD='synthetic-local-test')
+        with patch.object(sessions, 'process_identity', return_value=data['identity']):
+            result = sessions.intervene(self.project, env, 'ses_owned', 'synthetic intervention')
+            self.assertEqual(result['state'], 'pending')
+            self.assertEqual(requests[-1][:3], ('POST', '/session/ses_owned/prompt_async',
+                             {'parts': [{'type': 'text', 'text': 'synthetic intervention'}]}))
+            expected = 'Basic ' + base64.b64encode(b'opencode:synthetic-local-test').decode()
+            self.assertTrue(all(row[3] == expected for row in requests))
+            sessions.intervene(self.project, env, 'ses_owned', abort=True)
+            self.assertEqual(requests[-1][:3], ('POST', '/session/ses_owned/abort', None))
+            count = len(requests)
+            with self.assertRaisesRegex(ValueError, 'not owned'):
+                sessions.intervene(self.project, env, 'ses_foreign', 'rejected')
+            self.assertEqual(len(requests), count + 1)
+            with self.assertRaisesRegex(ValueError, 'permissions differ'):
+                sessions.intervene(self.project, dict(env, OPENCODE_CONFIG_CONTENT='different'), 'ses_owned', 'rejected')
+            self.assertEqual(len(requests), count + 1)
+            with patch.object(sessions, 'process_identity', return_value={'birth': 'other'}):
+                with self.assertRaises(RuntimeError):
+                    sessions.intervene(self.project, env, 'ses_owned', 'rejected')
+            self.assertEqual(len(requests), count + 1)
+
+    def test_native_intervention_relay_baseline_no_inference_durable_deduplication(self):
+        rows = [{'id': 'ses_director', 'directory': str(self.project), 'time': {'created': 100000}},
+                {'id': 'ses_worker', 'parentID': 'ses_director', 'directory': str(self.project), 'time': {'created': 100000}}]
+        messages = {'ses_director': [], 'ses_worker': [{'info': {'role': 'user', 'id': 'msg_initial'},
+                                                       'parts': [{'type': 'text', 'text': 'PRIVATE_INITIAL'}]}]}
+        def respond(method, path, body):
+            if path == '/session':
+                return 200, rows
+            sid = path.split('/')[2]
+            if method == 'POST':
+                self.assertIs(body['noReply'], True)
+                messages[sid].append({'info': {'id': body['messageID'], 'role': 'user'}, 'parts': body['parts']})
+                return 200, messages[sid][-1]
+            return 200, messages[sid]
+        url, requests = self.http_server(respond)
+        data = self.record(url=url, started_at=100)
+        env = dict(self.env, OPENCODE_SERVER_PASSWORD='synthetic-local-test')
+        with patch.object(sessions, 'process_identity', return_value=data['identity']):
+            self.assertEqual(sessions.relay_updates(self.project, env), [])
+            messages['ses_worker'].append({'info': {'role': 'user', 'id': 'msg_question'},
+                                           'parts': [{'type': 'text', 'text': 'PRIVATE_QUESTION'}]})
+            events = sessions.relay_updates(self.project, env)
+            self.assertEqual(events, [{'event': 'intervention', 'session': 'ses_director',
+                                      'child_session': 'ses_worker', 'state': 'completed'}])
+            self.assertEqual(sessions.relay_updates(self.project, env), [])
+            posts = [row for row in requests if row[0] == 'POST']
+            self.assertEqual(len(posts), 1)
+            self.assertNotIn('PRIVATE', json.dumps(posts))
+            self.assertNotIn('PRIVATE', sessions.state_path(self.project).read_text())
+            self.assertEqual(len(sessions.load_state(self.project)['relay_delivered']), 1)
+            # An intervention can arrive before the watcher first discovers a new child.
+            rows.append({'id': 'ses_early', 'parentID': 'ses_director', 'directory': str(self.project),
+                         'time': {'created': 100000}})
+            messages['ses_early'] = [{'info': {'role': 'user', 'id': mid},
+                                      'parts': [{'type': 'text', 'text': 'PRIVATE_EARLY'}]}
+                                     for mid in ('msg_delegated', 'msg_beforepoll')]
+            events = sessions.relay_updates(self.project, env)
+            self.assertEqual(events[0]['child_session'], 'ses_early')
+            self.assertEqual(sessions.relay_updates(self.project, env), [])
+            self.assertEqual(len([row for row in requests if row[0] == 'POST']), 2)
+            self.assertNotIn('PRIVATE', sessions.state_path(self.project).read_text())
+
+    def test_native_completed_report_requires_task_schema_and_exact_contract(self):
+        report = {'task': 'PB-100', 'role': 'reviewer', 'provider': 'opencode', 'model': 'synthetic',
+                  'effort': 'low', 'state': 'COMPLETED', 'changed_files': [], 'evidence': [],
+                  'usage': None, 'blockers': [], 'next_action': 'Review evidence'}
+        expected_report = dict(report)
+        report['hidden_reasoning'] = 'PRIVATE_EXTRA_SECRET'
+        messages = [{'info': {'id': 'msg_report', 'role': 'assistant', 'time': {'completed': 101}},
+                     'parts': [{'type': 'text', 'text': json.dumps(report)}]}]
+        rows = [{'id': 'ses_worker', 'directory': str(self.project), 'time': {'created': 100000}}]
+        url, _ = self.http_server(lambda method, path, body: (200, rows if path == '/session' else messages))
+        contract = {'task_id': 'PB-100'}
+        path = self.project / 'contract.json'
+        path.write_text(json.dumps(contract))
+        data = self.record(url=url, started_at=100, task_id='PB-100',
+                           contract_sha256=sessions.hashlib.sha256(path.read_bytes()).hexdigest())
+        env = dict(self.env, OPENCODE_SERVER_PASSWORD='synthetic-local-test')
+        with patch.object(sessions, 'process_identity', return_value=data['identity']):
+            loaded = sessions.report_contract(self.project, env, path)
+            sessions.relay_updates(self.project, env, loaded)
+            self.assertEqual(sessions.load_state(self.project)['agent_reports']['ses_worker:msg_report'], expected_report)
+            self.assertNotIn('PRIVATE_EXTRA_SECRET', sessions.state_path(self.project).read_text())
+            report['task'] = 'PB-OTHER'
+            messages[0]['info']['id'] = 'msg_wrongtask'
+            messages[0]['parts'][0]['text'] = json.dumps(report)
+            sessions.relay_updates(self.project, env, loaded)
+            self.assertEqual(len(sessions.load_state(self.project)['agent_reports']), 1)
+            path.write_text('{}')
+            with self.assertRaisesRegex(ValueError, 'differs'):
+                sessions.report_contract(self.project, env, path)
 
     def test_project_filter_and_attach_reject_cross_project_session(self):
         rows = [{'id': 'ses_mine', 'directory': str(self.project)},

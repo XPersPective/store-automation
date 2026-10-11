@@ -10,6 +10,21 @@ installer = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'tool/insta
 
 
 class InstallSkillTests(unittest.TestCase):
+    def test_owned_old_version_upgrades_without_touching_project_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source, target = base / 'source.md', base / 'skill'
+            project = base / 'project/.project-brain/current.md'
+            project.parent.mkdir(parents=True)
+            project.write_text('existing project checkpoint')
+            source.write_text('version: 2.1.0')
+            with patch.dict(installer['install'].__globals__, files=lambda: {'SKILL.md': source}):
+                installer['install']([target])
+                source.write_text('version: 2.2.0')
+                installer['install']([target])
+            self.assertEqual((target / 'SKILL.md').read_text(), 'version: 2.2.0')
+            self.assertEqual(project.read_text(), 'existing project checkpoint')
+
     def test_discovery_uses_presence_and_preserves_data_dir_override(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)

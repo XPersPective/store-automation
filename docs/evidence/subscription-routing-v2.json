@@ -1,10 +1,10 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "files_per_host": 23,
   "manager_targets": 41,
   "additional_runtime_roots": 4,
   "all_resource_hashes_match": true,
-  "stdlib_tests": 94,
+  "stdlib_tests": 107,
   "source_review": "INDEPENDENT_SOURCE_REVIEW_PASS",
   "dynamic_host_registry": {
     "registered_clients": 54,
@@ -17,11 +17,6 @@
     "OpenCode model listing",
     "OpenRouter public zero-price :free catalogue"
   ],
-  "coordinator_quota_remaining": {
-    "five_hour": 0.63,
-    "weekly": 0.64,
-    "source": "native host limits; account-shared, not task tokens"
-  },
   "tokens_complete": false,
   "usage_unknown": null,
   "claude_routing": "EXCLUDED_USER_NO_TOKENS",
@@ -34,7 +29,15 @@
     "starter_revision": "213678dda7ece2b6f1c3e0e6c9d382e1db184904",
     "core_revision": "534e504e58b929814125daa1bd0cfb86aa8e61a8"
   },
-  "live_multi_provider_console_and_relay": "UNVERIFIED_PB023",
+  "live_multi_provider_console_and_relay": "OPENCODE_HTTP_TRANSPORT_VERIFIED; RENDERED_MIXED_PROVIDER_UI_UNVERIFIED_PB023",
   "codex_sidebar_attachment": "UNVERIFIED_HOST_API_LIMIT_PB019",
-  "source_ref": "D:\\repositories\\store-otomaston\\.factory\\distribution\\store-automation"
+  "source_ref": "D:\\repositories\\store-otomaston\\.factory\\distribution\\store-automation",
+  "codex_native_task": {
+    "model": "gpt-5.6-luna",
+    "effort": "low",
+    "state": "COMPLETED",
+    "report": "VALIDATED",
+    "usage": "NATIVE_COUNTERS_MEASURED"
+  },
+  "owned_version_migration": "PASS"
 }

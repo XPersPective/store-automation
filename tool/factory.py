@@ -379,7 +379,7 @@ def fallback_run(primary, alternative, invoke, checkpoint):
             'fallback_from': primary, 'fallback_to': alternative}
 
 
-def task_result(result):
+def task_result(result, contract=None):
     """Transport exit success is separate from an agent's task verdict."""
     final = ''
     for line in result.get('stdout', '').splitlines():
@@ -400,7 +400,16 @@ def task_result(result):
             data = json.loads(candidate.replace('\\n', '\n'))
         except ValueError:
             return {'status': 'UNVERIFIED', 'final_text': final}
-    return data if isinstance(data, dict) else {'status': 'UNVERIFIED'}
+    if not isinstance(data, dict) or (contract is not None and not subscriptions.report_valid(data, contract['task_id'])):
+        return {'status': 'UNVERIFIED', 'reason': 'Missing or invalid mandatory task report'}
+    return {key: data[key] for key in subscriptions.REPORT_FIELDS} if contract is not None else data
+
+
+def startup_inventory():
+    snapshot = subscriptions.inventory(run, executable, clean_ai_env(os.environ), include_openrouter=True)
+    path = project_dir('.factory/runs') / ('inventory-' + str(time.time_ns()) + '.json')
+    save(path, snapshot)
+    return snapshot, path
 
 
 def model_run(provider, prompt, contract, timeout=300, session=None, visible=False, language='tr', json_output=False):
@@ -431,6 +440,8 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
     env = clean_ai_env(os.environ)
     contract = trusted_input(contract, '.json')
     task = validate_contract(load(contract))
+    if task['delegation']['provider'] not in ('auto', provider, provider.split('/')[0]):
+        raise ValueError('Requested provider conflicts with the task delegation')
     registry = load(BUNDLE / 'contracts/capabilities.json')['models']
     if provider not in registry or not set(task['required_capabilities']).issubset(registry[provider]['verified']):
         raise ValueError('Model unavailable or lacks required verified capability; do not guess vision support')
@@ -442,8 +453,16 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
         auth = run([binary, 'login', 'status'], env=env)
         if auth['exit_code'] or 'ChatGPT' not in auth['stdout'] + auth['stderr']:
             raise RuntimeError('BLOCKED: official Codex ChatGPT login required; API login refused')
+        snapshot, inventory_path = startup_inventory()
+        selected = next((entry for entry in subscriptions.route(snapshot, task.get('complexity', 'COMPLEX'))['candidates']
+                         if entry['provider'] == 'codex' and all(task['delegation'][key] in ('auto', entry[key])
+                         for key in ('model', 'effort'))), None)
+        if selected is None:
+            raise RuntimeError('BLOCKED: fresh Codex model/effort/shared quota unavailable; preserve handoff and await reset')
         argv = [binary, 'exec', '--ignore-user-config', '--ignore-rules',
-                '-c', 'forced_login_method="chatgpt"', '--sandbox', 'read-only', '--json', '-']
+                '-c', 'forced_login_method="chatgpt"', '--model', selected['model'],
+                '-c', 'model_reasoning_effort="' + selected['effort'] + '"',
+                '--sandbox', 'read-only', '--skip-git-repo-check', '--json', '-']
         if session:
             raise ValueError('Use a fresh official CLI Brain handoff, not incompatible session ID')
         snapshots = []
@@ -454,16 +473,23 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
         if visible:
             raise ValueError('Codex handoff streams activity; interactive panes require its native host, not OpenCode attach')
         result = sessions.stream_run(argv, ROOT, env, timeout=timeout,
-                   metadata={'provider': provider, 'task_id': task['task_id'], 'role': 'factory-reviewer', 'language': language},
+                   metadata={'provider': provider, 'model': selected['model'], 'task_id': task['task_id'], 'role': 'factory-reviewer', 'language': language},
                    emit=lambda event: print(json.dumps(event) if json_output else sessions.format_public(dict(event, role='factory-reviewer'), language), file=sys.stderr, flush=True),
                    input_text=prompt + '\nValidated task contract:\n' + json.dumps(task) +
+                   '\nActual executed provider/model/effort: ' + json.dumps(selected) +
+                   '\nReturn final JSON with ' + ', '.join(subscriptions.REPORT_FIELDS) +
+                   '; task must be ' + task['task_id'] + '. Unknown usage is null; no extra/private fields.\n' +
                    '\nExact read-only source snapshots captured by the runner. Verify these; '
                    'do not execute shell or reimplement. Parent rechecks hashes before acceptance.\n' +
                    json.dumps(snapshots, ensure_ascii=False))
         result['source_snapshots'] = [{'path': item['path'], 'sha256': item['sha256']} for item in snapshots]
+        result['selected'] = selected
+        result['inventory'] = str(inventory_path)
         return result
     if provider not in FREE_MODELS:
         raise ValueError('Paid/unverified model refused; choose an explicit free allowlisted model')
+    if task['delegation']['model'] not in ('auto', provider, provider.split('/', 1)[1]) or task['delegation']['effort'] != 'auto':
+        raise ValueError('Free model conflicts with delegation or explicit effort is unsupported')
     env = native_env(worker_permissions(task), language)
     boot = brain_run('boot', env=env)
     if boot['exit_code']:
@@ -486,11 +512,14 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
             env['OPENCODE_SERVER_PASSWORD'] = secrets.token_urlsafe(32)
             server = sessions.start(ROOT, executable('opencode'), env, language)
             sessions.validate_config(server, env)
+            server.update(task_id=task['task_id'], contract_sha256=digest_file(contract))
+            sessions.store(ROOT, server)
             if session:
                 server['resume_sessions'] = [session]
                 sessions.store(ROOT, server)
             argv += ['--attach', server['url']]
-            watcher = [sys.executable, str(BUNDLE / 'tool/sessions.py'), 'watch', '--project', str(ROOT), '--auto-panes', '--language', language]
+            watcher = [sys.executable, str(BUNDLE / 'tool/sessions.py'), 'watch', '--project', str(ROOT),
+                       '--auto-panes', '--relay', '--contract', str(contract), '--language', language]
             subprocess.run(sessions.terminal_command(ROOT, watcher, role='activity', language=language), env=env, check=True)
         argv += ['--', prompt]
         return sessions.stream_run(argv, ROOT, env, timeout=timeout, metadata=metadata, emit=activity)
@@ -747,7 +776,7 @@ def main():
     source_parser.add_argument('--check-updates', action='store_true', help='Query upstream HEAD without pulling or rewriting the checkout')
     commands.add_parser('open')
     starter = commands.add_parser('start')
-    starter.add_argument('--host', choices=['opencode', 'codex'], default='opencode')
+    starter.add_argument('--host', choices=['auto', 'opencode', 'codex'], default='auto')
     starter.add_argument('--language', choices=['tr', 'en'], default='tr')
     starter.add_argument('goal', nargs='*')
     adoption = commands.add_parser('adopt')
@@ -764,10 +793,11 @@ def main():
     usage_parser.add_argument('--record', action='append', required=True)
     usage_parser.add_argument('--expected', help='Project JSON manifest of expected [provider, session, attempt] keys')
     native = commands.add_parser('sessions')
-    native.add_argument('action', choices=['start', 'status', 'watch', 'attach', 'stop'])
+    native.add_argument('action', choices=['start', 'status', 'watch', 'attach', 'stop', 'message', 'abort'])
     native.add_argument('--session')
     native.add_argument('--pane', action='store_true')
     native.add_argument('--contract')
+    native.add_argument('--prompt-file')
     native.add_argument('--language', choices=['tr', 'en'])
     native.add_argument('--json', action='store_true')
     router = commands.add_parser('route')
@@ -843,8 +873,11 @@ def main():
             result['sources'].append(row)
     elif args.command in ('open', 'start'):
         prompt = None
+        adopted = adopt()
+        if adopted['status'] == 'BLOCKED':
+            return 1
+        snapshot, inventory_path = startup_inventory()
         if args.command == 'start':
-            adopted = adopt()
             print(('Proje yüklendi: ' if args.language == 'tr' else 'Project loaded: ') + str(ROOT), flush=True)
             if adopted['status'] != 'PROJECT_LOADED':
                 print(json.dumps(adopted, ensure_ascii=False, indent=2), flush=True)
@@ -859,8 +892,21 @@ def main():
                       'User-facing updates in ' + ('Turkish. ' if args.language == 'tr' else 'English. ')
                       + ('User goal: ' + ' '.join(args.goal) if args.goal else
                          'No new product goal supplied: inspect and report verified state, then resume only confirmed work.'))
-            if args.host == 'codex':
+            candidates = subscriptions.route(snapshot, 'COMPLEX')['candidates']
+            selected = next((entry for entry in candidates if entry['provider'] == 'codex'), None)
+            host = 'codex' if args.host == 'auto' and selected else args.host
+            if host in ('auto', 'opencode'):
+                print(json.dumps({'status': 'QUOTA_UNKNOWN', 'inventory': str(inventory_path),
+                                  'next': 'No verified coordinator quota; preserve handoff. Use open for metadata-only native TUI or a verified subscription route.'}))
+                return 1
+            prompt += '\nFresh official model/quota inventory: ' + str(inventory_path)
+            if host == 'codex':
+                if selected is None:
+                    print(json.dumps({'status': 'WAIT_FOR_RESET', 'inventory': str(inventory_path),
+                                      'next': 'Checkpoint before inference; fresh Codex model/shared quota required.'}))
+                    return 1
                 return subprocess.call([executable('codex'), '-c', 'forced_login_method="chatgpt"',
+                                        '--model', selected['model'], '-c', 'model_reasoning_effort="' + selected['effort'] + '"',
                                         '-C', str(ROOT), prompt], cwd=ROOT, env=clean_ai_env(os.environ))
         argv = [executable('opencode'), '--pure', '--agent', 'factory', str(ROOT)]
         if prompt:
@@ -910,9 +956,26 @@ def main():
         expected = [tuple(item) for item in load(trusted_input(args.expected, '.json', '.factory/runs'))] if args.expected else None
         result = subscriptions.usage_summary(records, expected)
     elif args.command == 'sessions':
-        overlay = worker_permissions(validate_contract(load(trusted_input(args.contract, '.json')))) if args.contract else None
+        task = validate_contract(load(trusted_input(args.contract, '.json'))) if args.contract else None
+        overlay = worker_permissions(task) if task else None
         language = args.language or ('tr' if args.action == 'start' else sessions.load_state(ROOT).get('language', 'tr'))
-        result = sessions.handle(args.action, ROOT, executable('opencode'), native_env(overlay, language), args.session, args.pane, language, args.json)
+        env = native_env(overlay, language)
+        if args.action in ('message', 'abort'):
+            if not args.session or not task:
+                raise ValueError('Intervention requires the actual session and validated task contract')
+            state = sessions.load_state(ROOT)
+            if state.get('contract_sha256') != digest_file(trusted_input(args.contract, '.json')):
+                raise ValueError('Intervention contract differs from the owned task server')
+            prompt = trusted_input(args.prompt_file, '.txt').read_text(encoding='utf-8') if args.action == 'message' and args.prompt_file else None
+            result = sessions.intervene(ROOT, env, args.session, prompt, abort=args.action == 'abort')
+        elif args.action == 'watch':
+            result = sessions.watch(ROOT, env, language=language, json_output=args.json, relay=True, contract=task)
+        else:
+            result = sessions.handle(args.action, ROOT, executable('opencode'), env, args.session, args.pane, language, args.json)
+            if args.action == 'start' and task:
+                state = sessions.load_state(ROOT)
+                state.update(task_id=task['task_id'], contract_sha256=digest_file(trusted_input(args.contract, '.json')))
+                sessions.store(ROOT, state)
     elif args.command == 'native':
         contract = trusted_input(args.contract, '.json')
         task = validate_contract(load(contract))
@@ -924,10 +987,10 @@ def main():
         if len(prompt.read_text(encoding='utf-8')) + len(json.dumps(task)) > task['delegation']['context_budget_chars']:
             raise ValueError('Expert contract and prompt exceed the declared context budget')
         candidates = subscriptions.route(load(trusted_input(args.inventory, '.json', '.factory/runs')), args.complexity)['candidates']
-        selected = next((candidate for candidate in candidates if all(
+        selected = next((candidate for candidate in candidates if candidate['provider'] == 'agy' and all(
             task['delegation'][field] in ('auto', candidate[field]) for field in ('provider', 'model', 'effort'))), None)
         if selected is None:
-            raise ValueError('No equally qualified subscription model has sufficient fresh quota')
+            raise ValueError('No eligible AGY native TUI route; Codex uses run or start with its official transport')
         output = project_dir(args.output)
         if project_dir('.factory/runs') not in output.parents or output.suffix != '.json':
             raise ValueError('Native request must be a new .factory/runs JSON file')
@@ -978,8 +1041,8 @@ def main():
         if output.exists():
             raise ValueError('Existing run evidence will not be overwritten')
         prompt = trusted_input(args.prompt_file, '.txt').read_text(encoding='utf-8')
+        task = validate_contract(load(trusted_input(args.contract, '.json')))
         if args.fallback:
-            task = validate_contract(load(trusted_input(args.contract, '.json')))
             roots = {ROOT, *(ROOT.joinpath(*Path(scope).parts[:3]) for scope in task['scope']
                              if scope.startswith('.factory/workspaces/'))}
             initial = {str(root): source_digest(root) for root in roots}
@@ -993,7 +1056,12 @@ def main():
         else:
             result = model_run(args.provider, prompt, args.contract, args.timeout, args.session, visible=args.visible, language=args.language, json_output=args.json)
             result['classification'] = classify(result)
-            result['task_result'] = task_result(result)
+        if result.get('classification') != 'BLOCKED':
+            executed = result['attempts'][-1] if result.get('attempts') else result
+            result['task_result'] = task_result(executed, task)
+            selected = executed.get('selected') or {key: executed[key] for key in ('provider', 'model') if key in executed}
+            if any(result['task_result'].get(key) != value for key, value in selected.items() if key in ('provider', 'model', 'effort')):
+                result['task_result'] = {'status': 'UNVERIFIED', 'reason': 'Agent report differs from the actual selected route'}
         save(args.output, result)
     elif args.command == 'gate':
         result = evidence_gate(args.root,
@@ -1024,7 +1092,7 @@ def main():
             print(('Kanıt: ' if args.language == 'tr' else 'Evidence: ') + printed['evidence_path'])
     else:
         print(json.dumps(printed, ensure_ascii=False, indent=2))
-    if result.get('exit_code', 0) or result.get('classification', 'SUCCESS') != 'SUCCESS' or result.get('status') in ('BLOCKED', 'REWORK_REQUIRED') or result.get('task_result', {}).get('status') in ('BLOCKED', 'REWORK_REQUIRED', 'FAILED', 'FAIL', 'UNVERIFIED') or result.get('task_result', {}).get('verdict') in ('FAIL', 'REWORK_REQUIRED', 'BLOCKED'):
+    if result.get('exit_code', 0) or result.get('classification', 'SUCCESS') != 'SUCCESS' or result.get('status') in ('BLOCKED', 'REWORK_REQUIRED') or any(result.get('task_result', {}).get(key) in ('BLOCKED', 'REWORK_REQUIRED', 'FAILED', 'FAIL', 'UNVERIFIED') for key in ('status', 'state', 'verdict')):
         return 1
     return 0
 

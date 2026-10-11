@@ -12,6 +12,8 @@ LOGIN = {'agy': 'agy (official account setup)', 'claude': 'claude auth login',
                           'freebuff', 'zed', 'ollama', 'qwen', 'minimax', 'zcode', 'antigravity'),
                          'Verify the installed official client and its documented account/model/status controls')}
 RESERVE = 0.10
+# Task suitability assessed from the host's documented model roles; new IDs need reassessment.
+CODEX_TIERS = {'gpt-5.6-luna': 0, 'gpt-5.6-terra': 1, 'gpt-5.6-sol': 2, 'gpt-6-astra': 3}
 OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models'
 CATALOGUE_MAX_BYTES = 8 * 1024 * 1024
 REPORT_FIELDS = ('task', 'role', 'provider', 'model', 'effort', 'state',
@@ -20,6 +22,133 @@ REPORT_FIELDS = ('task', 'role', 'provider', 'model', 'effort', 'state',
 
 def number(value, maximum=None):
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0 and (maximum is None or value <= maximum) else None
+
+
+def report_valid(report, task_id=None):
+    """Validate public report shape; a complete report is not task acceptance."""
+    if not isinstance(report, dict) or not set(REPORT_FIELDS).issubset(report):
+        return False
+    if any(not isinstance(report[key], str) or not report[key].strip() for key in
+           ('task', 'role', 'provider', 'model', 'effort', 'state', 'next_action')):
+        return False
+    if task_id is not None and report['task'] != task_id:
+        return False
+    if any(not isinstance(report[key], list) or any(not isinstance(item, str) or not item.strip()
+           for item in report[key]) for key in ('changed_files', 'evidence', 'blockers')):
+        return False
+    usage = report['usage']
+    return usage is None or (isinstance(usage, dict) and all(isinstance(key, str) and
+           (value is None or number(value) is not None) for key, value in usage.items()))
+
+
+def codex_metadata(executable, env, timeout=30):
+    """Bounded official stdio metadata RPC; no turn, credential or account reads."""
+    import json
+    import queue
+    import subprocess
+    import threading
+    import time
+    try:
+        from . import sessions
+    except ImportError:
+        import sessions
+    result = {'models': [], 'quota_groups': [], 'catalogue': 'UNAVAILABLE',
+              'access': 'NOT_PROBED'}
+    tree = sessions.ProcessTree()
+    proc = None
+    messages = queue.Queue(maxsize=128)
+    deadline = time.monotonic() + timeout
+    def read():
+        try:
+            while True:
+                line = proc.stdout.readline(1_000_001)
+                if not line or len(line) > 1_000_000:
+                    break
+                try:
+                    messages.put(json.loads(line), timeout=.1)
+                except (ValueError, queue.Full):
+                    break
+        finally:
+            try:
+                messages.put(None, timeout=.1)
+            except queue.Full:
+                pass
+    def rpc(identity, method, params):
+        proc.stdin.write(json.dumps({'id': identity, 'method': method, 'params': params}) + '\n')
+        proc.stdin.flush()
+        while True:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise TimeoutError('Metadata deadline reached')
+            message = messages.get(timeout=left)
+            if message is None:
+                raise RuntimeError('Metadata stream ended')
+            if isinstance(message, dict) and message.get('id') == identity:
+                if not isinstance(message.get('result'), dict):
+                    raise ValueError('Metadata response unavailable')
+                return message['result']
+    try:
+        proc = tree.spawn([executable('codex'), 'app-server', '--stdio', '-c', 'forced_login_method="chatgpt"'],
+                          stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                          text=True, encoding='utf-8', env=env)
+        threading.Thread(target=read, daemon=True).start()
+        rpc(1, 'initialize', {'clientInfo': {'name': 'store-automation-metadata', 'version': '1.0'},
+                              'capabilities': {'experimentalApi': True}})
+        proc.stdin.write('{"method":"initialized","params":{}}\n')
+        proc.stdin.flush()
+        models, cursor = [], None
+        for page in range(10):
+            payload = rpc(page + 2, 'model/list', {'limit': 100, 'includeHidden': False, 'cursor': cursor})
+            if not isinstance(payload.get('data'), list):
+                raise ValueError('Invalid model catalogue')
+            for model in payload['data']:
+                if not isinstance(model, dict) or not isinstance(model.get('id'), str) or not re.fullmatch(
+                        r'[a-z][a-z0-9.-]{1,100}', model['id']):
+                    raise ValueError('Invalid model identity')
+                efforts = model.get('supportedReasoningEfforts')
+                if not isinstance(efforts, list) or not efforts or any(
+                        not isinstance(item, dict) or item.get('reasoningEffort') not in
+                        ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra') for item in efforts):
+                    raise ValueError('Invalid supported model effort')
+                models.append({'id': model['id'], 'supported_efforts': [item['reasoningEffort'] for item in efforts],
+                               'access': 'CATALOGUE_ONLY'})
+            cursor = payload.get('nextCursor')
+            if cursor is None:
+                break
+            if not isinstance(cursor, str) or not cursor or len(cursor) > 1000:
+                raise ValueError('Invalid catalogue cursor')
+        else:
+            raise ValueError('Catalogue pagination exceeds bound')
+        quota = rpc(20, 'account/rateLimits/read', {})
+        buckets = quota.get('rateLimitsByLimitId')
+        if not isinstance(buckets, dict):
+            buckets = {'codex': quota.get('rateLimits')}
+        bucket = buckets.get('codex')
+        if not isinstance(bucket, dict):
+            raise ValueError('Codex shared quota unavailable')
+        windows = []
+        for window in ('primary', 'secondary'):
+            value = bucket.get(window)
+            if not isinstance(value, dict) or number(value.get('usedPercent'), 100) is None:
+                raise ValueError('Codex shared window unknown')
+            windows.append({'id': 'codex-' + window, 'window': window,
+                            'remaining_fraction': (100 - value['usedPercent']) / 100,
+                            'reset_time': number(value.get('resetsAt')),
+                            'window_duration_mins': number(value.get('windowDurationMins'))})
+        if quota.get('ordinaryUsageAllowed') is False or bucket.get('rateLimitReachedType') is not None:
+            raise ValueError('Included ordinary usage disallowed')
+        result.update(models=models, quota_groups=[{'name': 'Codex Models', 'buckets': windows}],
+                      catalogue='CLI_METADATA_VERIFIED', access='METADATA_VERIFIED')
+    except (OSError, RuntimeError, ValueError, queue.Empty):
+        pass
+    finally:
+        tree.close()
+        if proc is not None:
+            proc.wait(timeout=5)
+            for pipe in (proc.stdin, proc.stdout):
+                if pipe:
+                    pipe.close()
+    return result
 
 
 def reserve_decision(actor, remaining_fraction, handoff_saved=False,
@@ -220,6 +349,9 @@ def inventory(run, executable, env, excluded=('qwen',), include_openrouter=False
             status = probe(['login', 'status'])
             output = status.get('stdout', '') + status.get('stderr', '')
             row['auth'] = 'SUBSCRIPTION_LOGIN' if status['exit_code'] == 0 and 'ChatGPT' in output else 'LOGIN_OR_PLAN_REQUIRED'
+            if row['auth'] == 'SUBSCRIPTION_LOGIN':
+                row.update(codex_metadata(executable, env))
+                row['billing'] = 'SUBSCRIPTION_ONLY_REQUIRED'
             row['quota_action'] = 'Current Codex host usage tool or official interactive /status'
         elif cli == 'opencode':
             result = probe(['--pure', 'models'])
@@ -252,22 +384,39 @@ def route(snapshot, complexity, reserve=RESERVE, now=None):
         raise ValueError('Refresh CLI inventory; quota snapshot is stale')
     candidates = []
     for provider in snapshot['providers']:
-        if provider['cli'] != 'agy' or provider['cli'] in snapshot.get('excluded', []) or provider.get('access') != 'METADATA_VERIFIED' or provider.get('billing') != 'NO_CREDITS_AVAILABLE':
+        cli = provider['cli']
+        billing = provider.get('billing')
+        if (cli not in ('agy', 'codex') or cli in snapshot.get('excluded', []) or
+                provider.get('access') != 'METADATA_VERIFIED' or
+                (cli == 'agy' and billing != 'NO_CREDITS_AVAILABLE') or
+                (cli == 'codex' and (provider.get('auth') != 'SUBSCRIPTION_LOGIN' or billing != 'SUBSCRIPTION_ONLY_REQUIRED'))):
             continue
         for entry in provider['models']:
             model = entry['id']
             if any(model.startswith(prefix) for prefix in snapshot.get('excluded_model_prefixes', [])):
                 continue
-            group = model_group(model, provider['quota_groups'])
+            group = model_group(model, provider['quota_groups']) if cli == 'agy' else next(
+                (item for item in provider['quota_groups'] if item.get('name') == 'Codex Models'), None)
             left = remaining(group)
             if reserve_decision('worker', left, reserve=reserve) != 'READY':
                 continue
             effort = model.rsplit('-', 1)[-1]
-            family = 0 if re.match(r'gemini-[\d.]+-flash-', model) else 1 if model.startswith('claude-sonnet-') else 2 if re.match(r'gemini-[\d.]+-pro-', model) else 3 if model.startswith('claude-opus-') else None
+            if cli == 'codex':
+                family = CODEX_TIERS.get(model)
+                available = entry.get('supported_efforts', [])
+                if not isinstance(available, list):
+                    continue
+                minimum = {'SIMPLE': 'low', 'STANDARD': 'medium', 'COMPLEX': 'high', 'SPECIALIZED': 'high'}[complexity]
+                effort = next((value for value in ('low', 'medium', 'high')
+                               if value in available and ('low', 'medium', 'high').index(value) >= ('low', 'medium', 'high').index(minimum)), None)
+                if complexity == 'STANDARD' and family == 0:
+                    continue
+            else:
+                family = 0 if re.match(r'gemini-[\d.]+-flash-', model) else 1 if model.startswith('claude-sonnet-') else 2 if re.match(r'gemini-[\d.]+-pro-', model) else 3 if model.startswith('claude-opus-') else None
             minimum = {'SIMPLE': 'low', 'STANDARD': 'medium', 'COMPLEX': 'high', 'SPECIALIZED': 'high'}[complexity]
             if family is None or effort not in ('low', 'medium', 'high') or ('low', 'medium', 'high').index(effort) < ('low', 'medium', 'high').index(minimum) or (complexity in ('COMPLEX', 'SPECIALIZED') and family < 2):
                 continue
-            candidates.append({'provider': 'agy', 'model': model, 'effort': effort,
+            candidates.append({'provider': cli, 'model': model, 'effort': effort,
                                'quota_group': group['name'], 'remaining_fraction': left,
                                'quality_tier': family})
     # Family/effort before quota: abundant quota does not justify a weaker quality floor.

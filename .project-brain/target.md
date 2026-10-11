@@ -55,3 +55,6 @@ PB-016..018: mandatory task-specific expert delegation, live official CLI invent
 ## Confirmed lifecycle/catalogue extension 2026-10-11
 "Baştan sona uçtan uca üretimden yayınlamaya ... protokole tam ... alt ajanlar ... üçten fazla ... hiçbirisini atlama ... bütün model kataloğunu taraması ... sistem otomatik ... statik değil" (user).
 PB-021/PB-022 cover required platform/store/money/ad-placement/license/exclusions/data/billing intake, external napp refs/themes, own-project Genesis/resume and main/substage evidence, dynamic installed CLI/subscription/free/user API discovery, task-specific personas/quality floors, coordinator+child quota/usage/checkpoint handoff, variable visible specialist team, versioned lean distribution. Paid AI invocation and selected app production operation are not implied by catalogue discovery. Generic adapter/live transport failures must stay explicit, not labelled complete.
+
+## Confirmed publication extension2026-10-12
+"Tüm işleri üretim düzeyinde bitir kontrol et ve yayınla bilgisayarımdaki tüm ajanlara sistemlere ekle ... skill manager ... sürüm yükselt" (user). Complete executable skill gaps, fresh checks/independent evidence, version bump and public GitHub publication plus all-host Skills Manager distribution. This selects factory/skill publication; no particular application store/account/track is selected.
