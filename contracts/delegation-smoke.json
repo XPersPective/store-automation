@@ -25,5 +25,22 @@
   "deliverables": ["short JSON findings"],
   "failure_policy": "BLOCKED if source unavailable; never substitute guesses",
   "handoff_format": "status, assertions, evidence, blockers, next_action",
-  "verification": {"profile": "factory", "build": false}
+  "verification": {"profile": "factory", "build": false},
+  "delegation": {
+    "provider": "auto",
+    "model": "auto",
+    "effort": "auto",
+    "reason": "Select the least sufficient live approved model for the task risk, with fresh shared quota.",
+    "context_budget_chars": 30000,
+    "output_budget_tokens": 1500,
+    "checkpoint": "Record actual diff and failed acceptance before switching model; no blind replay.",
+    "report_fields": [
+      "task",
+      "state",
+      "evidence",
+      "usage",
+      "blockers",
+      "next_action"
+    ]
+  }
 }

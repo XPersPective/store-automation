@@ -4,6 +4,7 @@
 - 12 detected host records /10 global skill destinations plus user PATH store-automation launcher installed; selected cwd is project root, bundle remains independent.
 ## Map
 - `tool/factory.py` — adopt/start, provider policy, contracts, exact write scope, dispatch/check/evidence gate and bootstrap.
+- `tool/subscriptions.py` — official no-inference metadata, fresh quota/risk routing, bounded specific-model access probe and honest attempt usage coverage.
 - `tool/sessions.py` — owned native sessions, Windows JobObject/POSIX descendants containment, sanitized events/usage, live Terminal panes.
 - `tool/release.py` — read-only canonical AppPublishing public metadata/artifact preflight.
 - `tool/install-skill.py` — owned-manifest portable installation and global launcher.
@@ -17,7 +18,7 @@
 ### factory
 Status: VERIFIED
 Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`, `docs/**`, `README.md`, `AGENTS.md`, `.gitignore`, `skills/**`, `.github/**`
-- Root 71 stdlib tests PASS; syntax PASS. Guards reject external links, credential source hashes, forged resume, stale evidence, paid fallback and concurrent/unfinished mutators.
+- Root 84 stdlib tests PASS; syntax PASS. Guards reject external links, credential source hashes, forged resume, stale evidence, paid fallback and concurrent/unfinished mutators.
 - Global installed adopt/activity/providers pass outside tool checkout, preserving existing source and importing no tasks. New product goals remain DRAFT until supplied.
 - Historical free native source-read supervisor/worker/fresh reviewer smoke PASS; latest SpaceBunny ACCESS_RESTRICTED and current capability revoked, owned task server STOPPED, supervisor-reported usage measured. Process completion is separate from task/evidence acceptance; child usage and account quota may be unknown.
 - Independent reviews found and closed manifest-link, adoption pointer, descendant cleanup, state-storage cleanup, permission/resume, URL and digest-link defects. Auto-pane watcher is deterministic-tested; no native UI visual acceptance claimed.
@@ -33,3 +34,5 @@ Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`,
 - Prior premium baseline complete: root53 tests, installed bundles, remote core-v1.1.2 free22/both23/cloud22, exact final Android APK privacy/theme/license/share/large-font checks and all5 source CI jobs PASS. User extension PB012-PB015 now adds all-host install/readable locales, free-only iOS pipeline, maintenance/rebaseline and separate offline medication app. No prior product history imported.
 
 - Expanded install22 bundled files/hash checks at10 destinations PASS; TR/EN human roles and explicit JSON; reversible rebaseline and bounded iOS PNG-log extractor tested. Native weekly maintenance ACTIVE. Separate public medication app now exists at D:/repositories/ilac-vakti with its own Brain;46Flutter tests and preliminary native Android build PASS. Actual iOS first run passed46tests but failed MLKit arm64 simulator link; standard Intel rerun and final Android runtime QA pending under app PB004/rootPB015.
+
+- Subscription protocol v2: mandatory expert delegation/report contracts, explicit platform/bootstrap intake, external source refresh without vendoring. AGY shared windows are metadata only; Claude/Qwen excluded. Native AGY dispatch read-only and explicitly external; Codex sidebar attachment remains PB-019 BLOCKED. Skill-manager deployed 41 installed enabled targets plus 4 extra CLI roots, complete 23-file resource hashes match source (docs/evidence/subscription-routing-v2.json).

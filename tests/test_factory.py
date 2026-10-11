@@ -42,6 +42,27 @@ class FactoryChecks(unittest.TestCase):
             self.assertTrue(factory.sensitive_path(name))
         self.assertFalse(factory.sensitive_path('lib/feature.dart'))
 
+    def test_windows_platform_reaches_bootstrap_instead_of_android_default(self):
+        argv = ['factory', 'bootstrap', 'new-app', '--name', 'Example', '--package', 'com.example.app', '--platform', 'windows']
+        with patch.object(sys, 'argv', argv), patch.object(factory, 'bootstrap', return_value={'status': 'VERIFIED_LOCAL'}) as bootstrap, redirect_stdout(io.StringIO()):
+            self.assertEqual(factory.main(), 0)
+        self.assertEqual(bootstrap.call_args.args[-1], ('windows',))
+
+    def test_native_does_not_dispatch_unscoped_writer_or_special_capability(self):
+        contract = factory.ROOT / 'contracts/native.json'
+        argv = ['factory', 'native', '--contract', str(contract), '--prompt-file', 'contracts/native.txt',
+                '--inventory', '.factory/runs/inventory.json', '--output', '.factory/runs/request.json', '--surface', 'windows-terminal']
+        for write, capabilities, message in [(True, ['reasoning'], 'write scope'), (False, ['vision'], 'capability')]:
+            value = copy.deepcopy(self.contract)
+            value['permissions']['write'] = write
+            value['persona']['permissions']['write'] = write
+            value['required_capabilities'] = capabilities
+            contract.write_text(json.dumps(value))
+            with patch.object(sys, 'argv', argv), patch.object(factory.subprocess, 'run') as dispatch:
+                with self.assertRaisesRegex(ValueError, message):
+                    factory.main()
+                dispatch.assert_not_called()
+
     def test_containment_failure_preserves_dispatch_lock(self):
         with patch.object(factory, '_model_run', side_effect=factory.sessions.ContainmentError('synthetic failure')):
             with self.assertRaises(factory.sessions.ContainmentError):
