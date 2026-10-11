@@ -110,6 +110,15 @@ class FactoryChecks(unittest.TestCase):
 
     def test_contract_complete_and_fail_closed(self):
         factory.validate_contract(self.contract)
+        for field in factory.subscriptions.REPORT_FIELDS:
+            bad = copy.deepcopy(self.contract)
+            bad['delegation']['report_fields'].remove(field)
+            with self.assertRaisesRegex(ValueError, 'Mandatory worker return report'):
+                factory.validate_contract(bad)
+        bad = copy.deepcopy(self.contract)
+        bad['delegation']['report_fields'].append({})
+        with self.assertRaisesRegex(ValueError, 'Mandatory worker return report'):
+            factory.validate_contract(bad)
         for field in factory.FIELDS:
             bad = copy.deepcopy(self.contract)
             del bad[field]
@@ -564,12 +573,18 @@ class PortableSkillChecks(unittest.TestCase):
             real_run = factory.run
             def runner(argv, **kw):
                 if 'tool/new_app.dart' in argv:
+                    self.assertEqual(argv[argv.index('--platforms') + 1], 'windows')
+                    self.assertEqual(argv[argv.index('--pro') + 1], 'monthly')
+                    self.assertEqual(argv[argv.index('--data') + 1], 'cloud')
+                    self.assertEqual(argv[argv.index('--banner') + 1], 'no')
+                    self.assertEqual(argv[argv.index('--rewarded') + 1], 'yes')
                     (app / 'PROJECT_BRAIN.md').write_text('newly generated app notes')
                     return {'exit_code': 0, 'stdout': 'synthetic generator success'}
                 return real_run(argv, **kw)
             with patch.object(factory, 'STARTER', starter), patch.object(factory, 'KIT', starter), \
                     patch.object(factory, 'executable', return_value=sys.executable), patch.object(factory, 'run', side_effect=runner):
-                result = factory.bootstrap(app, 'Demo', 'com.example.demo', 'no', 'no')
+                result = factory.bootstrap(app, 'Demo', 'com.example.demo', 'yes', 'monthly', ('windows',),
+                                           data='cloud', banner='no', rewarded='yes', app_open='no')
             self.assertEqual(result['status'], 'VERIFIED_LOCAL')
             self.assertTrue((app / '.git').is_dir())
             self.assertTrue((app / '.project-brain/target.md').is_file())
@@ -578,6 +593,7 @@ class PortableSkillChecks(unittest.TestCase):
             self.assertFalse((app / 'PROJECT_BRAIN.md').exists())
             self.assertEqual(result['generated_legacy_brain'], 'newly generated app notes')
             self.assertIn('flutter test', (app / '.project-brain/config.yaml').read_text())
+            self.assertIn('flutter build windows --release', (app / '.project-brain/config.yaml').read_text())
             self.assertEqual((app / 'source.txt').read_text(), 'preserved template source')
             with self.assertRaises(ValueError):
                 factory.bootstrap(app, 'Demo', 'com.example.demo', 'no', 'no')

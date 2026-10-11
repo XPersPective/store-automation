@@ -96,8 +96,9 @@ def validate_contract(data):
             not isinstance(delegation.get(k), int) or isinstance(delegation[k], bool) or delegation[k] <= 0
             for k in ('context_budget_chars', 'output_budget_tokens')):
         raise ValueError('Valid effort and positive context/output budgets required')
-    if not isinstance(delegation.get('report_fields'), list) or not set(
-            ('task', 'state', 'evidence', 'usage', 'blockers', 'next_action')).issubset(delegation['report_fields']):
+    if (not isinstance(delegation.get('report_fields'), list) or
+            any(not isinstance(field, str) for field in delegation['report_fields']) or
+            not set(subscriptions.REPORT_FIELDS).issubset(delegation['report_fields'])):
         raise ValueError('Mandatory worker return report fields missing')
     lists = ('context scope out_of_scope required_capabilities allowed_tools '
              'quality_requirements acceptance_criteria required_evidence deliverables').split()
@@ -658,9 +659,18 @@ def evidence_gate(root, evidence, review, contract):
             'source_digest': evidence['source_digest'], 'reviewer_session': review['reviewer_session']}
 
 
-def bootstrap(destination, name, package, ads, pro, platforms=('android',)):
+def bootstrap(destination, name, package, ads, pro, platforms=('android',),
+              data='local', banner=None, rewarded=None, app_open=None):
     if not platforms or any(p not in ('android', 'windows', 'web', 'ios') for p in platforms):
         raise ValueError('Explicit supported target platforms required')
+    if data not in ('local', 'cloud') or pro not in ('yes', 'no', 'lifetime', 'monthly', 'both') or ads not in ('yes', 'no'):
+        raise ValueError('Invalid data or monetization mode')
+    if any(value not in (None, 'yes', 'no') for value in (banner, rewarded, app_open)):
+        raise ValueError('Ad formats require explicit yes/no')
+    if ads == 'no' and 'yes' in (banner, rewarded, app_open):
+        raise ValueError('Ad formats require ads yes')
+    if pro == 'no' and rewarded == 'yes':
+        raise ValueError('Rewarded Pro requires a purchase mode')
     destination = Path(destination).resolve()
     if destination.exists():
         raise ValueError('Bootstrap only into a NEW explicitly selected project directory')
@@ -680,8 +690,12 @@ def bootstrap(destination, name, package, ads, pro, platforms=('android',)):
     if brain['exit_code']:
         raise RuntimeError('New project Brain initialization failed; preserve workspace for inspection')
     argv = [executable('dart'), 'run', 'tool/new_app.dart', '--name', name,
-            '--package', package, '--ads', ads, '--pro', pro, '--data', 'local',
+            '--package', package, '--ads', ads, '--pro', pro, '--data', data,
+            '--platforms', ','.join(dict.fromkeys(platforms)),
             '--kit-path', KIT.as_posix(), '--force']
+    for flag, value in (('--banner', banner), ('--rewarded', rewarded), ('--app-open', app_open)):
+        if value is not None:
+            argv.extend([flag, value])
     result = run(argv, cwd=destination, timeout=1800)
     legacy = destination / 'PROJECT_BRAIN.md'
     provenance = {'starter_commit': run(['git', 'rev-parse', 'HEAD'], cwd=STARTER)['stdout'].strip(),
@@ -744,6 +758,7 @@ def main():
     activity_parser.add_argument('--json', action='store_true')
     provider_parser = commands.add_parser('providers')
     provider_parser.add_argument('--scan', action='store_true', help='Read official account/model/quota metadata without inference')
+    provider_parser.add_argument('--local-only', action='store_true', help='Skip optional public remote free-model catalogue')
     provider_parser.add_argument('--output', help='Save fresh public inventory under this project .factory/runs')
     usage_parser = commands.add_parser('usage', help='Aggregate reported manager/worker/reviewer attempts without fabricated totals')
     usage_parser.add_argument('--record', action='append', required=True)
@@ -804,7 +819,10 @@ def main():
     boot.add_argument('--name', required=True)
     boot.add_argument('--package', required=True)
     boot.add_argument('--ads', choices=['yes', 'no'], default='no')
-    boot.add_argument('--pro', choices=['yes', 'no'], default='no')
+    boot.add_argument('--pro', choices=['yes', 'no', 'lifetime', 'monthly', 'both'], default='no')
+    boot.add_argument('--data', choices=['local', 'cloud'], default='local')
+    for flag in ('--banner', '--rewarded', '--app-open'):
+        boot.add_argument(flag, choices=['yes', 'no'])
     boot.add_argument('--platform', choices=['android', 'windows', 'web', 'ios'], action='append', required=True)
     args = parser.parse_args(sys.argv[1:] or ['start'])
     if args.command == 'audit':
@@ -880,7 +898,8 @@ def main():
                   'policy': 'Presence is not authentication/entitlement/inference proof; official subscription login only',
                   'glm': 'Official ZCode account route; no verified headless adapter', 'quota_remaining': None}
         if args.scan:
-            result = subscriptions.inventory(run, executable, clean_ai_env(os.environ))
+            result = subscriptions.inventory(run, executable, clean_ai_env(os.environ),
+                                             include_openrouter=not args.local_only)
             if args.output:
                 output = project_dir(args.output)
                 if project_dir('.factory/runs') not in output.parents or output.suffix != '.json':
@@ -983,7 +1002,8 @@ def main():
     elif args.command == 'check':
         result = check(args.root, args.contract, args.worker_session, args.output)
     elif args.command == 'bootstrap':
-        result = bootstrap(args.destination, args.name, args.package, args.ads, args.pro, tuple(args.platform))
+        result = bootstrap(args.destination, args.name, args.package, args.ads, args.pro, tuple(args.platform),
+                           data=args.data, banner=args.banner, rewarded=args.rewarded, app_open=args.app_open)
     else:
         try:
             from .release import preflight
