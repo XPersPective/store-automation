@@ -50,3 +50,6 @@ Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`,
 - VERIFIED2.2.0 distribution: Skills Manager refreshed canonical skill and41 deployed links, four extra owned CLI roots and global launcher. All23 resource hashes match; release ZIP entries/hash verified.107 tests PASS; independent source review release gates fixed.
 
 - Independent protocol review accepts final executed-attempt identity and explicit free model/effort guards; no source release blockers. PB-025 evidence preserved in35ddc57, finished task removed per protocol.
+
+- PUBLISHED2.2.0: branch factory-bootstrap/tag store-automation-v2.2.0 at e8c52a8; public release ZIP SHA256 matches uploaded asset. Hosted Windows+Ubuntu checks38176125753 SUCCESS. External starter885f681/core3cec0f9 pushed nonforce, platform generator fixes now available remotely. Installed41+4 targets verified. Remaining account/native visual gates explicitly open; unrelated medication app not modified.
+- Stage: Maintenance; Substage:2.2.0 published and installed; Next gate: per-provider actual access/native visual acceptance in PB-023/PB-019 when host interfaces/access are available.

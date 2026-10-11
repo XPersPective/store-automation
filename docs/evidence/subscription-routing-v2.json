@@ -5,7 +5,7 @@
   "additional_runtime_roots": 4,
   "all_resource_hashes_match": true,
   "stdlib_tests": 107,
-  "source_review": "INDEPENDENT_SOURCE_REVIEW_PASS",
+  "source_review": "INDEPENDENT_FINAL_SOURCE_ACCEPTED",
   "dynamic_host_registry": {
     "registered_clients": 54,
     "host_reported_installed": 41,
@@ -39,5 +39,13 @@
     "report": "VALIDATED",
     "usage": "NATIVE_COUNTERS_MEASURED"
   },
-  "owned_version_migration": "PASS"
+  "owned_version_migration": "PASS",
+  "release_url": "https://github.com/XPersPective/store-automation/releases/tag/store-automation-v2.2.0",
+  "release_source_commit": "e8c52a88ad7119da869a78ccccb07ad4a0241d35",
+  "release_zip_sha256": "3bdbb01471a671cd051af54a608272a7dd86567d7764f4e84ad48a0f71071760",
+  "hosted_checks": {
+    "windows": "PASS",
+    "ubuntu": "PASS",
+    "run": 38176125753
+  }
 }
