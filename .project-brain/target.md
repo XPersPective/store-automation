@@ -4,11 +4,11 @@ Status: CONFIRMED
 
 ## Goal
 
-"Belgeye göre AI App Factory sistemini gerçekten kurmandır. Mevcut kodları koru, gereksiz skill'leri güvenli biçimde temizle, ücretli AI API kullanma ve yaptığın her işi gerçek testlerle doğrula. Yalnızca rapor hazırlayıp durma. Kurulumu mümkün olan noktaya kadar tamamla." (user)
+"Belgeye gÃ¶re AI App Factory sistemini gerÃ§ekten kurmandÄ±r. Mevcut kodlarÄ± koru, gereksiz skill'leri gÃ¼venli biÃ§imde temizle, Ã¼cretli AI API kullanma ve yaptÄ±ÄŸÄ±n her iÅŸi gerÃ§ek testlerle doÄŸrula. YalnÄ±zca rapor hazÄ±rlayÄ±p durma. Kurulumu mÃ¼mkÃ¼n olan noktaya kadar tamamla." (user)
 
-"Store automation’ı skill haline getir ... Project Brain skill olarak bağlasa ... Her proje kendi içerisinde." (user, 2026-10-11)
+"Store automationâ€™Ä± skill haline getir ... Project Brain skill olarak baÄŸlasa ... Her proje kendi iÃ§erisinde." (user, 2026-10-11)
 
-"Skill’i bitir, premium düzeye getir ... globalde bilgisayara herhangi bir yerde ... Alt ajanların ne yaptığını görebilmeliyim ... token tasarrufu ... kalite ... mevcut taramayı ... kaldığı yerden devam ... Repo yap ... push et." (user, 2026-10-11)
+"Skillâ€™i bitir, premium dÃ¼zeye getir ... globalde bilgisayara herhangi bir yerde ... Alt ajanlarÄ±n ne yaptÄ±ÄŸÄ±nÄ± gÃ¶rebilmeliyim ... token tasarrufu ... kalite ... mevcut taramayÄ± ... kaldÄ±ÄŸÄ± yerden devam ... Repo yap ... push et." (user, 2026-10-11)
 
 ## Target State
 - Globally launchable workflow; visible native agent sessions and intervention, detailed task personas, measured usage and safe capability-based routing/fallback, adoption of existing projects, optional Flutter modules, complete publishing preparation and secret references. Official CLI login remains user-owned.
@@ -46,4 +46,8 @@ Status: CONFIRMED
 - Every unavailable acceptance has blocker and next command.
 
 ## Confirmed scope extension2026-10-11
-User: "tüm benim yereldeki tüm sistemler ... global olarak kur"; "her zaman ücretsiz ... iOS ... ekran görüntüleri"; "yaşam döngüsü"; "Eski Project Brain ... en azından bunu bana sorsun"; "Türkçe ... neyin ne olduğunu bil"; "ilaç takip uygulaması ... yeni ... repo ... D’de ayrı ... üretim düzeyinde ... hiçbirini atlamadan". Full attachment read; PB012-PB015 enumerate acceptance. Keep app offline by default, no automatic dosing or guaranteed background email claims; local OCR is a user-confirmed draft.
+User: "tÃ¼m benim yereldeki tÃ¼m sistemler ... global olarak kur"; "her zaman Ã¼cretsiz ... iOS ... ekran gÃ¶rÃ¼ntÃ¼leri"; "yaÅŸam dÃ¶ngÃ¼sÃ¼"; "Eski Project Brain ... en azÄ±ndan bunu bana sorsun"; "TÃ¼rkÃ§e ... neyin ne olduÄŸunu bil"; "ilaÃ§ takip uygulamasÄ± ... yeni ... repo ... Dâ€™de ayrÄ± ... Ã¼retim dÃ¼zeyinde ... hiÃ§birini atlamadan". Full attachment read; PB012-PB015 enumerate acceptance. Keep app offline by default, no automatic dosing or guaranteed background email claims; local OCR is a user-confirmed draft.
+
+## Confirmed delegation protocol extension 2026-10-11
+User: "Alt ajanlarla çalışmak zorunda ... düşük tokenla yüksek kalite ... tokenlarına bakıp görev dağılımı otomatik ... personaları ve promptları profesyonel ... her alt ajan geriye bildirmek zorunda ... terminalini görebilmeliyim ... versiyonla dağıt ... sonra bu projeye".
+PB-016..018: mandatory task-specific expert delegation, live official CLI inventory/quotas and risk-aware model/effort, parent+child usage without fabricated numbers, checkpointed fallback, visible native sessions/questions, external versioned sources without bundling templates, existing-project/platform/theme/monetization intake (Windows-only valid), Skill Manager versioned rollout; then N AI Science Lab returns to its own Brain. Qwen excluded.
