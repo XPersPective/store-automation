@@ -17,7 +17,7 @@ Status: CONFIRMED
 
 - Reusable installed store-automation skill loads Project Brain; each selected project owns its tasks, contracts, evidence and Git root outside this tool checkout.
 
-- Three critiques and roadmap; sequential native supervisor/worker/reviewer.
+- Three responsibilities (director/implementation/fresh review), task-dependent specialist count; one app writer, parallel isolated/read-only work.
 
 - Existing Brain/Fastlane integration; persona/contracts/model policy/evidence.
 
@@ -51,3 +51,7 @@ User: "tÃ¼m benim yereldeki tÃ¼m sistemler ... global olarak kur"; "her zama
 ## Confirmed delegation protocol extension 2026-10-11
 User: "Alt ajanlarla çalışmak zorunda ... düşük tokenla yüksek kalite ... tokenlarına bakıp görev dağılımı otomatik ... personaları ve promptları profesyonel ... her alt ajan geriye bildirmek zorunda ... terminalini görebilmeliyim ... versiyonla dağıt ... sonra bu projeye".
 PB-016..018: mandatory task-specific expert delegation, live official CLI inventory/quotas and risk-aware model/effort, parent+child usage without fabricated numbers, checkpointed fallback, visible native sessions/questions, external versioned sources without bundling templates, existing-project/platform/theme/monetization intake (Windows-only valid), Skill Manager versioned rollout; then N AI Science Lab returns to its own Brain. Qwen excluded.
+
+## Confirmed lifecycle/catalogue extension 2026-10-11
+"Baştan sona uçtan uca üretimden yayınlamaya ... protokole tam ... alt ajanlar ... üçten fazla ... hiçbirisini atlama ... bütün model kataloğunu taraması ... sistem otomatik ... statik değil" (user).
+PB-021/PB-022 cover required platform/store/money/ad-placement/license/exclusions/data/billing intake, external napp refs/themes, own-project Genesis/resume and main/substage evidence, dynamic installed CLI/subscription/free/user API discovery, task-specific personas/quality floors, coordinator+child quota/usage/checkpoint handoff, variable visible specialist team, versioned lean distribution. Paid AI invocation and selected app production operation are not implied by catalogue discovery. Generic adapter/live transport failures must stay explicit, not labelled complete.

@@ -10,6 +10,32 @@ Ordinary continue preserves the current Brain. For an existing project first ado
 
 `store-automation adopt --rebaseline` is read-only preview. After the explicit fresh-plan choice use `store-automation adopt --rebaseline --apply`. It moves this project's Brain/legacy file into ignored `.factory/brain-backups/<unique>/`, creates a fresh DRAFT skeleton and preserves source and Git history. Links are rejected, archives never overwritten, and failed initialization restores the previous plan. Do not delete archives. The supervisor audits actual callers/manifests/tests/history, records the user goal and constraints, and creates prioritized canonical tasks with exact checks. Old tasks are historical evidence, never automatically copied as new work. Follow the canonical Project Brain Genesis/audit protocol; a skeleton alone is not a completed reassessment.
 
+## Product intake and stages
+
+Before generation, ask the missing required choices together and record answers in the project's target/constraints. Already supplied answers need no confirmation. Optional aesthetics may keep the existing theme; unresolved platform, money, license, data or exclusions block the affected step.
+
+- Product: purpose, users, core flows, locales, app/package identity; new project or adoption and its exact directory.
+- Delivery: Windows/web/Android/iOS individually, store versus private/local distribution, selected destinations and supported devices. Host Windows does not imply Windows-only output.
+- Monetization: free or paid download; no ads or explicit banner/rewarded/app-open/interstitial placements; lifetime/monthly/both or no purchase. Separate revenue choices from backend billing. Never add unwanted formats to fill template defaults.
+- Source/design: napp starter/core/theme reuse, selected refs, product/source license and compatibility with dependency licenses; required and excluded features (sharing, cross-promotion, cloud sync). Explicit choices override inherited theme/modules/license. Unsupported generator switches become exact application tasks before acceptance, never ignored or silently substituted.
+- Data: local-only or actual auth/sync/server/push needs; named provider or researched free candidates, card allowed or forbidden, paid plan/overage allowed or forbidden, required hard ceiling and quota failure behavior. Prefer local when it meets the confirmed need; compare Cloudflare/Firebase and alternatives service by service. No service or billing activation before the applicable choice is recorded.
+- Quality/release: accessibility, privacy, native device/screenshot requirements, test/build budget, accounts/signing and exact release operation. Missing access is a concrete blocker, not a passed gate.
+
+Track `Stage`, `Substage`, `Next gate` and evidence references in existing Brain Current; keep planned work in tasks and product decisions in Target/constraints. Do not add another state database. Genesis/adoption traces manifests, callers, source, Git, builds and release evidence to reconstruct stage; completed-looking code alone proves no completed gate. Each resume boots, inspects dirty/source changes, runs the takeover check and rechecks evidence affected since the checkpoint.
+
+| Stage | Substages / exit evidence |
+|---|---|
+| Definition | intake, constraints, delivery/license/exclusions; confirmed product target |
+| Discovery/design | subscriptions/models/effort/limits, backend comparison, external refs, UX; recorded decisions and task contracts |
+| Implementation | scaffold, selected modules, core flows, platform integration; exact scoped diff and runnable checks |
+| Verification | machine checks, native UX/accessibility/privacy, fresh independent review; source-bound evidence |
+| Release preparation | package/version/signing prerequisites, localized listings/screenshots/declarations; canonical publishing preflight |
+| Submission | exact authorized account/destination upload; remote readback/build/track and review status |
+| Availability | actual published URL/version/store status; submission is not availability |
+| Maintenance | monitor applicable policy/dependencies/issues; verified patch and release cycle |
+
+Android/iOS publishing follows canonical AppPublishing/Fastlane, including actual approval/status readback. Windows follows the selected package/installer/portable/store channel and native startup/install/update checks; web follows the selected hosting/build/deploy/readback. The mobile-only `release-preflight` cannot certify Windows/web. All requested delivery work continues through these gates; unavailable signing/account/macOS/host controls stay named blockers with the next action.
+
 ## Maintenance run
 
 1. Boot this project's Brain; check branch/dirty state and preserve unknown edits. Reconcile unfinished work before dependency changes. Use native inventory (`flutter pub outdated`, existing CI and store version/status) before dispatching models. Never read credential values.

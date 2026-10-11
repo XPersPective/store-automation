@@ -19,3 +19,6 @@
 - C-016: Ask missing adoption/platform/template/theme/monetization choices; Windows-only/no ads/no store is valid. Keep external starter/core/templates in configured checkout/cache with refs, never vendor full repositories into the skill.
 
 - C-017: Latest user2026-10-11: AGY means official agy, not legacy Gemini CLI; installed subscription routes handle substantive work, no silent Codex-subagent fallback consuming coordinator quota. Verify actual execution/model entitlement and quota, keep honest unavoidable coordinator usage. Three actual visible roles in Codex side panel, coordinator above/two agents below or suitable layout, with live questions/progress/intervention; queued/log/external windows do not satisfy. PB-020/PB-019 track implementation.
+
+- C-018: Latest user allows polished Windows Terminal console; team size is task-dependent beyond three responsibilities. Earlier Codex-only/three-agent UI constraint is superseded for this request; actual interactive visibility/relay still needs evidence.
+- C-019: Automatically discover all installed supported AI CLIs/subscriptions and current free/optional user API catalogues on intake/resume and refresh before dispatch; monitor coordinator plus children/retries. No static model list or AGY-only policy; unknown access/quota remains unverified, paid inference still needs exact authorization.

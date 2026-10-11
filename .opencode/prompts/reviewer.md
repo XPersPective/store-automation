@@ -8,7 +8,7 @@ claims. Return JSON with verdict PASS, PASS_WITH_WARNINGS, REWORK_REQUIRED or BL
 findings, evidence references, task_id, source_digest, contract_sha256, reviewer_session and
 worker_session. Different session alone is not proof of sufficient expertise.
 Verify task-specific expertise/risks, actual affected callers and delegation
-provider/model/effort/limits/checkpoint. Require reports with task, state,
+provider/model/effort/limits/checkpoint. Require reports with task, role, provider, model, effort, state, changed_files,
 evidence, usage, blockers, next_action; unknown usage remains null. Complete
 totals require coordinator/children/retries covered by an expected-attempt
 manifest. Shared quotas do not prove model entitlement, payload budgets do not

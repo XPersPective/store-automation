@@ -25,3 +25,14 @@ Quota failure'da degradation/limit/BLOCKED; production verisini otomatik başka
 provider'a taşıma. Receipt doğrulama sunucusu client purchase event'ini otorite
 saymaz: mağaza API'si, expiry, revocation, user bağlama, idempotency ve webhooks
 test edilir. Store credential yoksa monthly production gate BLOCKED kalır.
+
+
+Seçim ADR'sine her servis/plan için resmi kaynak ve kontrol tarihiyle kart gereksinimi,
+hard quota sonrası durma/ret/ücret davranışı, ücretli plana geçiş, otomatik overage,
+harcama tavanı ve budget alert'in gerçekten harcamayı durdurup durdurmadığı eklenir.
+Cloudflare'ın bütün ürünleri aynı billing kuralına sahip değildir; Firebase Spark
+ile Blaze aynı değildir. FCM ihtiyacı bütün backend'in Firebase olmasını gerektirmez.
+Kartsız/ücretsiz kesin sınır kullanıcı şartıysa bunu karşılamayan servis seçilmez;
+ücretsiz etiketinden koşulsuz maliyet garantisi çıkarılmaz. Uygun alternatifleri
+mevcut gerçek ihtiyaca göre karşılaştır, kota aşımı için kullanıcıya görünen
+limit/degradation davranışını test et. Kullanıcı seçimi eksikse aktivasyondan önce sor.

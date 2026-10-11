@@ -100,6 +100,17 @@ Global yükleyici kurulu araçların resmî skill yollarını keşfeder; `python
 Canlı durum varsayılan olarak Türkçedir: **Yönetici / Uygulayıcı / İnceleyen**. `--language en` İngilizce, `--json` makine çıktısı verir. Eski planı koruyarak sürdürmek veya yedekleyip yeniden denetlemek için [yaşam döngüsü](skills/store-automation/references/lifecycle.md); ücretsiz iOS derleme/ekran kanıtı ve güncel mağaza kapıları için [iOS rehberi](skills/store-automation/references/ios-ci.md).
 
 
-Store Automation 2.0.0: uzman görev/persona ve sonuç sözleşmesi, resmi CLI envanteri, taze ortak kota pencereleri ve risk tabanlı model/efor seçimi. `providers --scan`, `route --inventory` ve `usage --record ... --expected ...` bilinmeyen erişim/kullanımı başarı saymaz. Claude ve Qwen mevcut kullanıcı tercihleriyle kapalıdır. Dağıtım merkezi Skills Manager üzerinden yapılır; kaynak paket `python tool/install-skill.py --target .factory/distribution/store-automation` ile güncellenir, sonra `skills-manager-cli skills update store-automation` dağıtımları yeniler. Template/core reposu bu pakete alınmaz.
+Store Automation 2.1.0: uzman görev/persona ve sonuç sözleşmesi, resmi CLI envanteri, taze ortak kota pencereleri ve risk tabanlı model/efor seçimi. `providers --scan`, `route --inventory` ve `usage --record ... --expected ...` bilinmeyen erişim/kullanımı başarı saymaz. Claude ve Qwen mevcut kullanıcı tercihleriyle kapalıdır. Dağıtım merkezi Skills Manager üzerinden yapılır; kaynak paket `python tool/install-skill.py --target .factory/distribution/store-automation` ile güncellenir, sonra `skills-manager-cli skills update store-automation` dağıtımları yeniler. Template/core reposu bu pakete alınmaz.
 
-Gerçek Codex sağ panel ajan terminali bağlantısı PB-019 altında doğrulanmamıştır. Dış Windows Terminal yalnız açıkça seçilen alternatiftir ve bu şartı karşılamaz. Antigravity yeni native adapteri doğrulanmamış yazma scope'unu reddeder; erişim probe'u görev yeteneği/başarısı değildir. Mevcut host uzmanları kaynak işi için kullanılabilir; UI/hesap kanıtı ayrıca gerekir.
+Gerçek Codex sağ panel ajan terminali bağlantısı PB-019 altında doğrulanmamıştır. Son kullanıcı talebi güzel Windows Terminal konsoluna izin verir; değişken ajan sayısı, kalıcı başlıklar ve koyu hazır tema desteklenir. Bu ayrı Codex panel bağlantısının kanıtı değildir. Antigravity yeni native adapteri doğrulanmamış yazma scope'unu reddeder; erişim probe'u görev yeteneği/başarısı değildir. Mevcut host uzmanları kaynak işi için kullanılabilir; UI/hesap kanıtı ayrıca gerekir.
+
+
+2.1.0: her skill başlangıcında otomatik CLI/abonelik/ücretsiz/API katalog araştırması,
+koordinatör+çalışan kota kontrolü; platform/mağaza/ücret/reklam yerleşimi/lisans/hariç
+özellik/veri/billing intake, ürün ana-alt aşamaları ve devir checkpoint'i. `providers
+--scan` OpenCode ve opsiyonel OpenRouter güncel metadata listelerini okur;
+`--local-only` uzak kataloğu atlar. Model listesi erişim veya kalite kanıtı değildir.
+Paylaşım/lisans gibi generator switch'i olmayan tercihler uygulama görevine dönüşür.
+Bootstrap seçilen platformu gerçekten generator'a iletir; yeni kaynakta Windows-only
+üretim kontrolü vardır. Genel çok-sağlayıcı sohbet/müdahale relay'i ve bazı hesapların
+limit adapterleri henüz uygulanmış/doğrulanmış değildir; canlı kabul kapısı açık kalır.

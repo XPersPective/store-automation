@@ -1,17 +1,40 @@
 {
-  "version": "2.0.1",
+  "version": "2.1.0",
   "files_per_host": 23,
   "manager_targets": 41,
   "additional_runtime_roots": 4,
   "all_resource_hashes_match": true,
-  "stdlib_tests": 84,
-  "source_review": "SOURCE_REVIEW_PASS",
-  "claude_routing": "EXCLUDED_USER_NO_TOKENS",
-  "qwen_routing": "EXCLUDED",
-  "model_access": "UNVERIFIED_AFTER_EMPTY_OR_DENIED_PROBES",
-  "codex_sidebar_attachment": "UNVERIFIED_HOST_API_LIMIT",
+  "stdlib_tests": 94,
+  "source_review": "INDEPENDENT_SOURCE_REVIEW_PASS",
+  "dynamic_host_registry": {
+    "registered_clients": 54,
+    "host_reported_installed": 41,
+    "entitlement": "UNKNOWN"
+  },
+  "catalogue_sources": [
+    "official CLI public metadata",
+    "Skills Manager dynamic registry",
+    "OpenCode model listing",
+    "OpenRouter public zero-price :free catalogue"
+  ],
+  "coordinator_quota_remaining": {
+    "five_hour": 0.63,
+    "weekly": 0.64,
+    "source": "native host limits; account-shared, not task tokens"
+  },
   "tokens_complete": false,
   "usage_unknown": null,
-  "source_ref": "D:\\repositories\\store-otomaston\\.factory\\distribution\\store-automation",
-  "backup_root": "C:\\Users\\rubicon\\.skills-manager\\backups\\store-automation-2.0.0"
+  "claude_routing": "EXCLUDED_USER_NO_TOKENS",
+  "qwen_routing": "EXCLUDED",
+  "model_access": "PER_ROUTE_VERIFICATION_REQUIRED",
+  "windows_bootstrap": {
+    "status": "VERIFIED_LOCAL",
+    "windows_only": true,
+    "executable_present": true,
+    "starter_revision": "213678dda7ece2b6f1c3e0e6c9d382e1db184904",
+    "core_revision": "534e504e58b929814125daa1bd0cfb86aa8e61a8"
+  },
+  "live_multi_provider_console_and_relay": "UNVERIFIED_PB023",
+  "codex_sidebar_attachment": "UNVERIFIED_HOST_API_LIMIT_PB019",
+  "source_ref": "D:\\repositories\\store-otomaston\\.factory\\distribution\\store-automation"
 }
