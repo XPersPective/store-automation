@@ -83,7 +83,12 @@
     "checkpoint": "Record actual diff and failed acceptance before switching model; no blind replay.",
     "report_fields": [
       "task",
+      "role",
+      "provider",
+      "model",
+      "effort",
       "state",
+      "changed_files",
       "evidence",
       "usage",
       "blockers",

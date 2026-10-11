@@ -2,7 +2,7 @@ import copy
 from datetime import datetime, timedelta, timezone
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from tool import subscriptions as s
 
@@ -32,6 +32,20 @@ class SubscriptionChecks(unittest.TestCase):
         self.assertTrue(all(c['quota_group'] != 'Gemini Models' for c in result['candidates']))
         self.groups[1]['buckets'][0]['remaining_fraction'] = 0
         self.assertEqual(s.route(self.snapshot, 'COMPLEX')['status'], 'BLOCKED')
+
+    def test_reserve_requires_saved_handoff_and_never_replaces_coordinator(self):
+        for actor in ('coordinator', 'worker'):
+            self.assertEqual(s.reserve_decision(actor, .11), 'READY')
+            self.assertEqual(s.reserve_decision(actor, .10), 'CHECKPOINT_REQUIRED')
+            self.assertEqual(s.reserve_decision(actor, .10, equivalent_verified=True), 'CHECKPOINT_REQUIRED')
+            self.assertEqual(s.reserve_decision(actor, .10, handoff_saved=True), 'WAIT_FOR_RESET')
+            for unknown in (None, True, -1, 2, float('nan')):
+                self.assertEqual(s.reserve_decision(actor, unknown, True, True), 'QUOTA_UNKNOWN')
+        self.assertEqual(s.reserve_decision('coordinator', 0, True, True), 'WAIT_FOR_RESET')
+        self.assertEqual(s.reserve_decision('worker', 0, True, True), 'REROUTE_APPROVED')
+        for args in (('director', .1), ('worker', .1, 'yes'), ('worker', .1, True, 'yes')):
+            with self.assertRaises(ValueError):
+                s.reserve_decision(*args)
 
     def test_unknown_or_nonfinite_quota_is_never_available(self):
         for invalid in (None, True, -1, 2, float('inf'), float('nan')):
@@ -74,6 +88,121 @@ class SubscriptionChecks(unittest.TestCase):
         self.assertEqual(next(p for p in result['providers'] if p['cli'] == 'claude')['auth'], 'SUBSCRIPTION_LOGIN')
         self.assertEqual(next(p for p in result['providers'] if p['cli'] == 'gemini')['auth'], 'UNKNOWN')
         self.assertIn('qwen', result['excluded'])
+
+    def test_additional_installed_clients_remain_unverified_without_probing(self):
+        names = ('mimo', 'cursor', 'windsurf', 'cline', 'codebuff', 'freebuff', 'zed', 'ollama')
+        with patch('shutil.which', side_effect=lambda cli: cli if cli in names else None):
+            result = s.inventory(lambda *args, **kwargs: self.fail('Unsupported adapter was probed'),
+                                 lambda cli: cli, {})
+        for cli in names:
+            row = next(row for row in result['providers'] if row['cli'] == cli)
+            self.assertTrue(row['installed'])
+            self.assertEqual((row['adapter'], row['auth'], row['access']),
+                             ('UNVERIFIED', 'UNKNOWN', 'NOT_PROBED'))
+            self.assertIsNone(row['quota_remaining'])
+        self.assertFalse(any(row['cli'] == 'openrouter' for row in result['providers']))
+
+    def test_dynamic_host_registry_has_only_safe_hints_and_preserves_false_install(self):
+        custom = {'key': 'custom-future-host', 'display_name': 'Future Custom Host',
+                  'installed': True, 'enabled': True, 'is_custom': True,
+                  'skills_dir': 'private-path', 'extra': 'synthetic-private-secret'}
+        absent = dict(custom, key='registered-not-installed', installed=False, enabled=False)
+        calls = []
+        def run(argv, **kwargs):
+            calls.append((argv, kwargs))
+            return {'exit_code': 0, 'stdout': json.dumps([custom, absent])}
+        with patch('shutil.which', side_effect=lambda cli: cli if cli == 'skills-manager-cli' else None):
+            snapshot = s.inventory(run, lambda cli: cli, {'public': 'environment'})
+        registry = snapshot['host_clients']
+        self.assertEqual(calls, [(['skills-manager-cli', 'agents', 'list', '--json'],
+                                 {'timeout': 30, 'env': {'public': 'environment'}})])
+        self.assertEqual(registry['status'], 'REGISTRY_METADATA')
+        self.assertEqual(registry['clients'][0]['key'], custom['key'])
+        self.assertTrue(registry['clients'][0]['custom'])
+        self.assertFalse(registry['clients'][1]['host_reported_installed'])
+        self.assertFalse(registry['clients'][1]['enabled'])
+        self.assertEqual(registry['clients'][0]['access'], 'UNKNOWN')
+        self.assertEqual(registry['clients'][0]['adapter'], 'UNKNOWN')
+        self.assertIsNone(registry['clients'][0]['quota_remaining'])
+        self.assertNotIn('private', json.dumps(snapshot))
+        self.assertEqual(s.route(snapshot, 'SIMPLE')['status'], 'BLOCKED')
+
+    def test_host_registry_absence_or_malformed_metadata_never_creates_clients(self):
+        with patch('shutil.which', return_value=None):
+            self.assertEqual(s.host_registry(None, None, {})['status'], 'NOT_INSTALLED')
+        valid = {'key': 'known', 'display_name': 'Known', 'installed': True, 'enabled': True, 'is_custom': False}
+        for payload in ('invalid json', '{}', 'null', '[null]',
+                        json.dumps([valid, dict(valid, installed='yes')]),
+                        json.dumps([dict(valid, display_name='Unsafe\nName')]),
+                        json.dumps([dict(valid, key='bad;command')])):
+            with patch('shutil.which', return_value='manager'):
+                result = s.host_registry(lambda *args, **kwargs: {'exit_code': 0, 'stdout': payload}, lambda cli: cli, {})
+            self.assertEqual(result['status'], 'UNAVAILABLE')
+            self.assertEqual(result['clients'], [])
+        with patch('shutil.which', return_value='manager'):
+            result = s.host_registry(lambda *args, **kwargs: {'exit_code': 1, 'stdout': json.dumps([valid])}, lambda cli: cli, {})
+        self.assertEqual(result['clients'], [])
+
+    def test_opencode_public_catalogue_never_proves_account_or_task_access(self):
+        calls = []
+        def run(argv, **kwargs):
+            calls.append(argv)
+            return {'exit_code': 0, 'stdout': 'opencode/example-free\nopenrouter/vendor/model:free\ninvalid output\n'}
+        with patch('shutil.which', side_effect=lambda cli: cli if cli == 'opencode' else None):
+            result = s.inventory(run, lambda cli: cli, {})
+        self.assertEqual(calls, [['opencode', '--pure', 'models']])
+        row = next(row for row in result['providers'] if row['cli'] == 'opencode')
+        self.assertEqual([entry['id'] for entry in row['models']],
+                         ['opencode/example-free', 'openrouter/vendor/model:free'])
+        self.assertEqual((row['auth'], row['access']), ('UNKNOWN', 'NOT_PROBED'))
+        self.assertTrue(all(entry['quality_tier'] == 'UNASSESSED' for entry in row['models']))
+        self.assertEqual(s.route(result, 'SIMPLE')['status'], 'BLOCKED')
+
+    def test_openrouter_requires_free_suffix_and_every_advertised_price_zero(self):
+        valid = {'id': 'vendor/model:free', 'pricing': {'prompt': '0', 'completion': '0.0', 'request': 0, 'image': '0'},
+                 'context_length': 32000, 'supported_parameters': ['tools', 'reasoning'],
+                 'architecture': {'input_modalities': ['text', 'image'], 'output_modalities': ['text']}}
+        result = s.openrouter_free_models({'data': [valid]})
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['input_modalities'], ['text', 'image'])
+        self.assertEqual(result[0]['supported_parameters'], ['tools', 'reasoning'])
+        self.assertEqual(result[0]['context_length'], 32000)
+        self.assertEqual(result[0]['access'], 'NOT_PROBED')
+        for price in (None, '', 'garbage', True, 'NaN', 'Infinity', '-1', '0.00001'):
+            for key in ('prompt', 'completion', 'image', 'request', 'future_fee'):
+                bad = copy.deepcopy(valid)
+                bad['pricing'][key] = price
+                with self.subTest(key=key, price=price):
+                    self.assertEqual(s.openrouter_free_models({'data': [bad]}), [])
+        for pricing in (None, {}, [], {'prompt': '0'}, {'completion': '0'}):
+            self.assertEqual(s.openrouter_free_models({'data': [dict(valid, pricing=pricing)]}), [])
+        self.assertEqual(s.openrouter_free_models({'data': [dict(valid, id='vendor/paid')]}), [])
+        for payload in (None, [], {}, {'data': None}, {'data': [None]}, {'data': []}):
+            self.assertEqual(s.openrouter_free_models(payload), [])
+
+    def test_openrouter_get_is_optional_bounded_and_never_authenticated(self):
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.geturl.return_value = s.OPENROUTER_MODELS_URL
+        response.read.return_value = b'{"data": []}'
+        with patch('urllib.request.urlopen', return_value=response) as fetch:
+            row = s.openrouter_catalogue()
+        fetch.assert_called_once_with(s.OPENROUTER_MODELS_URL, timeout=15)
+        response.read.assert_called_once_with(s.CATALOGUE_MAX_BYTES + 1)
+        self.assertEqual(row['catalogue'], 'PUBLIC_METADATA_VERIFIED')
+        self.assertEqual((row['adapter'], row['auth'], row['access']), ('UNVERIFIED', 'UNKNOWN', 'NOT_PROBED'))
+        response.read.return_value = b'x' * 11
+        with patch('urllib.request.urlopen', return_value=response), patch.object(s, 'CATALOGUE_MAX_BYTES', 10):
+            self.assertEqual(s.openrouter_catalogue()['catalogue'], 'UNAVAILABLE')
+        response.geturl.return_value = 'https://example.invalid/models'
+        with patch('urllib.request.urlopen', return_value=response):
+            self.assertEqual(s.openrouter_catalogue()['catalogue'], 'UNAVAILABLE')
+        with patch('urllib.request.urlopen', side_effect=OSError('unavailable')):
+            self.assertEqual(s.openrouter_catalogue()['catalogue'], 'UNAVAILABLE')
+        with patch('shutil.which', return_value=None), patch.object(s, 'openrouter_catalogue', return_value=row) as fetch:
+            inventory = s.inventory(None, None, {}, include_openrouter=True)
+        fetch.assert_called_once_with()
+        self.assertEqual(inventory['providers'][-1]['cli'], 'openrouter')
 
     def test_invalid_usage_payload_is_not_metadata_verification(self):
         for value in (None, [], {}, {'status': 'SUCCESS', 'command': None},

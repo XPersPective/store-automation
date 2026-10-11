@@ -86,6 +86,59 @@ class SessionChecks(unittest.TestCase):
         self.assertEqual(attach.call_count, 2)
         self.assertEqual(attach.call_args_list[0].args[2], 'ses_worker')
 
+    def test_watcher_opens_five_named_agents_once_with_director_first(self):
+        rows = [{'id': 'ses_' + str(index), 'parent': 'ses_director',
+                 'agent': 'UI specialist ' + str(index)} for index in range(4)]
+        rows.append({'id': 'ses_director', 'agent': 'factory'})
+        with patch.object(sessions, 'status', return_value={'sessions': rows}), \
+             patch.object(sessions, 'attach') as attach, \
+             patch.object(sessions.time, 'sleep', side_effect=[None, KeyboardInterrupt]):
+            sessions.watch(self.project, self.env, emit=lambda value: None, auto_panes=True)
+        self.assertEqual(attach.call_count, 5)
+        self.assertEqual(attach.call_args_list[0].args[2], 'ses_director')
+        self.assertEqual([call.kwargs['pane_index'] for call in attach.call_args_list], list(range(5)))
+        self.assertEqual(attach.call_args_list[1].kwargs['role'], 'UI specialist 0')
+
+    def test_terminal_layout_preserves_director_and_safe_specialist_titles(self):
+        data = self.record()
+        with patch.object(sessions.shutil, 'which', return_value='wt.exe'), \
+             patch.object(sessions, 'process_identity', return_value=data['identity']):
+            command = sessions.terminal_command(self.project, ['native', 'arg with spaces'],
+                                                split=True, pane_index=4, role='UI specialist')
+            self.assertEqual(command[command.index('--title') + 1], 'UI specialist')
+            self.assertIn('--suppressApplicationTitle', command)
+            self.assertEqual(command[-2:], ['native', 'arg with spaces'])
+            self.assertEqual(command[3:10], ['focus-tab', '--target', '0', ';', 'move-focus', 'first', ';'])
+            self.assertEqual(command.count('nextInOrder'), 4)
+            self.assertEqual(command[command.index('--colorScheme') + 1], 'One Half Dark')
+            with self.assertRaises(ValueError):
+                sessions.terminal_command(self.project, ['native', 'x;new-tab'], split=True, pane_index=0)
+        self.assertEqual(sessions.pane_layout(0), (0, '-H', '.8'))
+        self.assertEqual(sessions.pane_layout(1), (1, '-V', '.6'))
+        self.assertEqual(sessions.pane_layout(2), (2, '-H', '.5'))
+        self.assertEqual(sessions.pane_layout(4), (4, '-V', '.5'))
+        for bad in (-1, True, '2'):
+            with self.assertRaises(ValueError):
+                sessions.pane_layout(bad)
+        for title in ('UI;new-tab', 'UI\nInjected', 'x' * 65):
+            self.assertEqual(sessions.role_name(title), 'Ajan')
+
+    def test_fifth_agent_targets_large_worker_leaf_after_earlier_leaf_split(self):
+        # Native traversal order after four attaches differs from pane creation IDs.
+        leaves = ['activity']
+        for index in range(4):
+            target, _, _ = sessions.pane_layout(index)
+            leaves.insert(target + 1, 'agent' + str(index))
+        self.assertEqual(leaves, ['activity', 'agent0', 'agent1', 'agent3', 'agent2'])
+        target, _, _ = sessions.pane_layout(4)
+        self.assertEqual(leaves[target], 'agent2')
+        leaves.insert(target + 1, 'agent4')
+        for index in range(5, 24):
+            target, _, _ = sessions.pane_layout(index)
+            self.assertGreaterEqual(target, 2, 'activity or director was split again')
+            self.assertLess(target, len(leaves))
+            leaves.insert(target + 1, 'agent' + str(index))
+
     def test_status_excludes_previous_runs_and_foreign_projects(self):
         data = self.record(started_at=100)
         rows = [{'id': 'ses_current', 'directory': str(self.project), 'time': {'created': 100001}},

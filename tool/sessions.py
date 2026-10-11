@@ -42,7 +42,8 @@ def role_name(role, language='tr'):
              'factory-reviewer': ('İnceleyen', 'Reviewer'), 'activity': ('Ajan etkinliği', 'Agent activity')}
     aliases = {'supervisor': 'factory', 'orchestrator': 'factory', 'manager': 'factory',
                'worker': 'factory-worker', 'implementer': 'factory-worker', 'reviewer': 'factory-reviewer'}
-    return names.get(aliases.get(role, role), ('Ajan', 'Agent'))[index]
+    known = names.get(aliases.get(role, role))
+    return known[index] if known else (role if role and re.fullmatch(r'[\w .-]{1,64}', role) else ('Ajan', 'Agent')[index])
 
 
 def format_public(data, language=None):
@@ -677,7 +678,24 @@ def attach_command(project, env, session_id=None):
     return argv
 
 
-def terminal_command(project, argv, split=False, role='factory', language='tr'):
+def pane_layout(index):
+    """Keep activity above the director, then balance only the worker region."""
+    if not isinstance(index, int) or isinstance(index, bool) or index < 0:
+        raise ValueError('Pane index must be a nonnegative integer')
+    if index < 2:
+        return (index, '-H', '.8') if index == 0 else (1, '-V', '.6')
+    # ponytail: recompute the small team tree; large teams should retain this layout state.
+    workers = [(1, 0)]
+    for created in range(2, index + 1):
+        target = max(range(len(workers)), key=lambda position: workers[position][0])
+        area, depth = workers[target]
+        if created == index:
+            return target + 2, '-H' if depth % 2 == 0 else '-V', '.5'
+        # Native nextInOrder traverses tree leaves, so a split inserts beside its target.
+        workers[target:target + 1] = [(area / 2, depth + 1)] * 2
+
+
+def terminal_command(project, argv, split=False, role='factory', language='tr', pane_index=None):
     if any(';' in str(arg) for arg in argv):
         raise ValueError('Windows Terminal command separator in an argument refused')
     terminal = shutil.which('wt.exe')
@@ -687,17 +705,28 @@ def terminal_command(project, argv, split=False, role='factory', language='tr'):
     if not isinstance(name, str) or not re.fullmatch(r'store-[a-f0-9]{32}', name):
         raise ValueError('Invalid owned terminal window')
     # argv stays an argv vector, with no PowerShell/cmd string evaluation.
-    return [terminal, '-w', name, 'split-pane' if split else 'new-tab', '--title', role_name(role, language), *argv]
+    command = [terminal, '-w', name]
+    layout = []
+    if split and pane_index is not None:
+        # Owned tab must remain open and in place; native user rearrangement needs a new view.
+        target, direction, size = pane_layout(pane_index)
+        command += ['focus-tab', '--target', '0', ';', 'move-focus', 'first', ';']
+        for _ in range(target):
+            command += ['move-focus', 'nextInOrder', ';']
+        layout = [direction, '--size', size]
+    return [*command, 'split-pane' if split else 'new-tab', *layout,
+            '--title', role_name(role, language), '--suppressApplicationTitle',
+            '--colorScheme', 'One Half Dark', *argv]
 
 
-def attach(project, env, session_id=None, pane=False, role=None, language=None):
+def attach(project, env, session_id=None, pane=False, role=None, language=None, pane_index=None):
     argv = attach_command(project, env, session_id)
     if pane:
         language = display_language(language or load_state(project).get('language', 'tr'))
         if role is None and session_id:
             role = next((row.get('agent') for row in status(project, env)['sessions']
                          if row['id'] == session_id), None)
-        command = terminal_command(project, argv, split=True, role=role, language=language)
+        command = terminal_command(project, argv, split=True, role=role, language=language, pane_index=pane_index)
         subprocess.run(command, env=env, check=True)
         return {'state': 'NATIVE_TERMINAL_OPENED', 'session': session_id}
     return {'exit_code': subprocess.call(argv, cwd=project, env=env)}
@@ -743,10 +772,13 @@ def watch(project, env, interval=2, emit=print, auto_panes=False, language=None,
             current = status(project, env)
             language = language or current.get('language', 'tr')
             if auto_panes:
-                for session in current['sessions']:
-                    if session['id'] not in attached and len(attached) < 3:
+                # Parents precede specialists so the director retains the first agent pane.
+                for session in sorted(current['sessions'], key=lambda item: bool(item.get('parent'))):
+                    if session['id'] not in attached:
                         attach(project, env, session['id'], pane=True,
-                               role=session.get('agent'), language=language or current.get('language', 'tr'))
+                               role=session.get('agent') or ('factory' if not session.get('parent') else None),
+                               language=language or current.get('language', 'tr'),
+                               pane_index=len(attached))
                         attached.add(session['id'])
             rendered = json.dumps(current, ensure_ascii=True, sort_keys=True)
             if rendered != previous:
@@ -801,7 +833,7 @@ if __name__ == '__main__':
     parser.add_argument('--pane', action='store_true')
     parser.add_argument('--language', choices=['tr', 'en'])
     parser.add_argument('--json', action='store_true', help='Machine-readable structural output')
-    parser.add_argument('--auto-panes', action='store_true', help='Watch and open up to three current native session panes')
+    parser.add_argument('--auto-panes', action='store_true', help='Watch and open every observed native agent session in balanced panes')
     args = parser.parse_args()
     if args.auto_panes:
         if args.action != 'watch':

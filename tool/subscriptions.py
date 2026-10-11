@@ -7,12 +7,40 @@ import shutil
 
 LOGIN = {'agy': 'agy (official account setup)', 'claude': 'claude auth login',
          'codex': 'codex login', 'gemini': 'gemini (Login with Google)',
-         'mcode': 'mcode login --region global', 'opencode': 'opencode auth login'}
+         'mcode': 'mcode login --region global', 'opencode': 'opencode auth login',
+         **dict.fromkeys(('mimo', 'cursor', 'windsurf', 'cline', 'codebuff',
+                          'freebuff', 'zed', 'ollama', 'qwen', 'minimax', 'zcode', 'antigravity'),
+                         'Verify the installed official client and its documented account/model/status controls')}
 RESERVE = 0.10
+OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models'
+CATALOGUE_MAX_BYTES = 8 * 1024 * 1024
+REPORT_FIELDS = ('task', 'role', 'provider', 'model', 'effort', 'state',
+                 'changed_files', 'evidence', 'usage', 'blockers', 'next_action')
 
 
 def number(value, maximum=None):
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0 and (maximum is None or value <= maximum) else None
+
+
+def reserve_decision(actor, remaining_fraction, handoff_saved=False,
+                     equivalent_verified=False, reserve=RESERVE):
+    """Caller confirms a durable handoff and a fresh, equally capable approved route.
+
+    Unknown limits never authorize dispatch. The coordinator waits rather than
+    transferring its authority; only a checkpointed worker may change routes.
+    """
+    if actor not in ('coordinator', 'worker') or number(reserve, 1) is None or reserve >= 1:
+        raise ValueError('Invalid reserve actor or fraction')
+    if not isinstance(handoff_saved, bool) or not isinstance(equivalent_verified, bool):
+        raise ValueError('Checkpoint and equivalent-route evidence must be explicit booleans')
+    left = number(remaining_fraction, 1)
+    if left is None:
+        return 'QUOTA_UNKNOWN'
+    if left > reserve:
+        return 'READY'
+    if not handoff_saved:
+        return 'CHECKPOINT_REQUIRED'
+    return 'REROUTE_APPROVED' if actor == 'worker' and equivalent_verified else 'WAIT_FOR_RESET'
 
 
 def agy_groups(payload):
@@ -50,14 +78,108 @@ def remaining(group):
     return min(values) if values and all(v is not None for v in values) else None
 
 
-def inventory(run, executable, env, excluded=('qwen',)):
+def openrouter_free_models(payload):
+    """Public price metadata only; neither account access nor coding quality."""
+    from decimal import Decimal, InvalidOperation
+    if not isinstance(payload, dict) or not isinstance(payload.get('data'), list):
+        return []
+    models = []
+    for entry in payload['data']:
+        if not isinstance(entry, dict) or not isinstance(entry.get('id'), str) or not re.fullmatch(
+                r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.:-]{1,160}:free', entry['id']):
+            continue
+        pricing = entry.get('pricing')
+        if not isinstance(pricing, dict) or not {'prompt', 'completion'}.issubset(pricing):
+            continue
+        try:
+            if any(not isinstance(key, str) or not re.fullmatch(r'[a-z_]{1,64}', key) or
+                   isinstance(value, bool) or not isinstance(value, (str, int, float)) or
+                   not Decimal(str(value)).is_finite() or Decimal(str(value)) != 0
+                   for key, value in pricing.items()):
+                continue
+        except (InvalidOperation, ValueError):
+            continue
+        architecture = entry.get('architecture') if isinstance(entry.get('architecture'), dict) else {}
+        def observed_strings(value):
+            return value if isinstance(value, list) and len(value) <= 64 and all(
+                isinstance(item, str) and re.fullmatch(r'[a-z][a-z0-9_/-]{0,63}', item) for item in value) else None
+        models.append({'id': entry['id'], 'pricing': {key: '0' for key in pricing},
+                       'context_length': number(entry.get('context_length')),
+                       'supported_parameters': observed_strings(entry.get('supported_parameters')),
+                       'input_modalities': observed_strings(architecture.get('input_modalities')),
+                       'output_modalities': observed_strings(architecture.get('output_modalities')),
+                       'quality_tier': 'UNASSESSED', 'effort': 'UNKNOWN', 'access': 'NOT_PROBED'})
+    return models
+
+
+def openrouter_catalogue():
+    """Fixed public GET, no credential/header/inference or arbitrary URL input."""
+    import json
+    from urllib.request import urlopen
+    row = {'cli': 'openrouter', 'installed': False, 'adapter': 'UNVERIFIED',
+           'auth': 'UNKNOWN', 'access': 'NOT_PROBED', 'quota_remaining': None,
+           'source': OPENROUTER_MODELS_URL, 'models': [], 'catalogue': 'UNAVAILABLE',
+           'billing': 'PUBLIC_PRICE_METADATA_ONLY'}
+    try:
+        with urlopen(OPENROUTER_MODELS_URL, timeout=15) as response:
+            if response.geturl() != OPENROUTER_MODELS_URL:
+                return row
+            payload = response.read(CATALOGUE_MAX_BYTES + 1)
+        if len(payload) > CATALOGUE_MAX_BYTES:
+            return row
+        data = json.loads(payload)
+        if not isinstance(data, dict) or not isinstance(data.get('data'), list):
+            return row
+        row.update(models=openrouter_free_models(data), catalogue='PUBLIC_METADATA_VERIFIED')
+    except (OSError, ValueError):
+        pass
+    return row
+
+
+def host_registry(run, executable, env):
+    """Dynamic manager detection hints, never executable/auth/model entitlement."""
+    import json
+    result = {'source': 'skills-manager-cli agents list --json',
+              'status': 'NOT_INSTALLED', 'clients': []}
+    if not shutil.which('skills-manager-cli'):
+        return result
+    result['status'] = 'UNAVAILABLE'
+    try:
+        response = run([executable('skills-manager-cli'), 'agents', 'list', '--json'],
+                       timeout=30, env=env)
+        output = response.get('stdout')
+        if response.get('exit_code') != 0 or not isinstance(output, str) or len(output) > 2_000_000:
+            return result
+        rows = json.loads(output)
+    except (OSError, RuntimeError, ValueError):
+        return result
+    if not isinstance(rows, list) or len(rows) > 5000:
+        return result
+    clients = []
+    for row in rows:
+        if (not isinstance(row, dict) or not isinstance(row.get('key'), str) or
+                not re.fullmatch(r'[A-Za-z0-9_.-]{1,100}', row['key']) or
+                not isinstance(row.get('display_name'), str) or
+                not re.fullmatch(r'[\w .()+/-]{1,100}', row['display_name']) or
+                any(not isinstance(row.get(field), bool) for field in ('installed', 'enabled', 'is_custom'))):
+            return result
+        clients.append({'key': row['key'], 'name': row['display_name'],
+                        'host_reported_installed': row['installed'],
+                        'enabled': row['enabled'], 'custom': row['is_custom'],
+                        'access': 'UNKNOWN', 'adapter': 'UNKNOWN', 'quota_remaining': None})
+    result.update(status='REGISTRY_METADATA', clients=clients)
+    return result
+
+
+def inventory(run, executable, env, excluded=('qwen',), include_openrouter=False):
     """No inference, token files, arbitrary shell, account names or raw auth output."""
     import json
     providers = []
     for cli, login in LOGIN.items():
         row = {'cli': cli, 'installed': shutil.which(cli) is not None,
                'auth': 'UNKNOWN', 'access': 'NOT_PROBED', 'models': [],
-               'quota_groups': [], 'login_action': login, 'quota_remaining': None}
+               'quota_groups': [], 'login_action': login, 'quota_remaining': None,
+               'adapter': 'METADATA_ONLY' if cli in ('agy', 'claude', 'codex', 'opencode') else 'UNVERIFIED'}
         providers.append(row)
         if not row['installed'] or cli in excluded:
             continue
@@ -99,9 +221,20 @@ def inventory(run, executable, env, excluded=('qwen',)):
             output = status.get('stdout', '') + status.get('stderr', '')
             row['auth'] = 'SUBSCRIPTION_LOGIN' if status['exit_code'] == 0 and 'ChatGPT' in output else 'LOGIN_OR_PLAN_REQUIRED'
             row['quota_action'] = 'Current Codex host usage tool or official interactive /status'
+        elif cli == 'opencode':
+            result = probe(['--pure', 'models'])
+            if result['exit_code'] == 0:
+                row['models'] = [{'id': model, 'quality_tier': 'UNASSESSED', 'effort': 'UNKNOWN'}
+                                 for model in result.get('stdout', '').splitlines()
+                                 if re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.:/-]{1,180}', model)]
+                row['catalogue'] = 'CLI_METADATA_VERIFIED'
+            row['quota_action'] = 'Provider-specific official status required; catalogue is not account access'
         else:
             row['quota_action'] = 'Inspect current official CLI status; authentication/remaining quota not inferred from presence'
+    if include_openrouter:
+        providers.append(openrouter_catalogue())
     return {'schema_version': 1, 'captured_at': datetime.now(timezone.utc).isoformat(),
+            'host_clients': host_registry(run, executable, env),
             'providers': providers, 'excluded': list(excluded), 'excluded_model_prefixes': ['claude-'],
             'policy': 'Quota fractions are shared windows, not token counts. Unknown is null. No paid API/credit fallback.'}
 
@@ -127,7 +260,7 @@ def route(snapshot, complexity, reserve=RESERVE, now=None):
                 continue
             group = model_group(model, provider['quota_groups'])
             left = remaining(group)
-            if left is None or left <= reserve:
+            if reserve_decision('worker', left, reserve=reserve) != 'READY':
                 continue
             effort = model.rsplit('-', 1)[-1]
             family = 0 if re.match(r'gemini-[\d.]+-flash-', model) else 1 if model.startswith('claude-sonnet-') else 2 if re.match(r'gemini-[\d.]+-pro-', model) else 3 if model.startswith('claude-opus-') else None
@@ -254,7 +387,7 @@ if __name__ == '__main__':
     prompt = (json.dumps(contract, ensure_ascii=False) + '\n' + prompt +
               '\nSupervisor handoff: ' + json.dumps(selected) +
               '\nUse native tools only within the contract scope. No Brain/git/account/policy writes or nested delegation. '
-              'Publish progress and return task, role, provider_model, effort, state, changed_files, evidence, usage '
+              'Publish progress and return task, role, provider, model, effort, state, changed_files, evidence, usage '
               '(only authoritative counters or null), blockers, next_action as a final JSON response in this terminal. '
               'No writes, including report files. After reporting completion, answer questions without source changes. '
               'The supervisor performs machine verification and fresh independent review; you cannot accept your own work.')
