@@ -44,3 +44,6 @@ Status: CONFIRMED
 - Template tests/analyze/build verified where environment allows.
 
 - Every unavailable acceptance has blocker and next command.
+
+## Confirmed scope extension2026-10-11
+User: "tüm benim yereldeki tüm sistemler ... global olarak kur"; "her zaman ücretsiz ... iOS ... ekran görüntüleri"; "yaşam döngüsü"; "Eski Project Brain ... en azından bunu bana sorsun"; "Türkçe ... neyin ne olduğunu bil"; "ilaç takip uygulaması ... yeni ... repo ... D’de ayrı ... üretim düzeyinde ... hiçbirini atlamadan". Full attachment read; PB012-PB015 enumerate acceptance. Keep app offline by default, no automatic dosing or guaranteed background email claims; local OCR is a user-confirmed draft.

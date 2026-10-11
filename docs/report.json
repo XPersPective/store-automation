@@ -23,33 +23,35 @@
     "factory_stdlib": "53 tests PASS; syntax PASS",
     "workspace": "163 tests PASS: core116, pro23, ads20, examples4; five fatal analyses PASS",
     "local_generated_modes": "Eight modes analyze/test PASS before final branding patch; APK deliberately separate",
-    "final_remote_modes": "Final privacy patch remote free/both_ads/cloud checks running; previous contrast patch free22/both_ads23 PASS",
+    "final_remote_modes": "free22, both_ads23, cloud22 widget tests, fatal analysis and unchanged-source rerun PASS; no local path dependencies",
     "android": {
       "build": "PASS: release-mode local test APK; production signing not verified",
-      "artifact": ".factory/artifacts/premium-final-release.apk",
-      "bytes": 54368288,
-      "sha256": "de703c89ed743a69f5112aa29f60752be773d8d76986283a6ba1f9a9a83d848e",
-      "runtime": "PASS: exact final APK installed and launched on fresh owned API36 emulator; English light and Turkish dark screenshots inspected",
+      "artifact": ".factory/artifacts/premium-final-privacy-release.apk",
+      "bytes": 54368532,
+      "sha256": "16c6f128992081745ad58a5a8dcc56f815172663fdcd62a3930e4bf9a194aafb",
+      "runtime": "PASS exact APK installed/launched; preferences preserved; EN light/TR dark/privacy/licenses/share cancellation and scale2 landscape scrolling/reduced-motion inspected; original settings restored",
       "screenshots": [
         "docs/evidence/premium-android.png",
-        "docs/evidence/premium-tr-dark.png"
+        "docs/evidence/premium-tr-dark.png",
+        "docs/evidence/premium-privacy.png"
       ],
-      "scope": "This APK verifies prior core0.1.1 contrast patch; final core0.1.2 remote APK verification pending."
+      "scope": "Final core0.1.2 remote release-mode test APK, production signing not verified"
     },
     "independent_review": "PASS: 19 privacy and 15 branding tests independently repeated; earlier lifecycle/security findings fixed",
     "gitleaks": "PASS: exact historical public SHA-256 digest false-positive fingerprint suppressed; no broad exclusion",
     "native_agents": "Actual read-only supervisor/worker/fresh-reviewer smoke PASS; owned task server STOPPED; real descendant cleanup checks PASS",
     "native_evidence": "docs/evidence/premium-native.json",
     "root_ci": {
-      "url": "https://github.com/XPersPective/store-automation/actions/runs/38094317649",
-      "commit": "bf7f3ba2c00a4a5e2a68238e66fb73e3ebeb183c",
+      "url": "https://github.com/XPersPective/store-automation/actions/runs/38096595860",
+      "commit": "42fcc0cda7b53485e89af7b8b7fce0fcf19998df",
       "windows_linux": "PASS"
     },
     "source_ci": {
       "url": "https://github.com/XPersPective/napp_kit/actions/runs/38096491598",
       "commit": "028b0ffd4545e62f3af074e0a565abba5998ec73",
-      "status": "IN_PROGRESS",
-      "prior_emulator_failure": "Previous run failed before app install: runner disk insufficient. Native artifact reuse/KVM patch published; no new CI acceptance claimed yet."
+      "status": "PASS",
+      "prior_emulator_failure": "Previous run failed before app install: runner disk insufficient. Native artifact reuse/KVM patch published; no new CI acceptance claimed yet.",
+      "all_five_jobs": "PASS including Android build/core_only/full emulator smoke"
     }
   },
   "sources": {
@@ -69,7 +71,11 @@
       "commit": "f6f715e8d04c1cb3c447fd14fe1c801646a2fb66"
     },
     "starter_code_commit": "4f54561f53119ad03479c97e4097042b9245f0ff",
-    "old_immutable_tags_moved": false
+    "old_immutable_tags_moved": false,
+    "master_checkpoints": {
+      "core": "9bc68ec5ad8cd2aa6c650fcaf9e18249a2d20d89",
+      "starter": "dd833c1f084d17917e6241f5629827195122838a"
+    }
   },
   "external_gates": {
     "PB-002": "macOS/Xcode, real devices, official store/sandbox products and trusted receipt verifier/backend",
@@ -85,5 +91,6 @@
     "No paid AI API, private credential content read, production store/backend operation or signing change performed."
   ],
   "known_nonblocking_warning": "in_app_review uses legacy Kotlin Gradle Plugin integration; current build passes, future Flutter compatibility needs provider migration.",
-  "publishing_source_of_truth": "D:/AppPublishing/README.md"
+  "publishing_source_of_truth": "D:/AppPublishing/README.md",
+  "expanded_scope": "New2026-10-11 request underway in PB012-PB015: all local hosts/localized live output/free iOS CI/maintenance/rebaseline/separate medication app"
 }

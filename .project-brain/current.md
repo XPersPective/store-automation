@@ -29,3 +29,5 @@ Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`,
 - Same-user full-access AI cannot be technically denied private-file access by skill prose. Native credential references reduce exposure; strict isolation requires separately installed identity/broker.
 
 - Latest source core-v1.1.2 privacy patch and CI artifact reuse published; remote/native final verification in PB-010. Global final53-test checkpoint passes and both installed18-file bundles match source.
+
+- Prior premium baseline complete: root53 tests, installed bundles, remote core-v1.1.2 free22/both23/cloud22, exact final Android APK privacy/theme/license/share/large-font checks and all5 source CI jobs PASS. User extension PB012-PB015 now adds all-host install/readable locales, free-only iOS pipeline, maintenance/rebaseline and separate offline medication app. No prior product history imported.
