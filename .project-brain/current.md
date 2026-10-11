@@ -48,3 +48,5 @@ Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`,
 - Stage: Publication; Substage:2.2.0 all-host upgrade and remote release; Next gate: deployed complete resource hashes, public release assets and hosted CI.
 
 - VERIFIED2.2.0 distribution: Skills Manager refreshed canonical skill and41 deployed links, four extra owned CLI roots and global launcher. All23 resource hashes match; release ZIP entries/hash verified.107 tests PASS; independent source review release gates fixed.
+
+- Independent protocol review accepts final executed-attempt identity and explicit free model/effort guards; no source release blockers. PB-025 evidence preserved in35ddc57, finished task removed per protocol.
