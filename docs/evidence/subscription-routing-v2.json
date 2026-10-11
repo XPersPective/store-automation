@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "files_per_host": 23,
+  "manager_targets": 41,
+  "additional_runtime_roots": 4,
+  "all_resource_hashes_match": true,
+  "stdlib_tests": 84,
+  "source_review": "SOURCE_REVIEW_PASS",
+  "claude_routing": "EXCLUDED_USER_NO_TOKENS",
+  "qwen_routing": "EXCLUDED",
+  "model_access": "UNVERIFIED_AFTER_EMPTY_OR_DENIED_PROBES",
+  "codex_sidebar_attachment": "UNVERIFIED_HOST_API_LIMIT",
+  "tokens_complete": false,
+  "usage_unknown": null,
+  "source_ref": "D:\\repositories\\store-otomaston\\.factory\\distribution\\store-automation",
+  "backup_root": "C:\\Users\\rubicon\\.skills-manager\\backups\\store-automation-2.0.0"
+}

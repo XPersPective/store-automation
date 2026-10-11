@@ -60,7 +60,7 @@ uygulamam/
   lib/, test/, ...      # uygulamanın kodu
 ```
 
-Başka projenin görevleri veya oturumları taşınmaz. `adopt` yalnız mevcut projeyi yükler. `bootstrap <yeni-klasör> --name "Ad" --package com.example.ad --ads no --pro no` açıkça seçilmiş yeni klasör oluşturur; mevcut projeyi ezmez. Yeni projeler normalde Factory’nin altında değil, diğer projelerin yanında tutulur.
+Başka projenin görevleri veya oturumları taşınmaz. `adopt` yalnız mevcut projeyi yükler. `bootstrap <yeni-klasör> --name "Ad" --package com.example.ad --platform windows --ads no --pro no` açıkça seçilmiş yeni klasör oluşturur; mevcut projeyi ezmez. Yeni projeler normalde Factory’nin altında değil, diğer projelerin yanında tutulur.
 
 ## Şablon ve yayın
 
@@ -98,3 +98,8 @@ CI, haricî hesap/SDK gerektirmeyen süreç ve yayın kontrollerini çalıştır
 Global yükleyici kurulu araçların resmî skill yollarını keşfeder; `python tool/install-skill.py --list` önizler, argümansız yükleyici bütün doğrulanmış hedefleri kurar. Claude, Gemini, Qwen, OpenCode, Codex, MiniMax, MiMo, Antigravity ve ortak agents keşfi desteklenir. Sadece klasör izi kurulum kanıtı sayılmaz; bilinmeyen araç için dizin uydurulmaz.
 
 Canlı durum varsayılan olarak Türkçedir: **Yönetici / Uygulayıcı / İnceleyen**. `--language en` İngilizce, `--json` makine çıktısı verir. Eski planı koruyarak sürdürmek veya yedekleyip yeniden denetlemek için [yaşam döngüsü](skills/store-automation/references/lifecycle.md); ücretsiz iOS derleme/ekran kanıtı ve güncel mağaza kapıları için [iOS rehberi](skills/store-automation/references/ios-ci.md).
+
+
+Store Automation 2.0.0: uzman görev/persona ve sonuç sözleşmesi, resmi CLI envanteri, taze ortak kota pencereleri ve risk tabanlı model/efor seçimi. `providers --scan`, `route --inventory` ve `usage --record ... --expected ...` bilinmeyen erişim/kullanımı başarı saymaz. Claude ve Qwen mevcut kullanıcı tercihleriyle kapalıdır. Dağıtım merkezi Skills Manager üzerinden yapılır; kaynak paket `python tool/install-skill.py --target .factory/distribution/store-automation` ile güncellenir, sonra `skills-manager-cli skills update store-automation` dağıtımları yeniler. Template/core reposu bu pakete alınmaz.
+
+Gerçek Codex sağ panel ajan terminali bağlantısı PB-019 altında doğrulanmamıştır. Dış Windows Terminal yalnız açıkça seçilen alternatiftir ve bu şartı karşılamaz. Antigravity yeni native adapteri doğrulanmamış yazma scope'unu reddeder; erişim probe'u görev yeteneği/başarısı değildir. Mevcut host uzmanları kaynak işi için kullanılabilir; UI/hesap kanıtı ayrıca gerekir.

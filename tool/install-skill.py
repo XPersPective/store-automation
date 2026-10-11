@@ -61,7 +61,7 @@ def plain_path(path):
 def files():
     result = {p.relative_to(SOURCE / 'skills/store-automation').as_posix(): p
               for p in (SOURCE / 'skills/store-automation').rglob('*') if p.is_file()}
-    names = ['tool/factory.py', 'tool/release.py', 'tool/sessions.py', 'tool/ios-evidence.py', 'opencode.json', 'contracts/capabilities.json',
+    names = ['tool/factory.py', 'tool/release.py', 'tool/sessions.py', 'tool/subscriptions.py', 'tool/ios-evidence.py', 'opencode.json', 'contracts/capabilities.json',
              'contracts/delegation-smoke.json', 'docs/services.md', 'docs/roadmap.md']
     names += [p.relative_to(SOURCE).as_posix() for directory in ('prompts', 'skills')
               for p in (SOURCE / '.opencode' / directory).rglob('*') if p.is_file()]

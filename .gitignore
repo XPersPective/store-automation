@@ -14,3 +14,4 @@ tests/fastlane/fastlane/report.xml
 tests/fastlane/fastlane/README.md
 
 .factory/artifacts/
+.factory/distribution/
