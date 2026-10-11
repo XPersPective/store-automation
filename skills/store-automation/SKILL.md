@@ -2,7 +2,7 @@
 name: store-automation
 description: Develop, inspect, repair and prepare Flutter mobile apps with project-owned Project Brain state, sequential implementation and independent review. Use for the user's app-factory/store-automation workflow in Codex or OpenCode.
 metadata:
-  version: "2.0.0"
+  version: "2.0.1"
 ---
 
 # Store Automation
@@ -39,7 +39,7 @@ Global shell entry point: `store-automation` loads/adopts the current project an
 
 This user requests Codex's own right sidebar terminals and native agents; follow [live agents](references/live-agents.md). External Windows Terminal is an explicit alternative, not proof of Codex visibility. `activity` shows durable execution state and measured usage. Other hosts use their native agent interfaces; do not fabricate an OpenCode session for them. `providers --scan --output .factory/runs/inventory.json` refreshes official public help/auth/models/quota evidence without credential reads; installation alone proves no access.
 
-User communication follows their selected language (Turkish here); technical task contracts may remain English. Use `--language tr|en` on start/run/activity/sessions. Human status is default for live/activity output, with roles YÃ¶netici / UygulayÄ±cÄ± / Ä°nceleyen; `--json` preserves structural machine output. Provider conversations are instructed to use the language, never presented as automatically translated. Process completion, agent verdict and final acceptance remain separate.
+User communication follows their selected language (Turkish here); technical task contracts may remain English. Use `--language tr|en` on start/run/activity/sessions. Human status is default for live/activity output, with roles Yönetici / Uygulayıcı / İnceleyen; `--json` preserves structural machine output. Provider conversations are instructed to use the language, never presented as automatically translated. Process completion, agent verdict and final acceptance remain separate.
 
 - `<cli> open`: launch the three OpenCode roles in the current project. `/factory-start <idea>`, `/factory-resume`, `/factory-audit` are provided in that session. Project/global OpenCode config files are not rewritten.
 - `<cli> brain boot`, `<cli> brain new . "task title"`: canonical local task state. Genesis uses the Project Brain skill directly.

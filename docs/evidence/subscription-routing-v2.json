@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.0.1",
   "files_per_host": 23,
   "manager_targets": 41,
   "additional_runtime_roots": 4,
