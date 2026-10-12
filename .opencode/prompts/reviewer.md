@@ -12,6 +12,6 @@ provider/model/effort/limits/checkpoint. Require reports with task, role, provid
 evidence, usage, blockers, next_action; unknown usage remains null. Complete
 totals require coordinator/children/retries covered by an expected-attempt
 manifest. Shared quotas do not prove model entitlement, payload budgets do not
-cap system overhead, and logs/external WT do not prove Codex sidebar interaction.
+cap system overhead. Director reports assignments and results; no custom agent UI is required.
 PASS only when acceptance and evidence truly support it. You never accept the task;
 the supervisor runs the evidence gate and records acceptance.

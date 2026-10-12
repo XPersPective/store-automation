@@ -28,7 +28,8 @@ Komut, bulunduğun klasörü seçer. Brain varsa yükler; yoksa mevcut dosyalar�
 
 ```mermaid
 flowchart LR
-    A[Mevcut projeyi tara / Brain yükle] --> B[Görev + kapsamlı persona]
+    A[Brain yükle] --> K[Kalıcı katalog + taze kota]
+    K --> B[Risk + görev + kapsamlı persona]
     B --> C[Uygun doğrulanmış araç / model]
     C --> D[Sıralı uygulama]
     D --> E[Makine kontrolleri]
@@ -39,16 +40,18 @@ flowchart LR
 
 Basit doğrulamalar önce betiklerle yapılır. Model ve persona ayrı seçilir; kalite eşiği token tasarrufu için düşürülmez. Kota/hata sonrası değişiklikler uzlaştırılmadan görev başka modele körlemesine aktarılmaz. Bir projede tek Brain ve tek otomatik uygulama görevi vardır.
 
-## Ajanları gör ve müdahale et
+## Katalog ve ajan bildirimleri
 
-OpenCode görev çalıştırıcısında `run --visible`, gerçek oturumlar için Windows Terminal bölmeleri açar. Yönetici, çalışan ve inceleyen ayrı native oturumlardır; ajanlar durumlarını ana yöneticiye bildirir. Görev tamamlandığında yalnız o görevin sunucusu kapanır, oturum geçmişi ve kanıtlar kalır.
+İlk çağrıda `.factory/model-catalogue.json` oluşturulur; sonraki oturumlar aynı model havuzunu kullanır. Yeni model/araçlar yalnız açık yeniden tarama isteğiyle alınır. Her görev öncesi kota ve oturum erişimi tazelenir; eski katalogdaki kota yetki sayılmaz. Katalog bozuksa otomatik yeniden taramak yerine açık onarım komutu gösterilir.
 
 ```powershell
+store-automation providers --catalogue
+# Yalnız yeniden taramak istediğinde:
+store-automation providers --scan
 store-automation activity
-store-automation providers
 ```
 
-`activity` görev/persona rolü, sağlayıcı/model, süreç durumu ve sağlayıcının bildirdiği token kullanımını gösterir. Bilinmeyen kota ve kullanım alanları bilinmeyen kalır. Codex/Claude/Gemini oturumları kendi native arayüzlerinden izlenir; OpenCode’a zorunlu bağımlılık yoktur. [Canlı ajanlar ve müdahale](skills/store-automation/references/live-agents.md).
+Yönetici işe başlamadan rolü, görevi, sağlayıcı/model/eforu, seçim nedenini ve bütçeyi bildirir. İşin riskine yeten en hafif model seçilir; yöneticinin kendi model ailesi de havuzdadır. Aktif sohbet modeli değiştirilemiyorsa uygun uzman iş alır. Özel ajan paneli, tarayıcı konsolu ve otomatik terminal bölmeleri kaldırıldı. `console` ve `native` komutları artık yoktur.
 
 ## Projeye ait dosyalar
 
@@ -100,39 +103,10 @@ Global yükleyici kurulu araçların resmî skill yollarını keşfeder; `python
 Canlı durum varsayılan olarak Türkçedir: **Yönetici / Uygulayıcı / İnceleyen**. `--language en` İngilizce, `--json` makine çıktısı verir. Eski planı koruyarak sürdürmek veya yedekleyip yeniden denetlemek için [yaşam döngüsü](skills/store-automation/references/lifecycle.md); ücretsiz iOS derleme/ekran kanıtı ve güncel mağaza kapıları için [iOS rehberi](skills/store-automation/references/ios-ci.md).
 
 
-Store Automation 2.2.0: uzman görev/persona ve sonuç sözleşmesi, resmi CLI envanteri, taze ortak kota pencereleri ve risk tabanlı model/efor seçimi. `providers --scan`, `route --inventory` ve `usage --record ... --expected ...` bilinmeyen erişim/kullanımı başarı saymaz. Claude ve Qwen mevcut kullanıcı tercihleriyle kapalıdır. Dağıtım merkezi Skills Manager üzerinden yapılır; kaynak paket `python tool/install-skill.py --target .factory/distribution/store-automation` ile güncellenir, sonra `skills-manager-cli skills update store-automation` dağıtımları yeniler. Template/core reposu bu pakete alınmaz.
+Store Automation **2.4.0**: zorunlu Brain → kalıcı katalog → taze hesap/kota → risk ve kalite → açıklanan uzman ataması → makine kontrolü → bağımsız inceleme → kabul protokolü.
 
-Gerçek Codex sağ panel ajan terminali bağlantısı PB-019 altında doğrulanmamıştır. Son kullanıcı talebi güzel Windows Terminal konsoluna izin verir; değişken ajan sayısı, kalıcı başlıklar ve koyu hazır tema desteklenir. Bu ayrı Codex panel bağlantısının kanıtı değildir. Antigravity yeni native adapteri doğrulanmamış yazma scope'unu reddeder; erişim probe'u görev yeteneği/başarısı değildir. Mevcut host uzmanları kaynak işi için kullanılabilir; UI/hesap kanıtı ayrıca gerekir.
+Uçtan uca ürün, ön yüz/arka uç, mağaza ve pazarlama teslimleri için [ürün teslim protokolü](skills/store-automation/references/product-delivery.md); mimari eleştiri ve düzeltme döngüsü için [bağımsız mimari inceleme](skills/store-automation/references/architecture-review.md).
 
+Desteklenen otomatik görev yolu resmî Codex aboneliğiyle salt okunur kaynak aktarımıdır. Uygulama yazımı doğrulanmış host kapsamı veya yöneticinin uyguladığı incelenmiş patch gerektirir. Diğer sağlayıcıların model keşfi hesap/araç/kota yetkisi değildir; doğrulanmamış otomatik yollar engellenir. Mağaza yayını seçilmiş uygulama/hesap/işlem yetkisi ve gerçek dış sistem kanıtı ister. “Yerel test geçti” yayın veya pazarlama başarısı anlamına gelmez.
 
-2.1.0: her skill başlangıcında otomatik CLI/abonelik/ücretsiz/API katalog araştırması,
-koordinatör+çalışan kota kontrolü; platform/mağaza/ücret/reklam yerleşimi/lisans/hariç
-özellik/veri/billing intake, ürün ana-alt aşamaları ve devir checkpoint'i. `providers
---scan` OpenCode ve opsiyonel OpenRouter güncel metadata listelerini okur;
-`--local-only` uzak kataloğu atlar. Model listesi erişim veya kalite kanıtı değildir.
-Paylaşım/lisans gibi generator switch'i olmayan tercihler uygulama görevine dönüşür.
-Bootstrap seçilen platformu gerçekten generator'a iletir; yeni kaynakta Windows-only
-üretim kontrolü vardır. 2.2.0 desteklenen OpenCode mesaj aktarımını ve Codex kota adapterini ekler; diğer hesapların adapterleri ve native görsel kabul kapısı açık kalır.
-
-
-2.2.0 çalıştırılabilir kapılar: başlangıçta otomatik katalog taraması ve taze Codex
-model/efor/ortak kota; AGY+Codex yönlendirme; dönen görev raporunun şema/kimlik
-kontrolü; OpenCode native mesaj/durdurma ve yöneticinin sonraki turuna noReply
-bildirim aktarımı. Bilinmeyen hesap/transport desteği kullanılır kabul edilmez.
-`start --host auto` uygun doğrulanmış koordinatörü seçer; `open` taramadan sonra
-OpenCode TUI açar, kendiliğinden görev çıkarımı başlatmaz. Yayın paketi runtime'ı
-birlikte taşır, napp temaları dış kaynakta kalır.
-
-2.3.0 kullanımı: Codex konuşmasında **`$store-automation`** çağırın; diğer araçlarda skill menüsünden `store-automation` seçin. Project Brain otomatik yüklenir, ayrıca çağırmanız gerekmez. Project Brain hafıza ve kabul kayıtlarını, Store Automation CLI keşfi, görev dağıtımı ve görünürlüğü yönetir.
-
-Gerçek CLI ajanı ve görsel kontrol:
-
-```powershell
-store-automation console --open-browser --contract contracts/<gorev>.json --prompt-file contracts/<gorev>.txt
-store-automation artifact --path output/playwright/<ekran>.png --source "gercek emulator/derleme kaydi" --task PB-NNN
-store-automation handoff --contract contracts/<gorev>.json --attempt .factory/runs/assignment-<id>.json --next-action "Siradaki somut kontrol"
-```
-
-Panel gerçek Codex app-server oturumuna mesaj/durdurma gönderir; model/efor, ölçülen kullanım, ortak kota ve müdahale alındılarını gösterir. Direktör mevcut konuşmadır. Kaynak yazımı için doğrulanmış wrapper veya direktörün uyguladığı patch gerekir. MiniMax/Kimi katalog keşfi hesap erişimi ve kota kanıtı değildir; doğrulanmayan hesaplar otomatik ücretli çıkarıma açılmaz. Codex sağ panel terminal bağlantısı ayrı ve henüz doğrulanmamış bir host özelliğidir; tarayıcı paneli bunun yerine kullanılabilir. Telefon eşleştirmesi ertelenmiştir; mevcut uzaktan konsol tarayıcıyı gösterebilir.
-
-Yükseltme: mevcut Skills Manager kaydında `skills-manager-cli --json skills update store-automation`. Proje kaynakları ve Brain kayıtları korunur; owned-manifest runtime yükselticisi değiştirilmiş/sahipsiz dosyaları ezmeyi reddeder. **Yeni oturum** güncellenen skill metnini yükler.
+Dağıtım Skills Manager merkezinden yönetilir; şablon/core depoları skill paketine alınmaz. Eski iş logları skill içine taşınmaz; tarihçe Git ve ayrı kanıtlardadır.

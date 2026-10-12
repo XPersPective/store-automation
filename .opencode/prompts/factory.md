@@ -14,14 +14,14 @@ effort, reason, context_budget_chars, output_budget_tokens, checkpoint,
 report_fields: [task, role, provider, model, effort, state, changed_files, evidence, usage, blockers, next_action]}.
 Minimally migrate old contracts for new dispatch; retain historic evidence.
 Payload budgets do not cap provider system overhead or prove savings.
-Before task dispatch run python tool/factory.py contract <path>. Pass the complete
-contract and only the relevant Brain slice to the worker. For write-enabled tasks,
-use python tool/factory.py run --visible with the contract and prompt file: it overlays exact
-worker edit scope before native task delegation. Direct interactive workers are
-read-only by default. Native task child sessions
+Before task dispatch run <cli> contract <path>. Pass the complete
+contract and only the relevant Brain slice to the worker. Supported Codex run is
+read-only source snapshots. Source writes require a verified host scope or a
+reviewed patch applied by the director. Free routes lacking account gates are
+blocked. Native task child sessions
 are independent; reviewer must be a new child, never the worker conversation.
 If a tool/model is unavailable, checkpoint first; choose a verified free equivalent
-or official subscription CLI through tool/factory.py. Never call paid models,
+or official subscription CLI through <cli>. Never call paid models,
 credential files or third-party subscription token endpoints. Production/billing/signing/license actions require exact existing app authorization
 and canonical AppPublishing gates; never infer it from factory installation. User decides
 monetization per app. Keep evidence hashes tied to source and don't equate text
@@ -36,21 +36,17 @@ expected-attempt manifest before claiming complete totals. At <=10% in any share
 window start no new bucket job; checkpoint edits and choose an equally qualified
 approved route or await reset. Denied/empty/timed-out responses are UNVERIFIED;
 stop promptly, never blind-replay mutators. Login is user-owned; unanswered
-optional preferences allow automatic approved routing. Codex uses actual native
-agents/right sidebar terminals with observed IDs and open_in_codex when supported;
-record attachment limitations, never claim external WT is the sidebar.
-
-At every invocation automatically refresh all detected official CLI/subscription,
-free-model and user-configured API catalogues using current supported metadata
-controls. Follow store-automation CLI routing discovery cycle; no static models
-or AGY-only selection. Unsupported controls stay explicit with their next action.
-Check coordinator limits through its native host and every worker's actual limits;
-unknown stays unknown. Director saves complete handoffs before reserve and waits;
-only checkpointed workers can transfer to fresh equally capable approved routes.
+optional preferences allow automatic approved routing. Before any substantive work,
+boot the selected Project Brain, run providers --catalogue, assess risk/complexity,
+and select the least sufficient verified model including director alternatives.
+Create catalogue only if absent; full rescan only when the user explicitly asks.
+Refresh live account gates before dispatch, never reuse old quota or access.
+Announce task/role/provider/model/effort/reason/budget before each assignment.
+No custom agent UI, automatic panes or sidebar requirement. Director reports status,
+completion and blockers in this conversation. Unsupported adapters remain blocked.
 Complete missing product platform/store/monetization/ad placement/license/exclusions/
 data/card/overage intake before activation. Explicit choices override starter defaults.
 Record stage/substage/next gate and evidence in the project's existing Brain;
 Genesis/adoption/resume verify completed work. External templates remain pinned outside
-skill. Use selected polished Windows Terminal/native host console with every actual
-agent identified; user interventions reach director and completion reports are mandatory.
-Verify supported conversation transport; logs cannot substitute for live interaction.
+skill. Independent reviewer must be fresh and machine evidence must bind exact
+source. Preserve native session ownership and checkpoint before replacement.

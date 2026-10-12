@@ -1,0 +1,68 @@
+{
+  "version": "2.4.0",
+  "date": "2026-10-12",
+  "repository_visibility": "private",
+  "stdlib_tests": 130,
+  "syntax": "PASS",
+  "native_configuration": "PASS",
+  "independent_reviews": {
+    "initial": "four concrete blockers corrected",
+    "second": "no substantiated runtime blockers; readonly prompt corrected",
+    "official_cli": {
+      "provider": "codex",
+      "model": "gpt-5.6-sol",
+      "effort": "high",
+      "scope": "focused final non-Codex inference denial boundary",
+      "state": "COMPLETED",
+      "blockers": [],
+      "source_hash_rechecked": true,
+      "input_tokens": 16864,
+      "output_tokens": 457,
+      "cache_read_tokens": 11264
+    },
+    "earlier_official_attempt": "UNVERIFIED: invalid report shape and incomplete source slice; never accepted. Full source/caller review performed independently."
+  },
+  "distribution": {
+    "managed_targets": 41,
+    "extra_owned_targets": 4,
+    "resources_per_target": 28,
+    "hashes_match": true,
+    "retired_ui_absent": true
+  },
+  "limits": [
+    "Other provider account/billing/quota and contained app-write adapters remain gated",
+    "Active conversation model change requires native handoff",
+    "Real selected app/backend/store/device/media publication requires separate evidence",
+    "No universal or perfect product/marketing success claim"
+  ],
+  "source_sha256": {
+    "SKILL.md": "42df19d7a3b235ced37258dc8bed2b67230b3fa1cbc25dad4a26eac0a3f3fc1d",
+    "assets/ios-simulator.yml": "c52896014a905c80d15416cfb401a99304d96e8d016a3c5a8eae89c6648b52d2",
+    "references/architecture-review.md": "aa7ca30ac9a06b1b123f210c05a5eb8387a4fa89d20fec47498b16a77a665baa",
+    "references/cli-routing.md": "664bbf26bb5bf71e655d2d2b4b083c62a411063612d486cf13390c9cc7258c10",
+    "references/ios-ci.md": "0e1a4b0242671893f876ec311e2cbffb491a8b1b342022ef8dbcd93500cff267",
+    "references/lifecycle.md": "387847fd2d1fdc064d6c2aafeec6c5b302a4c67a7894eba55c5fcfab4f549d59",
+    "references/live-agents.md": "17073af99a2cef806a218b15e630f9fe78f301557b74a4e200c1808bbf002723",
+    "references/product-delivery.md": "37315bc5e71ba9d60b7ccfe640ad983947168e48701ff13a8dfb99eb0117f634",
+    "references/publishing.md": "c401e105d91b0c46f9bcc613a5fd7289615bf10c0652a7444b0e7614c43d2273",
+    "references/task-personas.md": "48c52628f0be8ae27909915baa5122d2e3c221f4933a1e21ca2f167fd85ad9b0",
+    "runtime/tool/factory.py": "9ac506f4e2c32990b5e1363e8562dbcd3b99c086e61ca777ae9e18b6af0ba058",
+    "runtime/tool/release.py": "9202693fdb3898373c9a2b7830bbe7180a6932a6cee606e1c96d04c4aab4d1c7",
+    "runtime/tool/sessions.py": "debc0392c6968451b31136954f4ec5ba3d1e1f819c1b091af7e3d522eb6bf0a2",
+    "runtime/tool/subscriptions.py": "cd2df97f085f7f7238eea52c44587f4c09c34e00a4655c1ee4a560daef3692cb",
+    "runtime/tool/dispatch.py": "69492ea8f91313269bad63d9a6b876072f63fabe0e012c93764f62cbdf571b6a",
+    "runtime/tool/native_agents.py": "986c8a767c9453a0c25cc329f075e5f4ccc471bdc008192379aa7b6f59d7bedc",
+    "runtime/tool/artifacts.py": "126cca3d94d64e6c3107b06d280df9192503110656f58050df606280c1854a08",
+    "runtime/tool/ios-evidence.py": "316d8b2e710c1938eb4defac347d51167f63566408467e26cafc935bec9fa1e3",
+    "runtime/opencode.json": "9bc6ab272cd6c692789591385e3868363aa5427f8ce1c56a5633be4d09ba22c5",
+    "runtime/contracts/capabilities.json": "8663290a8467b60ac42fc4e3b7d7c129bd94d88173c444e8e4de303c8b4c6e9b",
+    "runtime/contracts/delegation-smoke.json": "3e5a041492eb4497b27863cbe0e35b29e637def71766a89fbb7db8899fc345fe",
+    "runtime/docs/services.md": "1d734369e1a29a7b45263e10a59f95030869c72294bee1f5c6786381ec9650df",
+    "runtime/docs/roadmap.md": "ce3c8e17ab50969037de9beafc6e9fc8337fa3cf3cc689c9fecd8976505a36e6",
+    "runtime/.opencode/prompts/factory.md": "5ea823fbf21c1ef181a9b4d44f7a1656074abc536520d18d630d0912680a9f8f",
+    "runtime/.opencode/prompts/reviewer.md": "2e7ef0317710ca3fa6840455c0bf16071c31495cbf70b97577fa56df355bff13",
+    "runtime/.opencode/prompts/worker.md": "bbe2748548e65b08fe18e205039a27db2c7d1544100a8347642cf3018a36930d",
+    "runtime/.opencode/skills/app-factory/SKILL.md": "46fd890a0e06805cd4dbf7b31f66b4302a995ed37913c8da4fe74b2e893e0f79",
+    "runtime/.opencode/skills/factory-release/SKILL.md": "0c1ad286c32baab302ddceaac100cb4c5a8bbd3c7cf4218e73452355f1d14a58"
+  }
+}
