@@ -2,10 +2,22 @@
 name: store-automation
 description: Build, adopt, verify, publish and maintain Flutter mobile, Windows and web apps through project-owned Project Brain and supervised specialist agents. Use for the app-factory/store-automation workflow.
 metadata:
-  version: "2.2.0"
+  version: "2.3.0"
 ---
 
 # Store Automation
+
+## Single entry and visible work
+
+The user invokes **only `$store-automation`**, or selects `store-automation` in the host's skill/slash menu. Load Project Brain internally; never require two manual invocations. Project Brain owns memory and acceptance; this skill owns CLI discovery, task distribution, native execution and visibility. Keep these separate reusable skills with this single entry.
+
+After Brain boot, perform automatic installed-client/model/effort/account discovery before routing. Delegate bounded repository rescans, evidence collection and routine investigation to the lowest sufficient verified model; deterministic machine checks need no model. The current director's own cheaper CLI models participate in the same pool. High-risk tasks preserve a strong quality floor even when their diff is small. A lower-capability director delegates architecture to a stronger verified specialist when necessary. Record task, risk, selection reason, soft token budget and measured usage for every attempt. Never equate model presence, an ACK or a completed process with accepted work.
+
+When starting from an existing GUI conversation, keep that conversation as director and start `<cli> console --open-browser --contract contracts/<task>.json --prompt-file contracts/<task>.txt` for the native workers. The responsive authenticated browser panel displays actual CLI tasks, models/effort, quota and public messages, and supports native message/interrupt. Open the provided local URL in a supported host browser when possible; default browser is the verified fallback. Do not claim a Codex terminal sidebar attachment unless that host reports one. The console is a real native CLI transport, not a simulated task list. Additional contracted tasks may use repeated flags; shared account admission serializes outstanding inference. Unsupported providers stay explicit metadata-only entries until billing, quota, capability and permission controls are verified.
+
+Before switching directors, run `<cli> handoff --contract contracts/<task>.json --attempt .factory/runs/assignment-<id>.json --next-action "concrete next check"`. Boot the same Brain, inspect hashes/partial work and reconcile the first unchecked acceptance on takeover. Expired quota becomes waiting/reset state; a replacement must meet the same risk/quality floor and verified account gates. Never blindly replay an interrupted write. Windows stale native controller locks are recovered only after proving owner and recorded workers absent; denied inspection keeps the lock.
+
+After a real emulator/build/browser capture, register it using `<cli> artifact --path <project-relative-image> --source "capture tool/run" --task PB-NNN`. The panel serves only listed images whose byte hashes still match. Inspect the image and record build/source/device provenance separately: declared manifest provenance is not proof of a successful emulator build. Phone connection/pairing is deferred; reuse the user's existing remote console without exposing an unauthenticated listener.
 
 Work in the selected application's own directory and Git repository. This skill supplies reusable tools; the tool-development repository is never the application's task store. Existing projects stay where they are. New products normally live beside other projects (for this user, D:/repositories/<app>), not inside store-otomaston. Never move an existing project to adopt the skill.
 

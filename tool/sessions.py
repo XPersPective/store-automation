@@ -194,8 +194,11 @@ class ProcessTree:
                 raise OSError('Cannot enforce process-tree containment')
 
     def spawn(self, argv, **kwargs):
+        before_resume = kwargs.pop('before_resume', None)
         if os.name != 'nt':
             self.proc = subprocess.Popen(argv, start_new_session=True, **kwargs)
+            if before_resume:
+                before_resume(self.proc)
             return self.proc
         from ctypes import wintypes as w
         k = self.kernel
@@ -205,6 +208,8 @@ class ProcessTree:
         try:
             if not process or not k.AssignProcessToJobObject(self.job, process):
                 raise OSError(ctypes.get_last_error(), 'Cannot assign suspended process to owned job')
+            if before_resume:
+                before_resume(self.proc)
             class ThreadEntry(ctypes.Structure):
                 _fields_ = [('size', w.DWORD), ('usage', w.DWORD), ('thread', w.DWORD),
                             ('owner', w.DWORD), ('base', w.LONG), ('delta', w.LONG), ('flags', w.DWORD)]

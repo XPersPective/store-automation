@@ -37,6 +37,11 @@ class FactoryChecks(unittest.TestCase):
         bundled.start()
         self.addCleanup(bundled.stop)
         self.contract = factory.load(factory.ROOT / 'contracts/delegation-smoke.json')
+        admit = factory.authority.admit
+        isolated = patch.object(factory.authority, 'admit',
+            side_effect=lambda selected, project, attempt: admit(selected, project, attempt, root / 'admission'))
+        isolated.start()
+        self.addCleanup(isolated.stop)
 
     def test_sensitive_inputs_refused(self):
         for name in ('service-account-prod.json', 'keys/signing.PEM', 'id_ed25519', 'app-ids.env', 'key.properties', 'upload.p12'):

@@ -123,4 +123,16 @@ bildirim aktarımı. Bilinmeyen hesap/transport desteği kullanılır kabul edil
 OpenCode TUI açar, kendiliğinden görev çıkarımı başlatmaz. Yayın paketi runtime'ı
 birlikte taşır, napp temaları dış kaynakta kalır.
 
-Yükseltme: mevcut Skills Manager kaydında `skills-manager-cli skills update store-automation --json`. Proje kaynakları ve Brain kayıtları korunur; owned-manifest runtime yükselticisi değiştirilmiş/sahipsiz dosyaları ezmeyi reddeder. Yeni oturum skill sürümünü yeniden yükler.
+2.3.0 kullanımı: Codex konuşmasında **`$store-automation`** çağırın; diğer araçlarda skill menüsünden `store-automation` seçin. Project Brain otomatik yüklenir, ayrıca çağırmanız gerekmez. Project Brain hafıza ve kabul kayıtlarını, Store Automation CLI keşfi, görev dağıtımı ve görünürlüğü yönetir.
+
+Gerçek CLI ajanı ve görsel kontrol:
+
+```powershell
+store-automation console --open-browser --contract contracts/<gorev>.json --prompt-file contracts/<gorev>.txt
+store-automation artifact --path output/playwright/<ekran>.png --source "gercek emulator/derleme kaydi" --task PB-NNN
+store-automation handoff --contract contracts/<gorev>.json --attempt .factory/runs/assignment-<id>.json --next-action "Siradaki somut kontrol"
+```
+
+Panel gerçek Codex app-server oturumuna mesaj/durdurma gönderir; model/efor, ölçülen kullanım, ortak kota ve müdahale alındılarını gösterir. Direktör mevcut konuşmadır. Kaynak yazımı için doğrulanmış wrapper veya direktörün uyguladığı patch gerekir. MiniMax/Kimi katalog keşfi hesap erişimi ve kota kanıtı değildir; doğrulanmayan hesaplar otomatik ücretli çıkarıma açılmaz. Codex sağ panel terminal bağlantısı ayrı ve henüz doğrulanmamış bir host özelliğidir; tarayıcı paneli bunun yerine kullanılabilir. Telefon eşleştirmesi ertelenmiştir; mevcut uzaktan konsol tarayıcıyı gösterebilir.
+
+Yükseltme: mevcut Skills Manager kaydında `skills-manager-cli --json skills update store-automation`. Proje kaynakları ve Brain kayıtları korunur; owned-manifest runtime yükselticisi değiştirilmiş/sahipsiz dosyaları ezmeyi reddeder. **Yeni oturum** güncellenen skill metnini yükler.

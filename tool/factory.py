@@ -14,8 +14,10 @@ import zipfile
 
 try:
     from . import sessions, subscriptions
+    from . import dispatch as authority
 except ImportError:
     import sessions, subscriptions
+    import dispatch as authority
 
 BUNDLE = Path(__file__).resolve().parents[1]
 ROOT = Path.cwd().resolve()
@@ -98,6 +100,8 @@ def validate_contract(data):
         raise ValueError('Valid effort and positive context/output budgets required')
     if data.get('complexity', 'COMPLEX') not in ('SIMPLE', 'STANDARD', 'COMPLEX', 'SPECIALIZED'):
         raise ValueError('Invalid task complexity')
+    if data.get('risk', 'HIGH') not in ('LOW', 'MEDIUM', 'HIGH'):
+        raise ValueError('Invalid task risk')
     ranges = data.get('context_ranges', {})
     if (not isinstance(ranges, dict) or any(name not in data['context'] or not isinstance(bounds, list) or
             len(bounds) != 2 or any(not isinstance(n, int) or isinstance(n, bool) for n in bounds) or
@@ -197,7 +201,7 @@ def executable(name):
 def clean_ai_env(env):
     # Auth remains in each official CLI; never inspect or transfer its tokens.
     return {k: v for k, v in env.items() if not re.search(
-        r'OPENAI|ANTHROPIC|AZURE|BEDROCK|VERTEX|OPENCODE_CONFIG|OPENCODE_MODEL|GEMINI|GOOGLE_API_KEY', k, re.I)}
+        r'OPENAI|ANTHROPIC|AZURE|BEDROCK|VERTEX|OPENCODE_CONFIG|OPENCODE_MODEL|GEMINI|GOOGLE_API_KEY|API_?KEY|MCODE_PROVIDER|FACTORY_CONSOLE|CONTROL_TOKEN', k, re.I)}
 
 
 def native_env(overlay=None, language='tr'):
@@ -463,7 +467,8 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
         if auth['exit_code'] or 'ChatGPT' not in auth['stdout'] + auth['stderr']:
             raise RuntimeError('BLOCKED: official Codex ChatGPT login required; API login refused')
         snapshot, inventory_path = startup_inventory()
-        selected = next((entry for entry in subscriptions.route(snapshot, task.get('complexity', 'COMPLEX'))['candidates']
+        complexity = authority.required_complexity(task)
+        selected = next((entry for entry in subscriptions.route(snapshot, complexity)['candidates']
                          if entry['provider'] == 'codex' and all(task['delegation'][key] in ('auto', entry[key])
                          for key in ('model', 'effort'))), None)
         if selected is None:
@@ -498,10 +503,16 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
                   json.dumps(snapshots, ensure_ascii=False)
         if len(payload) > task['delegation']['context_budget_chars']:
             raise ValueError('Actual snapshot input exceeds context budget; select context_ranges')
-        result = sessions.stream_run(argv, ROOT, env, timeout=timeout,
+        assignment_path, assigned = authority.assignment(ROOT, task, selected, digest_file(contract), surface='snapshot-stream')
+        with authority.admit(selected, ROOT, assigned['attempt']):
+            result = sessions.stream_run(argv, ROOT, env, timeout=timeout,
                    metadata={'provider': provider, 'model': selected['model'], 'effort': selected['effort'], 'task_id': task['task_id'], 'role': task['persona']['role'], 'language': language},
                    emit=lambda event: print(json.dumps(event) if json_output else sessions.format_public(dict(event, role='factory-reviewer'), language), file=sys.stderr, flush=True),
                    input_text=payload)
+        assigned.update(state='FINISHED' if result.get('exit_code') == 0 else 'FAILED', finished_at=time.time(),
+                        lifecycle=result.get('lifecycle'), usage=result.get('reported_usage'))
+        authority.atomic(assignment_path, assigned)
+        result['assignment'] = str(assignment_path)
         result['source_snapshots'] = [{'path': item['path'], 'sha256': item['sha256']} for item in snapshots]
         result['selected'] = selected
         result['inventory'] = str(inventory_path)
@@ -795,6 +806,19 @@ def main():
     source_parser = commands.add_parser('sources', help='Inspect reusable external checkouts without bundling or modifying them')
     source_parser.add_argument('--check-updates', action='store_true', help='Query upstream HEAD without pulling or rewriting the checkout')
     commands.add_parser('open')
+    console_parser = commands.add_parser('console', help='Owned native CLI agents and real browser message/abort controls')
+    console_parser.add_argument('--contract', action='append', default=[])
+    console_parser.add_argument('--prompt-file', action='append', default=[])
+    console_parser.add_argument('--language', choices=['tr', 'en'], default='tr')
+    console_parser.add_argument('--open-browser', action='store_true', help='Open authenticated local console in the default browser')
+    artifact_parser = commands.add_parser('artifact', help='Register a public project screenshot with byte hash and declared provenance')
+    artifact_parser.add_argument('--path', required=True)
+    artifact_parser.add_argument('--source', required=True)
+    artifact_parser.add_argument('--task', required=True)
+    handoff_parser = commands.add_parser('handoff', help='Bounded durable selected-project continuation package')
+    handoff_parser.add_argument('--contract', required=True)
+    handoff_parser.add_argument('--attempt', action='append', default=[])
+    handoff_parser.add_argument('--next-action', required=True)
     starter = commands.add_parser('start')
     starter.add_argument('--host', choices=['auto', 'opencode', 'codex'], default='auto')
     starter.add_argument('--language', choices=['tr', 'en'], default='tr')
@@ -877,6 +901,47 @@ def main():
     args = parser.parse_args(sys.argv[1:] or ['start'])
     if args.command == 'audit':
         result = audit()
+    elif args.command == 'artifact':
+        try:
+            from .console import register_artifact
+        except ImportError:
+            from console import register_artifact
+        result = register_artifact(ROOT, args.path, args.source, args.task)
+    elif args.command == 'console':
+        try:
+            from .team import Controller
+        except ImportError:
+            from team import Controller
+        if len(args.contract) != len(args.prompt_file):
+            raise ValueError('Each native agent requires one contract and prompt-file')
+        boot_result = brain_run('boot')
+        if boot_result['exit_code']:
+            raise RuntimeError('Canonical project Brain boot failed')
+        startup_inventory()
+        controller = Controller(ROOT)
+        print(json.dumps({'url': controller.url, 'access_token': controller.token, 'token_scope': 'ephemeral local UI only',
+                          'director': 'existing conversation', 'language': args.language}), flush=True)
+        if args.open_browser:
+            import webbrowser
+            webbrowser.open(controller.url + '/#' + controller.token)
+        try:
+            for contract_path, prompt_path in zip(args.contract, args.prompt_file):
+                controller.start(contract_path, trusted_input(prompt_path, '.txt').read_text(encoding='utf-8'))
+            while True: time.sleep(1)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            controller.close()
+        return 0
+    elif args.command == 'handoff':
+        contract_path = trusted_input(args.contract, '.json')
+        task = validate_contract(load(contract_path))
+        boot_result = brain_run('boot')
+        status_result = run(['git', 'status', '--short'])
+        if boot_result['exit_code'] or status_result['exit_code']:
+            raise RuntimeError('Cannot checkpoint unverified Brain/Git state')
+        result = {'path': str(authority.handoff(ROOT, task['task_id'], digest_file(contract_path), args.attempt,
+                              args.next_action, boot_result['stdout'], status_result['stdout'])), 'acceptance': 'UNVERIFIED'}
     elif args.command == 'sources':
         result = {'sources': [], 'policy': 'External checkouts stay outside the skill. Pin compatible refs per app; never pull dirty source or replace an existing theme without its choice.'}
         for name, path in [('starter', STARTER), ('core', KIT)]:
@@ -1080,7 +1145,7 @@ def main():
             executed = result['attempts'][-1] if result.get('attempts') else result
             result['task_result'] = task_result(executed, task)
             selected = executed.get('selected') or {key: executed[key] for key in ('provider', 'model') if key in executed}
-            if any(result['task_result'].get(key) != value for key, value in selected.items() if key in ('provider', 'model', 'effort')):
+            if result['task_result'].get('status') != 'UNVERIFIED' and any(result['task_result'].get(key) != value for key, value in selected.items() if key in ('provider', 'model', 'effort')):
                 result['task_result'] = {'status': 'UNVERIFIED', 'reason': 'Agent report differs from the actual selected route'}
         save(args.output, result)
     elif args.command == 'gate':

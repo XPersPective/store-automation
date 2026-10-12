@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import math
 import re
 import shutil
+import threading
 
 
 LOGIN = {'agy': 'agy (official account setup)', 'claude': 'claude auth login',
@@ -24,7 +25,7 @@ CLI_DOCS = {'codex': 'https://developers.openai.com/codex/cli/',
             'opencode': 'https://opencode.ai/docs/',
             'gemini': 'https://geminicli.com/docs/',
             'claude': 'https://code.claude.com/docs/',
-            'kimi': 'https://github.com/MoonshotAI/kimi-cli'}
+            'kimi': 'https://moonshotai.github.io/kimi-cli/en/reference/slash-commands.html'}
 OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models'
 CATALOGUE_MAX_BYTES = 8 * 1024 * 1024
 REPORT_FIELDS = ('task', 'role', 'provider', 'model', 'effort', 'state',
@@ -164,6 +165,110 @@ def codex_metadata(executable, env, timeout=30):
                 if pipe:
                     pipe.close()
     return result
+
+
+ACP_MAX_SECONDS = 20
+
+
+def _acp_argv(cli, executable):
+    """Resolve official entry points without invoking a shell or a CLI prompt."""
+    import os
+    from pathlib import Path
+    if cli == 'mcode':
+        launcher = executable('mcode')
+        if not launcher:
+            raise OSError('Official mcode launcher unavailable')
+        script = Path(launcher).resolve().parent / 'node_modules' / '@minimax-ai' / 'code' / 'cli.js'
+        if not script.is_file():
+            raise OSError('Official @minimax-ai/code entry point unavailable beside launcher')
+        return [executable('node'), str(script), 'acp']
+    if cli in ('kimi', 'mimo'):
+        return [executable(cli), 'acp']
+    raise ValueError('Unsupported ACP client')
+
+
+def _acp_catalogue(cli, executable, env, project=None, timeout=ACP_MAX_SECONDS):
+    """Read bounded ACP report metadata only; no prompts, auth claims, or quota claims."""
+    import os
+    from pathlib import Path
+    try:
+        from . import sessions, native_agents
+    except ImportError:
+        try:
+            import sessions
+            import native_agents
+        except ImportError:
+            from tool import sessions, native_agents
+    tree = None
+    proc = None
+    timed_out = threading.Event()
+    close_errors = []
+    try:
+        tree = sessions.ProcessTree()
+        def stop_on_deadline():
+            timed_out.set()
+            try:
+                tree.close()
+            except Exception as error:
+                close_errors.append(error)
+        timer = threading.Timer(timeout, stop_on_deadline)
+        timer.daemon = True
+        timer.start()
+        try:
+            client = native_agents.AcpMetadata(_acp_argv(cli, executable), project or os.getcwd(), env,
+                                               tree=tree)
+            report = client.report()
+        except Exception:
+            if timed_out.is_set():
+                raise TimeoutError('ACP metadata deadline reached') from None
+            raise
+        finally:
+            timer.cancel()
+        if timed_out.is_set():
+            raise TimeoutError('ACP metadata deadline reached')
+        if close_errors:
+            raise close_errors[0]
+        if not isinstance(report, dict) or report.get('inference') is not False:
+            raise ValueError('ACP metadata report is invalid')
+        raw_models = report.get('models', [])
+        raw_efforts = report.get('efforts', [])
+        raw_modes = report.get('modes', [])
+        if not all(isinstance(items, list) and len(items) <= 500
+                   for items in (raw_models, raw_efforts, raw_modes)):
+            raise ValueError('ACP metadata groups exceed bounds')
+        models = []
+        for item in raw_models:
+            if not isinstance(item, dict):
+                continue
+            identity, label = item.get('id'), item.get('name')
+            if isinstance(identity, str) and 0 < len(identity) <= 200 and '..' not in identity and re.fullmatch(
+                    r'[A-Za-z0-9_][A-Za-z0-9_.:/+-]*', identity):
+                models.append({'id': identity, 'name': label[:160] if isinstance(label, str) else identity})
+        def safe_values(items):
+            return [{'id': value} for value in items if isinstance(value, str) and
+                    0 < len(value) <= 100 and re.fullmatch(r'[A-Za-z0-9_.+-]+', value)]
+        return {'models': models, 'efforts': safe_values(raw_efforts), 'mode_options': safe_values(raw_modes),
+                'model_selector': bool(models),
+                'catalogue': 'CLI_METADATA_VERIFIED' if models else 'UNAVAILABLE'}
+    except Exception as error:
+        # Native ACP errors may contain private paths or data; publish only the class.
+        return {'models': [], 'efforts': [], 'mode_options': [], 'catalogue': 'UNAVAILABLE',
+                'model_selector': False, 'error': type(error).__name__}
+    finally:
+        proc = getattr(tree, 'proc', None) if tree is not None else None
+        if tree is not None:
+            tree.close()
+        if proc is not None:
+            try:
+                proc.wait(timeout=2)
+            except Exception:
+                pass
+            for pipe in (proc.stdin, proc.stdout, proc.stderr):
+                if pipe:
+                    try:
+                        pipe.close()
+                    except OSError:
+                        pass
 
 
 def reserve_decision(actor, remaining_fraction, handoff_saved=False,
@@ -392,12 +497,22 @@ def inventory(run, executable, env, excluded=('qwen',), include_openrouter=False
             row['quota_action'] = 'Provider-specific official status required; catalogue is not account access'
             row['controls'].update(models=cli + ' --pure models', session=cli + ' attach / session',
                                    intervention='native HTTP requires owned config verification')
-        elif cli == 'mcode':
-            row['billing'] = 'TOKEN_PLAN_CREDITS_OR_BYOK_REQUIRES_VERIFICATION'
-            row['controls'].update(models='ACP session/new catalogue; account access unverified', effort='exec --effort',
-                                   quota='native /status; machine quota unverified', session='--session',
-                                   intervention='native TUI / ACP', permissions='exec --permission off (snapshot only)')
-            row['quota_action'] = 'Official /status; Token Plan credits are not free subscription entitlement'
+        elif cli in ('mcode', 'kimi'):
+            row['controls'].update(models=cli + ' ACP session/new configOptions',
+                                   effort='ACP configOptions (only when explicitly returned)',
+                                   session=cli + ' native ACP', intervention='native TUI / ACP',
+                                   permissions='ACP configOptions only; execution permissions unverified')
+            metadata = _acp_catalogue(cli, executable, env)
+            row.update(catalogue=metadata['catalogue'], efforts=metadata['efforts'],
+                       mode_options=metadata['mode_options'], model_selector=metadata['model_selector'],
+                       billing='UNVERIFIED', quota_remaining=None,
+                       quota_action=('Official interactive /status; inspect Token Plan credits and permissions' if cli == 'mcode'
+                                     else 'Official interactive /usage (alias /status); supported only on Kimi Code platform'))
+            row['models'] = [dict(model, effort='UNKNOWN', quality_tier='UNASSESSED', access='NOT_PROBED')
+                             for model in metadata['models']]
+            row['adapter'] = 'CATALOGUE_ONLY'
+            if metadata.get('error'):
+                row['metadata_error'] = metadata['error']
         else:
             row['quota_action'] = 'Inspect current official CLI status; authentication/remaining quota not inferred from presence'
     if include_openrouter:

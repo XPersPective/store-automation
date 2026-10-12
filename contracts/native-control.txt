@@ -1,0 +1,1 @@
+Read only the public fixture. Return typed report, include NATIVE_SESSION_READY in evidence. Do not call tools. Keep answer under200words. Afterward remain available for user followup in this native thread.

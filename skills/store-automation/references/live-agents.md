@@ -1,5 +1,17 @@
 # Live agents and intervention
 
+## Native CLI browser console (2.3.0)
+
+`console --open-browser --contract contracts/<task>.json --prompt-file contracts/<task>.txt` starts an owned Codex app-server worker, keeping the existing conversation as director. It uses actual `thread/start`, `turn/start`, `turn/steer`, `turn/interrupt` and token-usage notifications. Model/effort and shared quota are refreshed before inference. Read-only workers receive bounded source snapshots; write implementation remains through the existing validated app wrapper or a director-applied patch proposal. This is not a strict OS read whitelist: the native client runs as the same user and tool requests are denied.
+
+The browser has task/role/model/effort cards, public streamed replies, selected-agent messaging, stop control, measured usage, quota and intervention receipts. Native ACK receipts stay `PENDING_RECONCILIATION` until the director has reviewed the changed direction; they do not claim immediate notification into a different host conversation. Plain conversational replies may be UNVERIFIED as task reports; machine checks and a fresh independent reviewer remain mandatory before acceptance. On a graceful shutdown owned children stop; after a crash Windows JobObjects close, and startup proves recorded PIDs absent before recovering a lock.
+
+The URL is loopback only. An ephemeral local UI code goes in a same-origin header; `--open-browser` passes it once through the URL fragment, which the page immediately clears. No provider keys, password file, hidden reasoning, tool bodies, generic filesystem explorer or shell execution endpoint are exposed. The existing remote desktop/console can display this browser; direct phone/network exposure is not enabled.
+
+`artifact --path output/playwright/<image>.png --source "actual capture run" --task PB-NNN` registers an existing image. The gallery checks links, traversal, image signature, size and byte digest on read. Registration records declared provenance; image decoding, source/build/device linkage and visual acceptance still require actual inspection. Automated emulator workflows must register their own resulting image, never a substitute console screenshot.
+
+Codex browser binding timed out on the test host; a headed Chromium browser was used for actual visual proof. Windows Terminal split panes below remain the OpenCode route. They are not required for the Codex browser panel and are not claimed visually verified by browser evidence.
+
 Use a polished installed native console, not a bare Windows console or a new terminal implementation. This user's latest request authorizes Windows Terminal. Keep the director identifiable and each actual agent visible with its role/name, task, provider/model/effort, progress, quota and measured usage (unknown stays unknown). Three responsibilities do not cap team size. Choose a readable split layout for actual team size; use native host surfaces when supported.
 
 The OpenCode watcher opens an owned Windows Terminal tab, activity above and director left, then distributes all observed worker sessions across the worker area with persistent safe titles. Fixed pane targeting tolerates focus changes; closing/reordering panes requires rebuilding the view. Structural layout tests do not prove native visual quality. Verify real rendered panes and user questions/interrupt/resume before accepting the console gate. Logs do not prove conversation or application visual acceptance.

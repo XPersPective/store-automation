@@ -61,7 +61,8 @@ def plain_path(path):
 def files():
     result = {p.relative_to(SOURCE / 'skills/store-automation').as_posix(): p
               for p in (SOURCE / 'skills/store-automation').rglob('*') if p.is_file()}
-    names = ['tool/factory.py', 'tool/release.py', 'tool/sessions.py', 'tool/subscriptions.py', 'tool/ios-evidence.py', 'opencode.json', 'contracts/capabilities.json',
+    names = ['tool/factory.py', 'tool/release.py', 'tool/sessions.py', 'tool/subscriptions.py', 'tool/dispatch.py',
+             'tool/native_agents.py', 'tool/console.py', 'tool/console.html', 'tool/team.py', 'tool/ios-evidence.py', 'opencode.json', 'contracts/capabilities.json',
              'contracts/delegation-smoke.json', 'docs/services.md', 'docs/roadmap.md']
     names += [p.relative_to(SOURCE).as_posix() for directory in ('prompts', 'skills')
               for p in (SOURCE / '.opencode' / directory).rglob('*') if p.is_file()]
@@ -152,9 +153,18 @@ if __name__ == '__main__':
         print(json.dumps({'detected': {name: str(path) for name, path in hosts.items()}}, indent=2))
         sys.exit(0)
     targets = list(dict.fromkeys(hosts.values()))
+    managed = Path.home() / '.skills-manager/skills/store-automation'
+    linked = [p for p in targets if p.resolve() != p.absolute()]
+    if not args.target and linked:
+        expected = {name: digest(source) for name, source in files().items()}
+        if any(p.resolve() != managed.resolve() for p in linked) or any(
+                not (managed / name).is_file() or digest(managed / name) != value for name, value in expected.items()):
+            raise ValueError('Update managed library through Skills Manager first; linked targets are never overwritten')
+        targets = [p for p in targets if p not in linked]
     result = install(targets)
+    result['managed_verified'] = [str(p) for p in linked] if not args.target else []
     result['hosts'] = list(hosts)
     if not args.target:
-        result['launcher'] = install_launcher(targets[0], Path.home() / '.local/bin')
+        result['launcher'] = install_launcher((targets or [managed])[0], Path.home() / '.local/bin')
         result['path_note'] = 'User .local/bin must be on PATH; reopen existing terminals after PATH changes'
     print(json.dumps(result, indent=2))

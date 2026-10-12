@@ -25,6 +25,8 @@ Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`,
 - Independent reviews found and closed manifest-link, adoption pointer, descendant cleanup, state-storage cleanup, permission/resume, URL and digest-link defects. Auto-pane watcher is deterministic-tested; no native UI visual acceptance claimed.
 - Template eight local generated modes analyze/test PASS and versioned workspace 163 tests/five analyses PASS. Remote-only proof is in PB-010 before tags; no local override result is called remote proof.
 - Official CLIs installed/enumerated; only measured access enabled. Current host may remain orchestrator. Subscription login and model entitlement are separate.
+- Store Automation 2.3.0: owned Codex app-server workers, shared admission and crash reconciliation, responsive authenticated browser console, public native message/interrupt, explicit image manifest, automatic MiniMax/Kimi ACP catalogues and single skill entry are implemented. Root 132 stdlib checks pass. Independent Sol/high review found and fixed timeout/close/hidden-image defects; partial-context closed-control concern was independently disproved by shared `_owned` guard and regression.
+- Runtime map: `tool/dispatch.py` assignment/admission/handoff; `tool/native_agents.py` bounded native RPC; `tool/team.py` owned worker queue/quota observer; `tool/console.py` + `console.html` actual browser controls.
 ## Known Unknowns
 - PB-002: macOS/Xcode, real store/receipt backend/device/account production acceptance. No production upload performed.
 - PB-005: Gemini/MiniMax user login, GLM supported headless route, other provider billing/permission/inference verification. No universal adapter or account quota claimed.
