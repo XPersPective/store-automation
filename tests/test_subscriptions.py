@@ -339,14 +339,6 @@ class SubscriptionChecks(unittest.TestCase):
             with self.assertRaises(ValueError):
                 s.usage_summary([dict(row, **changes)])
 
-    def test_native_launch_uses_actual_tui_and_keeps_prompt_out_of_terminal_parser(self):
-        argv = s.native_launch('.', '/tmp/native.json', 'wt.exe', 'python.exe', 'subscriptions.py')
-        self.assertIn('--interactive', argv)
-        with self.assertRaises(RuntimeError):
-            s.native_launch('.', 'native.json', None, 'python', 'subscriptions.py')
-        with self.assertRaises(ValueError):
-            s.native_launch('.', 'native;bad.json', 'wt.exe', 'python', 'subscriptions.py')
-
     def test_catalogue_and_exit_zero_do_not_prove_model_entitlement(self):
         selected = {'model': 'gemini-3.8-flash-medium'}
         for payload in ({'status': 'SUCCESS', 'response': ''},

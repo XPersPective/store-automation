@@ -10,6 +10,26 @@ installer = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'tool/insta
 
 
 class InstallSkillTests(unittest.TestCase):
+    def test_upgrade_removes_only_unchanged_owned_retired_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source, target = base / 'source', base / 'skill'
+            source.write_text('original')
+            with patch.dict(installer['install'].__globals__, files=lambda: {'SKILL.md': source, 'runtime/tool/console.html': source}):
+                installer['install']([target])
+            unknown = target / 'personal.txt'
+            unknown.write_text('keep')
+            retired = target / 'runtime/tool/console.html'
+            retired.write_text('user edit')
+            with patch.dict(installer['install'].__globals__, files=lambda: {'SKILL.md': source}):
+                with self.assertRaisesRegex(ValueError, 'modified obsolete'):
+                    installer['install']([target])
+                self.assertEqual(retired.read_text(), 'user edit')
+                retired.write_text('original')
+                installer['install']([target])
+            self.assertFalse(retired.exists())
+            self.assertEqual(unknown.read_text(), 'keep')
+
     def test_owned_old_version_upgrades_without_touching_project_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

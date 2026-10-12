@@ -16,5 +16,6 @@ tests/fastlane/fastlane/README.md
 .factory/artifacts/
 .factory/distribution/
 .factory/team.lock
+.factory/model-catalogue.json
 .playwright-cli/
 output/playwright/

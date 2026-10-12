@@ -37,6 +37,9 @@ class FactoryChecks(unittest.TestCase):
         bundled.start()
         self.addCleanup(bundled.stop)
         self.contract = factory.load(factory.ROOT / 'contracts/delegation-smoke.json')
+        boot = patch.object(factory, 'brain_run', return_value={'exit_code': 0, 'stdout': 'synthetic verified boot'})
+        boot.start()
+        self.addCleanup(boot.stop)
         admit = factory.authority.admit
         isolated = patch.object(factory.authority, 'admit',
             side_effect=lambda selected, project, attempt: admit(selected, project, attempt, root / 'admission'))
@@ -47,6 +50,14 @@ class FactoryChecks(unittest.TestCase):
         for name in ('service-account-prod.json', 'keys/signing.PEM', 'id_ed25519', 'app-ids.env', 'key.properties', 'upload.p12'):
             self.assertTrue(factory.sensitive_path(name))
         self.assertFalse(factory.sensitive_path('lib/feature.dart'))
+
+    def test_failed_brain_boot_blocks_inference_before_catalogue(self):
+        with patch.object(factory, 'brain_run', return_value={'exit_code': 1}), \
+             patch.object(factory, 'startup_inventory') as catalogue, patch.object(factory, 'run') as inference:
+            with self.assertRaisesRegex(RuntimeError, 'Brain boot failed'):
+                factory._model_run('codex', 'Read only', factory.ROOT / 'contracts/delegation-smoke.json')
+        catalogue.assert_not_called()
+        inference.assert_not_called()
 
     def test_context_ranges_and_actual_snapshot_budget_before_inference(self):
         self.contract['complexity'] = 'SIMPLE'
@@ -89,20 +100,13 @@ class FactoryChecks(unittest.TestCase):
             self.assertEqual(factory.main(), 0)
         self.assertEqual(bootstrap.call_args.args[-1], ('windows',))
 
-    def test_native_does_not_dispatch_unscoped_writer_or_special_capability(self):
-        contract = factory.ROOT / 'contracts/native.json'
-        argv = ['factory', 'native', '--contract', str(contract), '--prompt-file', 'contracts/native.txt',
-                '--inventory', '.factory/runs/inventory.json', '--output', '.factory/runs/request.json', '--surface', 'windows-terminal']
-        for write, capabilities, message in [(True, ['reasoning'], 'write scope'), (False, ['vision'], 'capability')]:
-            value = copy.deepcopy(self.contract)
-            value['permissions']['write'] = write
-            value['persona']['permissions']['write'] = write
-            value['required_capabilities'] = capabilities
-            contract.write_text(json.dumps(value))
-            with patch.object(sys, 'argv', argv), patch.object(factory.subprocess, 'run') as dispatch:
-                with self.assertRaisesRegex(ValueError, message):
+    def test_retired_agent_ui_commands_are_not_available(self):
+        for command in ('console', 'native'):
+            with patch.object(sys, 'argv', ['factory', command]), patch.object(factory.subprocess, 'call') as launch:
+                with self.assertRaises(SystemExit) as result:
                     factory.main()
-                dispatch.assert_not_called()
+                self.assertEqual(result.exception.code, 2)
+                launch.assert_not_called()
 
     def test_containment_failure_preserves_dispatch_lock(self):
         with patch.object(factory, '_model_run', side_effect=factory.sessions.ContainmentError('synthetic failure')):
@@ -272,7 +276,7 @@ class FactoryChecks(unittest.TestCase):
         self.assertEqual(factory.task_result(result({'verdict': 'PASS'}))['verdict'], 'PASS')
 
     def test_startup_scans_before_inference_and_reserve_prevents_launch(self):
-        snapshot = {'captured_at': datetime.now(timezone.utc).isoformat(), 'providers': [{
+        snapshot = {'schema_version': 1, 'captured_at': datetime.now(timezone.utc).isoformat(), 'providers': [{
             'cli': 'codex', 'auth': 'SUBSCRIPTION_LOGIN', 'access': 'METADATA_VERIFIED',
             'billing': 'SUBSCRIPTION_ONLY_REQUIRED', 'models': [{'id': 'gpt-5.6-sol', 'supported_efforts': ['high']}],
             'quota_groups': [{'name': 'Codex Models', 'buckets': [{'remaining_fraction': .8}]}]}]}

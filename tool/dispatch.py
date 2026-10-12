@@ -8,6 +8,7 @@ import tempfile
 import time
 import uuid
 import ctypes
+import sys
 
 try:
     from . import sessions, subscriptions
@@ -113,6 +114,10 @@ def assignment(project, task, selected, contract_hash, parent=None, surface='str
         json.dump(record, stream, ensure_ascii=True, indent=2)
         stream.flush()
         os.fsync(stream.fileno())
+    print(json.dumps({'event': 'AGENT_ASSIGNED', 'attempt': record['attempt'], 'task': record['task'],
+        'role': record['role'], 'selected': selected, 'reason': record['reason'],
+        'context_budget_chars': record['context_budget_chars'],
+        'output_budget_tokens': record['output_budget_tokens']}), file=sys.stderr, flush=True)
     return path, record
 
 

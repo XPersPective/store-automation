@@ -62,7 +62,7 @@ def files():
     result = {p.relative_to(SOURCE / 'skills/store-automation').as_posix(): p
               for p in (SOURCE / 'skills/store-automation').rglob('*') if p.is_file()}
     names = ['tool/factory.py', 'tool/release.py', 'tool/sessions.py', 'tool/subscriptions.py', 'tool/dispatch.py',
-             'tool/native_agents.py', 'tool/console.py', 'tool/console.html', 'tool/team.py', 'tool/ios-evidence.py', 'opencode.json', 'contracts/capabilities.json',
+             'tool/native_agents.py', 'tool/artifacts.py', 'tool/ios-evidence.py', 'opencode.json', 'contracts/capabilities.json',
              'contracts/delegation-smoke.json', 'docs/services.md', 'docs/roadmap.md']
     names += [p.relative_to(SOURCE).as_posix() for directory in ('prompts', 'skills')
               for p in (SOURCE / '.opencode' / directory).rglob('*') if p.is_file()]
@@ -115,6 +115,7 @@ def install(targets):
     for source in resources.values():
         plain_path(source)
     hashes = {name: digest(path) for name, path in resources.items()}
+    obsolete = {}
     # Preflight every destination before writing either host's installation.
     for target in targets:
         plain_path(target)
@@ -126,6 +127,16 @@ def install(targets):
         if manifest.is_symlink() or (hasattr(manifest, 'is_junction') and manifest.is_junction()) or (manifest.exists() and not manifest.is_file()):
             raise ValueError(f'Linked/non-file install manifest refused: {manifest}')
         previous = json.loads(manifest.read_text()) if manifest.is_file() else {}
+        obsolete[target] = []
+        for name in previous.keys() - resources.keys():
+            path = target / name
+            if path.is_absolute() and target not in path.parents or '..' in Path(name).parts:
+                raise ValueError('Invalid owned resource path')
+            plain_path(path)
+            if path.exists():
+                if not path.is_file() or digest(path) != previous[name]:
+                    raise ValueError(f'Preserve modified obsolete resource: {path}')
+                obsolete[target].append(path)
         for name in resources:
             path = target / name
             plain_path(path)
@@ -135,6 +146,8 @@ def install(targets):
             if path.exists() and (not path.is_file() or digest(path) not in (previous.get(name), hashes[name])):
                 raise ValueError(f'Preserve modified/unowned installed resource: {path}')
     for target in targets:
+        for path in obsolete[target]:
+            path.unlink()
         for name, source in resources.items():
             path = target / name
             path.parent.mkdir(parents=True, exist_ok=True)

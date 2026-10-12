@@ -53,7 +53,7 @@ def report_valid(report, task_id=None):
            (value is None or number(value) is not None) for key, value in usage.items()))
 
 
-def codex_metadata(executable, env, timeout=30):
+def codex_metadata(executable, env, timeout=30, *, include_models=True):
     """Bounded official stdio metadata RPC; no turn, credential or account reads."""
     import json
     import queue
@@ -109,7 +109,7 @@ def codex_metadata(executable, env, timeout=30):
         proc.stdin.write('{"method":"initialized","params":{}}\n')
         proc.stdin.flush()
         models, cursor = [], None
-        for page in range(10):
+        for page in range(10) if include_models else ():
             payload = rpc(page + 2, 'model/list', {'limit': 100, 'includeHidden': False, 'cursor': cursor})
             if not isinstance(payload.get('data'), list):
                 raise ValueError('Invalid model catalogue')
@@ -134,7 +134,10 @@ def codex_metadata(executable, env, timeout=30):
             if not isinstance(cursor, str) or not cursor or len(cursor) > 1000:
                 raise ValueError('Invalid catalogue cursor')
         else:
-            raise ValueError('Catalogue pagination exceeds bound')
+            if include_models:
+                raise ValueError('Catalogue pagination exceeds bound')
+        if include_models:
+            result.update(models=models, catalogue='CLI_METADATA_VERIFIED')
         quota = rpc(20, 'account/rateLimits/read', {})
         buckets = quota.get('rateLimitsByLimitId')
         if not isinstance(buckets, dict):
@@ -523,6 +526,42 @@ def inventory(run, executable, env, excluded=('qwen',), include_openrouter=False
             'policy': 'Quota fractions are shared windows, not token counts. Unknown is null. No paid API/credit fallback.'}
 
 
+def refresh_accounts(catalogue, run, executable, env):
+    """Refresh volatile account gates, retaining exactly the discovered model pool."""
+    import copy
+    import json
+    snapshot = copy.deepcopy(catalogue)
+    snapshot['catalogue_captured_at'] = catalogue.get('catalogue_captured_at', catalogue['captured_at'])
+    snapshot['captured_at'] = datetime.now(timezone.utc).isoformat()
+    for row in snapshot['providers']:
+        row.update(auth='UNKNOWN', access='NOT_PROBED', quota_groups=[], quota_remaining=None,
+                   billing='UNVERIFIED')
+        if row['cli'] in snapshot.get('excluded', []) or not row.get('installed', False):
+            continue
+        try:
+            if row['cli'] == 'codex':
+                status = run([executable('codex'), 'login', 'status'], timeout=30, env=env)
+                if status['exit_code'] == 0 and 'ChatGPT' in status.get('stdout', '') + status.get('stderr', ''):
+                    live = codex_metadata(executable, env, include_models=False)
+                    row.update(auth='SUBSCRIPTION_LOGIN', billing='SUBSCRIPTION_ONLY_REQUIRED',
+                               access=live['access'], quota_groups=live['quota_groups'])
+            elif row['cli'] == 'agy':
+                def metadata(command):
+                    result = run([executable('agy'), '--output-format', 'json', '-p', command], timeout=30, env=env)
+                    return json.loads(result['stdout']) if result['exit_code'] == 0 else {}
+                groups = agy_groups(metadata('/usage'))
+                credits = metadata('/credits')
+                command = credits.get('command', {})
+                left = number(command.get('data', {}).get('remaining_credits')) if credits.get('status') == 'SUCCESS' and command.get('name') == 'credits' else None
+                row.update(quota_groups=groups, credits_remaining=left,
+                           billing='NO_CREDITS_AVAILABLE' if left == 0 else 'OVERAGE_POLICY_REQUIRED')
+                if groups:
+                    row.update(auth='AUTHENTICATED_METADATA', access='METADATA_VERIFIED')
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError):
+            row.update(auth='UNKNOWN', access='NOT_PROBED', quota_groups=[], billing='UNVERIFIED')
+    return snapshot
+
+
 def route(snapshot, complexity, reserve=RESERVE, now=None):
     if complexity not in ('SIMPLE', 'STANDARD', 'COMPLEX', 'SPECIALIZED'):
         raise ValueError('Unknown complexity')
@@ -640,64 +679,3 @@ def usage_summary(records, expected_attempts=None):
             'complete': bool(leaves) and expected_attempts is not None and set(expected_attempts) == set(unique) and len(leaves) == len(unique) and all(v is not None for v in totals.values()),
             'inclusive_records_excluded': len(unique) - len(leaves),
             'quota_remaining': None}
-
-
-def native_launch(project, request_path, terminal, python, module):
-    """Keep the prompt out of Windows Terminal's command parser; use a real native TUI."""
-    from pathlib import Path
-    if not terminal:
-        raise RuntimeError('Native visible terminal unavailable; do not silently dispatch headless')
-    args = [terminal, '-w', 'store-automation', 'new-tab', '--title',
-            'Uygulayıcı — Store Automation', '-d', str(Path(project).resolve()),
-            python, str(module), '--interactive', str(request_path)]
-    if any(';' in arg or '\n' in arg or '\r' in arg for arg in args):
-        raise ValueError('Unsafe terminal argument')
-    return args
-
-
-if __name__ == '__main__':
-    import json
-    from pathlib import Path
-    import subprocess
-    import sys
-    import factory
-    if len(sys.argv) != 3 or sys.argv[1] != '--interactive':
-        raise SystemExit('Use store-automation native with a validated project contract')
-    path = factory.trusted_input(sys.argv[2], '.json', '.factory/runs')
-    request = factory.load(path)
-    if request['project'] != str(factory.ROOT):
-        raise ValueError('Native handoff belongs to another project')
-    contract = factory.validate_contract(factory.load(factory.trusted_input(request['contract'], '.json')))
-    if contract['permissions'].get('write') or not set(contract['required_capabilities']).issubset({'reasoning', 'source_read'}):
-        raise ValueError('Native write/specialized capability permission is not verified')
-    prompt_path = factory.trusted_input(request['prompt_file'], '.txt')
-    if factory.digest_file(Path(request['contract'])) != request['contract_sha256'] or factory.digest_file(prompt_path) != request['prompt_sha256']:
-        raise ValueError('Native contract/prompt changed after dispatch; replan before launch')
-    prompt = prompt_path.read_text(encoding='utf-8')
-    selected = request['selected']
-    if selected['provider'] != 'agy':
-        raise ValueError('Unsupported native adapter; use the verified official host directly')
-    # Refresh quota at actual launch, not only when the terminal request was created.
-    current = inventory(factory.run, factory.executable, factory.clean_ai_env(factory.os.environ))
-    candidates = route(current, request['complexity'])['candidates']
-    if not any((c['model'], c['effort']) == (selected['model'], selected['effort']) for c in candidates):
-        raise SystemExit('Selected model no longer meets quota/quality gates; checkpoint and reroute')
-    probe = probe_model(selected, factory.run, factory.executable, factory.clean_ai_env(factory.os.environ))
-    factory.save(path.with_name(path.stem + '-model-probe.json'), probe)
-    if probe['state'] != 'AVAILABLE':
-        raise SystemExit('Model-specific access unverified; task not dispatched. See native model probe.')
-    prompt = (json.dumps(contract, ensure_ascii=False) + '\n' + prompt +
-              '\nSupervisor handoff: ' + json.dumps(selected) +
-              '\nUse native tools only within the contract scope. No Brain/git/account/policy writes or nested delegation. '
-              'Publish progress and return task, role, provider, model, effort, state, changed_files, evidence, usage '
-              '(only authoritative counters or null), blockers, next_action as a final JSON response in this terminal. '
-              'No writes, including report files. After reporting completion, answer questions without source changes. '
-              'The supervisor performs machine verification and fresh independent review; you cannot accept your own work.')
-    if len(prompt) > contract['delegation']['context_budget_chars']:
-        raise SystemExit('Final native prompt exceeds contract context budget; task not dispatched')
-    print(f"{contract['task_id']} | {contract['persona']['role']} | {selected['model']} | effort {selected['effort']}", flush=True)
-    # argv + inherited terminal: the user can ask/interrupt the actual agent, no fabricated viewer.
-    raise SystemExit(subprocess.call([factory.executable('agy'), '--model', selected['model'],
-                                     '--effort', selected['effort'], '--mode', 'plan',
-                                     '--prompt-interactive', prompt],
-                                    cwd=factory.ROOT, env=factory.clean_ai_env(factory.os.environ)))

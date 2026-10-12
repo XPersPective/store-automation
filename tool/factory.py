@@ -416,9 +416,34 @@ def task_result(result, contract=None):
     return {key: data[key] for key in subscriptions.REPORT_FIELDS} if contract is not None else data
 
 
-def startup_inventory():
-    snapshot = subscriptions.inventory(run, executable, clean_ai_env(os.environ), include_openrouter=True)
-    path = project_dir('.factory/runs') / ('inventory-' + str(time.time_ns()) + '.json')
+def startup_inventory(refresh=False, include_openrouter=True):
+    cache = authority.owned_path(ROOT, '.factory/model-catalogue.json')
+    if refresh or not cache.exists():
+        snapshot = subscriptions.inventory(run, executable, clean_ai_env(os.environ), include_openrouter=include_openrouter)
+        snapshot['catalogue_captured_at'] = snapshot['captured_at']
+        for provider in snapshot['providers']:
+            for model in provider['models']:
+                tier = subscriptions.CODEX_TIERS.get(model['id']) if provider['cli'] == 'codex' else None
+                model['suitability'] = {'strength': ('LIGHTWEIGHT', 'STANDARD', 'STRONG', 'SPECIALIST')[tier]
+                    if tier is not None else 'UNASSESSED', 'source': 'versioned routing policy',
+                    'capabilities': ['reasoning', 'source_read'] if tier is not None else [],
+                    'permission_scope': 'read-only snapshots' if tier is not None else 'UNVERIFIED'}
+        authority.atomic(cache, snapshot)
+    else:
+        if not cache.is_file() or cache.stat().st_size > subscriptions.CATALOGUE_MAX_BYTES:
+            raise ValueError('Invalid model catalogue; explicitly run providers --scan to rebuild')
+        try:
+            catalogue = load(cache)
+            if catalogue.get('schema_version') != 1 or not isinstance(catalogue.get('providers'), list):
+                raise ValueError('Invalid catalogue schema')
+            if any(not isinstance(row, dict) or not isinstance(row.get('cli'), str) or
+                   not isinstance(row.get('models'), list) or any(not isinstance(model, dict) or
+                   not isinstance(model.get('id'), str) for model in row['models']) for row in catalogue['providers']):
+                raise ValueError('Invalid catalogue provider/model')
+            snapshot = subscriptions.refresh_accounts(catalogue, run, executable, clean_ai_env(os.environ))
+        except (ValueError, TypeError, KeyError, AttributeError) as error:
+            raise ValueError('Invalid model catalogue; explicitly run providers --scan to rebuild') from error
+    path = project_dir('.factory/runs') / ('inventory-' + secrets.token_hex(12) + '.json')
     save(path, snapshot)
     return snapshot, path
 
@@ -462,6 +487,9 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
             'native_free', 'native_free_requires_OpenCode_1.18.0'):
         raise ValueError('Registry no longer approves this free model; revalidate access before dispatch')
     if provider == 'codex':
+        boot = brain_run('boot')
+        if boot['exit_code']:
+            raise RuntimeError('Project Brain boot failed before native dispatch')
         binary = executable('codex')
         auth = run([binary, 'login', 'status'], env=env)
         if auth['exit_code'] or 'ChatGPT' not in auth['stdout'] + auth['stderr']:
@@ -496,7 +524,8 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
         payload = prompt + '\nValidated task contract:\n' + json.dumps(task) + \
                   '\nActual executed provider/model/effort: ' + json.dumps(selected) + \
                   '\nReturn final JSON with ' + ', '.join(subscriptions.REPORT_FIELDS) + \
-                  '; task must be ' + task['task_id'] + '. Unknown usage is null; no extra/private fields.\n' + \
+                  '; task must be ' + task['task_id'] + '. evidence, changed_files and blockers must be arrays of strings, ' + \
+                  'not objects. state must be COMPLETED, BLOCKED or UNVERIFIED. Unknown usage is null; no extra/private fields.\n' + \
                   'Return at most ' + str(task['delegation']['output_budget_tokens']) + ' output tokens.\n' + \
                   '\nExact read-only source snapshots captured by the runner. Verify these; ' + \
                   'do not execute shell or reimplement. Parent rechecks full-file hashes before acceptance.\n' + \
@@ -521,45 +550,7 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
         raise ValueError('Paid/unverified model refused; choose an explicit free allowlisted model')
     if task['delegation']['model'] not in ('auto', provider, provider.split('/', 1)[1]) or task['delegation']['effort'] != 'auto':
         raise ValueError('Free model conflicts with delegation or explicit effort is unsupported')
-    env = native_env(worker_permissions(task), language)
-    boot = brain_run('boot', env=env)
-    if boot['exit_code']:
-        raise RuntimeError('Project Brain boot failed before native dispatch')
-    prompt = ('Runner already executed this session Project Brain boot; use this '
-              'exact startup evidence. Do not call any shell tools during this dispatch; '
-              'they are denied. Delegate only via native task.\n' + boot['stdout'] + '\n' + prompt)
-    argv = [executable('opencode'), '--pure', 'run', '--model', provider,
-            '--agent', 'factory', '--format', 'json', '--file', str(Path(contract).resolve())]
-    if session:
-        validate_resume(session, contract)
-        argv += ['--session', session]
-    metadata = {'provider': 'opencode', 'model': provider, 'task_id': task['task_id'],
-                'role': 'factory', 'language': language, 'contract_sha256': digest_file(contract)}
-    server = None
-    def activity(event):
-        print(json.dumps(event) if json_output else sessions.format_public(dict(event, role='factory'), language), file=sys.stderr, flush=True)
-    try:
-        if visible:
-            env['OPENCODE_SERVER_PASSWORD'] = secrets.token_urlsafe(32)
-            server = sessions.start(ROOT, executable('opencode'), env, language)
-            sessions.validate_config(server, env)
-            server.update(task_id=task['task_id'], contract_sha256=digest_file(contract))
-            sessions.store(ROOT, server)
-            if session:
-                server['resume_sessions'] = [session]
-                sessions.store(ROOT, server)
-            argv += ['--attach', server['url']]
-            watcher = [sys.executable, str(BUNDLE / 'tool/sessions.py'), 'watch', '--project', str(ROOT),
-                       '--auto-panes', '--relay', '--contract', str(contract), '--language', language]
-            subprocess.run(sessions.terminal_command(ROOT, watcher, role='activity', language=language), env=env, check=True)
-        argv += ['--', prompt]
-        return sessions.stream_run(argv, ROOT, env, timeout=timeout, metadata=metadata, emit=activity)
-    finally:
-        if server:
-            try:
-                sessions.stop(ROOT)
-            except Exception as error:
-                raise sessions.ContainmentError('Visible server cleanup is unverified; reconcile before dispatch') from error
+    raise ValueError('Free route quota/billing and quality are unverified; use a verified catalogue route')
 
 
 def digest_file(path):
@@ -806,11 +797,6 @@ def main():
     source_parser = commands.add_parser('sources', help='Inspect reusable external checkouts without bundling or modifying them')
     source_parser.add_argument('--check-updates', action='store_true', help='Query upstream HEAD without pulling or rewriting the checkout')
     commands.add_parser('open')
-    console_parser = commands.add_parser('console', help='Owned native CLI agents and real browser message/abort controls')
-    console_parser.add_argument('--contract', action='append', default=[])
-    console_parser.add_argument('--prompt-file', action='append', default=[])
-    console_parser.add_argument('--language', choices=['tr', 'en'], default='tr')
-    console_parser.add_argument('--open-browser', action='store_true', help='Open authenticated local console in the default browser')
     artifact_parser = commands.add_parser('artifact', help='Register a public project screenshot with byte hash and declared provenance')
     artifact_parser.add_argument('--path', required=True)
     artifact_parser.add_argument('--source', required=True)
@@ -822,6 +808,8 @@ def main():
     starter = commands.add_parser('start')
     starter.add_argument('--host', choices=['auto', 'opencode', 'codex'], default='auto')
     starter.add_argument('--language', choices=['tr', 'en'], default='tr')
+    starter.add_argument('--complexity', choices=['SIMPLE', 'STANDARD', 'COMPLEX', 'SPECIALIZED'], default='COMPLEX',
+                         help='Assessed director task complexity; unknown goals retain the strong quality floor')
     starter.add_argument('goal', nargs='*')
     adoption = commands.add_parser('adopt')
     adoption.add_argument('--rebaseline', action='store_true', help='Preview reversible existing Brain archive and fresh audit')
@@ -831,6 +819,7 @@ def main():
     activity_parser.add_argument('--json', action='store_true')
     provider_parser = commands.add_parser('providers')
     provider_parser.add_argument('--scan', action='store_true', help='Read official account/model/quota metadata without inference')
+    provider_parser.add_argument('--catalogue', action='store_true', help='Reuse catalogue (create only if absent) and refresh account gates')
     provider_parser.add_argument('--local-only', action='store_true', help='Skip optional public remote free-model catalogue')
     provider_parser.add_argument('--output', help='Save fresh public inventory under this project .factory/runs')
     usage_parser = commands.add_parser('usage', help='Aggregate reported manager/worker/reviewer attempts without fabricated totals')
@@ -848,14 +837,6 @@ def main():
     router.add_argument('--contract', required=True)
     router.add_argument('--complexity', choices=['SIMPLE', 'STANDARD', 'COMPLEX', 'SPECIALIZED'], default='STANDARD')
     router.add_argument('--inventory', help='Fresh providers --scan output under this project .factory/runs')
-    native_task = commands.add_parser('native', help='Open a quota-selected real interactive agent in Windows Terminal')
-    native_task.add_argument('--contract', required=True)
-    native_task.add_argument('--prompt-file', required=True)
-    native_task.add_argument('--inventory', required=True)
-    native_task.add_argument('--complexity', choices=['SIMPLE', 'STANDARD', 'COMPLEX', 'SPECIALIZED'], default='STANDARD')
-    native_task.add_argument('--output', required=True)
-    native_task.add_argument('--surface', choices=['windows-terminal'], required=True,
-                             help='Explicit external-terminal alternative; Codex sidebar uses its native host tools')
     for name in ('contract', 'digest'):
         commands.add_parser(name).add_argument('path')
     release = commands.add_parser('release-preflight')
@@ -903,36 +884,10 @@ def main():
         result = audit()
     elif args.command == 'artifact':
         try:
-            from .console import register_artifact
+            from .artifacts import register_artifact
         except ImportError:
-            from console import register_artifact
+            from artifacts import register_artifact
         result = register_artifact(ROOT, args.path, args.source, args.task)
-    elif args.command == 'console':
-        try:
-            from .team import Controller
-        except ImportError:
-            from team import Controller
-        if len(args.contract) != len(args.prompt_file):
-            raise ValueError('Each native agent requires one contract and prompt-file')
-        boot_result = brain_run('boot')
-        if boot_result['exit_code']:
-            raise RuntimeError('Canonical project Brain boot failed')
-        startup_inventory()
-        controller = Controller(ROOT)
-        print(json.dumps({'url': controller.url, 'access_token': controller.token, 'token_scope': 'ephemeral local UI only',
-                          'director': 'existing conversation', 'language': args.language}), flush=True)
-        if args.open_browser:
-            import webbrowser
-            webbrowser.open(controller.url + '/#' + controller.token)
-        try:
-            for contract_path, prompt_path in zip(args.contract, args.prompt_file):
-                controller.start(contract_path, trusted_input(prompt_path, '.txt').read_text(encoding='utf-8'))
-            while True: time.sleep(1)
-        except KeyboardInterrupt:
-            pass
-        finally:
-            controller.close()
-        return 0
     elif args.command == 'handoff':
         contract_path = trusted_input(args.contract, '.json')
         task = validate_contract(load(contract_path))
@@ -973,11 +928,12 @@ def main():
                       'goal if confirmed; otherwise adopt/map the existing project and record only the '
                       'actual user goal. Never import another project history. Give each task a detailed '
                       'persona and least sufficient verified model, with quality gates and fresh review. '
-                      'Expose real agent sessions/status for user intervention. '
+                      'Before any substantive work load the cached catalogue, assess task risk and route specialists. '
+                      'Announce every assignment with task, role, provider/model/effort, reason, quota and budget. '
                       'User-facing updates in ' + ('Turkish. ' if args.language == 'tr' else 'English. ')
                       + ('User goal: ' + ' '.join(args.goal) if args.goal else
                          'No new product goal supplied: inspect and report verified state, then resume only confirmed work.'))
-            candidates = subscriptions.route(snapshot, 'COMPLEX')['candidates']
+            candidates = subscriptions.route(snapshot, args.complexity)['candidates']
             selected = next((entry for entry in candidates if entry['provider'] == 'codex'), None)
             host = 'codex' if args.host == 'auto' and selected else args.host
             if host in ('auto', 'opencode'):
@@ -990,6 +946,8 @@ def main():
                     print(json.dumps({'status': 'WAIT_FOR_RESET', 'inventory': str(inventory_path),
                                       'next': 'Checkpoint before inference; fresh Codex model/shared quota required.'}))
                     return 1
+                print(json.dumps({'event': 'DIRECTOR_SELECTED', 'role': 'director', 'selected': selected,
+                                  'complexity': args.complexity, 'reason': 'Least sufficient verified quality floor'}), flush=True)
                 return subprocess.call([executable('codex'), '-c', 'forced_login_method="chatgpt"',
                                         '--model', selected['model'], '-c', 'model_reasoning_effort="' + selected['effort'] + '"',
                                         '-C', str(ROOT), prompt], cwd=ROOT, env=clean_ai_env(os.environ))
@@ -1017,8 +975,8 @@ def main():
             records.append(data)
         result = {'project_root': str(ROOT), 'runs': records, 'quota_remaining': None}
     elif args.command == 'providers':
-        if args.output and not args.scan:
-            raise ValueError('--output requires --scan')
+        if args.output and not (args.scan or args.catalogue):
+            raise ValueError('--output requires --scan or --catalogue')
         login = {'codex': 'codex login', 'claude': 'claude auth login', 'gemini': 'gemini (Login with Google)',
                  'mcode': 'mcode login --region global', 'qwen': 'Verify current Coding Plan route',
                  'agy': 'Use official Antigravity account setup', 'opencode': 'opencode providers',
@@ -1028,9 +986,8 @@ def main():
                   'measured_routes': load(BUNDLE / 'contracts/capabilities.json'),
                   'policy': 'Presence is not authentication/entitlement/inference proof; official subscription login only',
                   'glm': 'Official ZCode account route; no verified headless adapter', 'quota_remaining': None}
-        if args.scan:
-            result = subscriptions.inventory(run, executable, clean_ai_env(os.environ),
-                                             include_openrouter=not args.local_only)
+        if args.scan or args.catalogue:
+            result, _ = startup_inventory(refresh=args.scan, include_openrouter=not args.local_only)
             if args.output:
                 output = project_dir(args.output)
                 if project_dir('.factory/runs') not in output.parents or output.suffix != '.json':
@@ -1061,53 +1018,13 @@ def main():
                 state = sessions.load_state(ROOT)
                 state.update(task_id=task['task_id'], contract_sha256=digest_file(trusted_input(args.contract, '.json')))
                 sessions.store(ROOT, state)
-    elif args.command == 'native':
-        contract = trusted_input(args.contract, '.json')
-        task = validate_contract(load(contract))
-        if task['permissions'].get('write'):
-            raise ValueError('AGY native write scope is not technically verified; use an approved scoped host worker or read-only patch proposal')
-        if not set(task['required_capabilities']).issubset({'reasoning', 'source_read'}):
-            raise ValueError('Required native capability is unverified; catalogue/quota/READY is not capability proof')
-        prompt = trusted_input(args.prompt_file, '.txt')
-        if len(prompt.read_text(encoding='utf-8')) + len(json.dumps(task)) > task['delegation']['context_budget_chars']:
-            raise ValueError('Expert contract and prompt exceed the declared context budget')
-        candidates = subscriptions.route(load(trusted_input(args.inventory, '.json', '.factory/runs')), args.complexity)['candidates']
-        selected = next((candidate for candidate in candidates if candidate['provider'] == 'agy' and all(
-            task['delegation'][field] in ('auto', candidate[field]) for field in ('provider', 'model', 'effort'))), None)
-        if selected is None:
-            raise ValueError('No eligible AGY native TUI route; Codex uses run or start with its official transport')
-        output = project_dir(args.output)
-        if project_dir('.factory/runs') not in output.parents or output.suffix != '.json':
-            raise ValueError('Native request must be a new .factory/runs JSON file')
-        result = {'project': str(ROOT), 'task_id': task['task_id'], 'state': 'NATIVE_REQUESTED',
-                  'surface': args.surface,
-                  'contract': str(contract), 'contract_sha256': digest_file(contract),
-                  'prompt_file': str(prompt), 'prompt_sha256': digest_file(prompt), 'selected': selected, 'complexity': args.complexity,
-                  'report': None, 'report_surface': 'native terminal final JSON; supervisor records evidence',
-                  'usage': None, 'acceptance': 'Machine checks and independent review pending'}
-        argv = subscriptions.native_launch(ROOT, output, shutil.which('wt.exe'), sys.executable,
-                                           Path(subscriptions.__file__).resolve())
-        save(output, result)
-        opened = subprocess.run(argv, env=clean_ai_env(os.environ), check=False)
-        if opened.returncode:
-            raise RuntimeError('Native terminal launch failed; request retained, no implementation accepted')
     elif args.command == 'route':
         task = validate_contract(load(trusted_input(args.contract, '.json')))
-        if args.inventory:
-            result = subscriptions.route(load(trusted_input(args.inventory, '.json', '.factory/runs')), args.complexity)
-            result['required_capabilities'] = task['required_capabilities']
-            print(json.dumps(result, ensure_ascii=False, indent=2))
-            return 1 if result['status'] == 'BLOCKED' else 0
-        registry = load(BUNDLE / 'contracts/capabilities.json')
-        candidates = [model for model in registry['routing'][args.complexity]
-                      if set(task['required_capabilities']).issubset(registry['models'][model]['verified'])]
-        result = {'status': 'CANDIDATES_REQUIRE_GATES' if candidates else 'BLOCKED',
-                  'candidates': candidates, 'complexity': args.complexity,
-                  'required_capabilities': task['required_capabilities'],
-                  'first_action': 'Use deterministic tools if acceptance needs no judgment' if args.complexity == 'SIMPLE' else
-                                  'Select lowest sufficient verified capability; do not lower quality floor',
-                  'quality_gates': ['contract', 'machine verification', 'fresh independent review'],
-                  'subscription_quota_remaining': None}
+        snapshot = load(trusted_input(args.inventory, '.json', '.factory/runs')) if args.inventory else startup_inventory()[0]
+        result = subscriptions.route(snapshot, authority.required_complexity(task))
+        result['required_capabilities'] = task['required_capabilities']
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 1 if result['status'] == 'BLOCKED' else 0
     elif args.command == 'contract':
         result = {'status': 'VALID', 'task_id': validate_contract(load(trusted_input(args.path, '.json')))['task_id']}
     elif args.command == 'digest':

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tool import native_agents as agents, team
+from tool import native_agents as agents
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -34,34 +34,8 @@ class NativeLifecycleReview(unittest.TestCase):
             with self.assertRaises(RuntimeError): session.collect(1)
         close.assert_called_once()
 
-    def test_uncertain_collect_cleanup_keeps_admission(self):
-        controller = team.Controller.__new__(team.Controller)
-        class Client:
-            def collect(self, _): raise RuntimeError('RPC error')
-            def close(self): raise OSError('cannot prove exit')
-        lease = unittest.mock.MagicMock()
-        row = {'client': Client(), 'state':'running', 'lease':lease, 'collecting_turn':'turn'}
-        controller.agents = {'a': row}; controller._save = lambda: None
-        controller._collect('a', 'turn', lease)
-        self.assertEqual(row['state'], 'cleanup_unverified')
-        self.assertIs(row['lease'], lease)
-        lease.__exit__.assert_not_called()
 
-    def test_closed_controller_rejects_start_before_discovery(self):
-        controller = team.Controller.__new__(team.Controller)
-        controller.closed = True; controller.guard = threading.RLock()
-        with patch.object(team.subscriptions, 'inventory') as discover:
-            with self.assertRaisesRegex(RuntimeError, 'closed'): controller.start('unused', 'unused')
-        discover.assert_not_called()
 
-    def test_closed_controller_rejects_message_and_abort_before_rpc(self):
-        controller = team.Controller.__new__(team.Controller)
-        controller.closed = True; controller.guard = threading.RLock()
-        client = unittest.mock.Mock()
-        controller.agents = {'a': {'client': client, 'state': 'completed'}}
-        with self.assertRaises(ValueError): controller.message('a', 'continue')
-        with self.assertRaises(ValueError): controller.abort('a')
-        self.assertEqual(client.mock_calls, [])
     def test_constructor_closes_tree_when_rpc_setup_fails(self):
         tree = FakeTree()
         with patch.object(agents, 'Rpc', side_effect=OSError('mock spawn failure')):
@@ -82,31 +56,7 @@ class NativeLifecycleReview(unittest.TestCase):
         self.assertEqual(result['text'], 'current')
         self.assertEqual(result['turn_id'], 'turn-2')
 
-    def test_followup_failure_releases_lease(self):
-        class Lease:
-            def __init__(self): self.entered = self.exited = 0
-            def __enter__(self): self.entered += 1
-            def __exit__(self, *exc): self.exited += 1
-        class Client:
-            def followup(self, _): raise RuntimeError('mock rejected start')
-            def close(self): pass
-        lease, row = Lease(), {'client':Client(), 'state':'completed'}
-        with self.assertRaises(RuntimeError): team._leased_followup(row, lease, 'continue')
-        self.assertEqual((lease.entered, lease.exited), (1, 1))
-        self.assertNotIn('lease', row)
 
-    def test_invalid_or_blocked_task_report_is_not_completed(self):
-        controller = team.Controller.__new__(team.Controller)
-        lease = type('Lease', (), {'__exit__': lambda *_: None})()
-        row = {'client':type('Client', (), {'collect':lambda *_: {'status':'completed','turn_id':'t','text':'{}'},
-              'report':lambda *_: {'usage':None}})(), 'state':'running', 'record':{}, 'assignment':'assignment.json',
-              'messages':[], 'task_contract':{}, 'selected':{}, 'lease':lease, 'collecting_turn':'t'}
-        controller.agents = {'a':row}
-        controller._save = lambda: None
-        with patch.object(team.authority, 'checked_report', return_value={'task':'PB-001','state':'BLOCKED'}), \
-             patch.object(team.authority, 'atomic'):
-            controller._collect('a', 't', lease)
-        self.assertEqual(row['state'], 'unverified')
 
 
 if __name__ == '__main__':
