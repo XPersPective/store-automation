@@ -43,6 +43,41 @@ class FactoryChecks(unittest.TestCase):
             self.assertTrue(factory.sensitive_path(name))
         self.assertFalse(factory.sensitive_path('lib/feature.dart'))
 
+    def test_context_ranges_and_actual_snapshot_budget_before_inference(self):
+        self.contract['complexity'] = 'SIMPLE'
+        self.contract['delegation'].update(provider='codex', model='auto', effort='auto', context_budget_chars=9000)
+        self.contract['context'] = ['lib/demo.txt']
+        self.contract['context_ranges'] = {'lib/demo.txt': [1, 1]}
+        source = factory.ROOT / 'lib/demo.txt'
+        source.parent.mkdir()
+        source.write_text('included\n' + 'omitted' * 9000)
+        contract = factory.ROOT / 'contracts/ranged.json'
+        contract.write_text(json.dumps(self.contract))
+        snapshot = {'captured_at': datetime.now(timezone.utc).isoformat(), 'providers': [{
+            'cli': 'codex', 'auth': 'SUBSCRIPTION_LOGIN', 'access': 'METADATA_VERIFIED',
+            'billing': 'SUBSCRIPTION_ONLY_REQUIRED',
+            'models': [{'id': 'gpt-5.6-luna', 'supported_efforts': ['low']}],
+            'quota_groups': [{'name': 'Codex Models', 'buckets': [{'remaining_fraction': .8}]}]}]}
+        with patch.object(factory, 'executable', return_value='codex'), \
+             patch.object(factory, 'run', return_value={'exit_code': 0, 'stdout': 'ChatGPT', 'stderr': ''}), \
+             patch.object(factory, 'startup_inventory', return_value=(snapshot, Path('inventory.json'))), \
+             patch.object(factory.sessions, 'stream_run', return_value={}) as inference:
+            factory._model_run('codex', 'Read snapshot', contract)
+            payload = inference.call_args.kwargs['input_text']
+            self.assertIn('included', payload)
+            self.assertNotIn('omitted', payload)
+            self.assertLessEqual(len(payload), 9000)
+            inference.reset_mock()
+            del self.contract['context_ranges']
+            contract.write_text(json.dumps(self.contract))
+            with self.assertRaisesRegex(ValueError, 'Actual snapshot input exceeds'):
+                factory._model_run('codex', 'Read snapshot', contract)
+            inference.assert_not_called()
+        for bounds in ([0, 1], [True, 1], [2, 1], [1], '1:2'):
+            self.contract['context_ranges'] = {'lib/demo.txt': bounds}
+            with self.assertRaisesRegex(ValueError, 'Context ranges'):
+                factory.validate_contract(self.contract)
+
     def test_windows_platform_reaches_bootstrap_instead_of_android_default(self):
         argv = ['factory', 'bootstrap', 'new-app', '--name', 'Example', '--package', 'com.example.app', '--platform', 'windows']
         with patch.object(sys, 'argv', argv), patch.object(factory, 'bootstrap', return_value={'status': 'VERIFIED_LOCAL'}) as bootstrap, redirect_stdout(io.StringIO()):

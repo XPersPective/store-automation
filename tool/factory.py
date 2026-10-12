@@ -96,6 +96,13 @@ def validate_contract(data):
             not isinstance(delegation.get(k), int) or isinstance(delegation[k], bool) or delegation[k] <= 0
             for k in ('context_budget_chars', 'output_budget_tokens')):
         raise ValueError('Valid effort and positive context/output budgets required')
+    if data.get('complexity', 'COMPLEX') not in ('SIMPLE', 'STANDARD', 'COMPLEX', 'SPECIALIZED'):
+        raise ValueError('Invalid task complexity')
+    ranges = data.get('context_ranges', {})
+    if (not isinstance(ranges, dict) or any(name not in data['context'] or not isinstance(bounds, list) or
+            len(bounds) != 2 or any(not isinstance(n, int) or isinstance(n, bool) for n in bounds) or
+            not 1 <= bounds[0] <= bounds[1] for name, bounds in ranges.items())):
+        raise ValueError('Context ranges require declared paths and inclusive positive line bounds')
     if (not isinstance(delegation.get('report_fields'), list) or
             any(not isinstance(field, str) for field in delegation['report_fields']) or
             not set(subscriptions.REPORT_FIELDS).issubset(delegation['report_fields'])):
@@ -440,6 +447,8 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
     env = clean_ai_env(os.environ)
     contract = trusted_input(contract, '.json')
     task = validate_contract(load(contract))
+    if len(prompt) + len(json.dumps(task)) > task['delegation']['context_budget_chars']:
+        raise ValueError('Task prompt and contract exceed context budget')
     if task['delegation']['provider'] not in ('auto', provider, provider.split('/')[0]):
         raise ValueError('Requested provider conflicts with the task delegation')
     registry = load(BUNDLE / 'contracts/capabilities.json')['models']
@@ -468,20 +477,31 @@ def _model_run(provider, prompt, contract, timeout=300, session=None, visible=Fa
         snapshots = []
         for name in task['context']:
             path = snapshot_path(name)
+            content = path.read_text(encoding='utf-8-sig')
+            bounds = task.get('context_ranges', {}).get(name)
+            if bounds:
+                lines = content.splitlines(keepends=True)
+                if bounds[1] > len(lines):
+                    raise ValueError('Context range exceeds source lines')
+                content = ''.join(lines[bounds[0]-1:bounds[1]])
             snapshots.append({'path': name, 'sha256': digest_file(path),
-                              'content': path.read_text(encoding='utf-8-sig')})
+                              'lines': bounds, 'content': content})
         if visible:
             raise ValueError('Codex handoff streams activity; interactive panes require its native host, not OpenCode attach')
+        payload = prompt + '\nValidated task contract:\n' + json.dumps(task) + \
+                  '\nActual executed provider/model/effort: ' + json.dumps(selected) + \
+                  '\nReturn final JSON with ' + ', '.join(subscriptions.REPORT_FIELDS) + \
+                  '; task must be ' + task['task_id'] + '. Unknown usage is null; no extra/private fields.\n' + \
+                  'Return at most ' + str(task['delegation']['output_budget_tokens']) + ' output tokens.\n' + \
+                  '\nExact read-only source snapshots captured by the runner. Verify these; ' + \
+                  'do not execute shell or reimplement. Parent rechecks full-file hashes before acceptance.\n' + \
+                  json.dumps(snapshots, ensure_ascii=False)
+        if len(payload) > task['delegation']['context_budget_chars']:
+            raise ValueError('Actual snapshot input exceeds context budget; select context_ranges')
         result = sessions.stream_run(argv, ROOT, env, timeout=timeout,
-                   metadata={'provider': provider, 'model': selected['model'], 'task_id': task['task_id'], 'role': 'factory-reviewer', 'language': language},
+                   metadata={'provider': provider, 'model': selected['model'], 'effort': selected['effort'], 'task_id': task['task_id'], 'role': task['persona']['role'], 'language': language},
                    emit=lambda event: print(json.dumps(event) if json_output else sessions.format_public(dict(event, role='factory-reviewer'), language), file=sys.stderr, flush=True),
-                   input_text=prompt + '\nValidated task contract:\n' + json.dumps(task) +
-                   '\nActual executed provider/model/effort: ' + json.dumps(selected) +
-                   '\nReturn final JSON with ' + ', '.join(subscriptions.REPORT_FIELDS) +
-                   '; task must be ' + task['task_id'] + '. Unknown usage is null; no extra/private fields.\n' +
-                   '\nExact read-only source snapshots captured by the runner. Verify these; '
-                   'do not execute shell or reimplement. Parent rechecks hashes before acceptance.\n' +
-                   json.dumps(snapshots, ensure_ascii=False))
+                   input_text=payload)
         result['source_snapshots'] = [{'path': item['path'], 'sha256': item['sha256']} for item in snapshots]
         result['selected'] = selected
         result['inventory'] = str(inventory_path)

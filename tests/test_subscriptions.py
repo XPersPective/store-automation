@@ -36,8 +36,8 @@ class SubscriptionChecks(unittest.TestCase):
         self.snapshot['excluded_model_prefixes'] = ['claude-']
         selected = s.route(self.snapshot, 'COMPLEX')['selected']
         self.assertEqual((selected['provider'], selected['model'], selected['effort']),
-                         ('codex', 'gpt-5.6-sol', 'high'))
-        self.assertEqual(s.route(self.snapshot, 'SIMPLE')['selected']['model'], 'gpt-5.6-luna')
+                         ('codex', 'gpt-6.1-sol', 'high'))
+        self.assertEqual(s.route(self.snapshot, 'SIMPLE')['selected']['model'], 'gpt-6-luna')
         self.assertEqual(s.route(self.snapshot, 'STANDARD')['selected']['model'], 'gpt-5.6-terra')
         provider = self.snapshot['providers'][1]
         for field, value in (('auth', 'UNKNOWN'), ('access', 'NOT_PROBED'), ('billing', 'PAID_API')):
@@ -50,6 +50,18 @@ class SubscriptionChecks(unittest.TestCase):
         provider['quota_groups'][0]['buckets'][0]['remaining_fraction'] = .8
         provider['models'] = [{'id': 'gpt-999-sol', 'supported_efforts': ['high']}]
         self.assertEqual(s.route(self.snapshot, 'COMPLEX')['status'], 'BLOCKED')
+
+    def test_unassessed_codex_version_description_never_grants_suitability(self):
+        provider = {'cli': 'codex', 'auth': 'SUBSCRIPTION_LOGIN', 'access': 'METADATA_VERIFIED',
+                    'billing': 'SUBSCRIPTION_ONLY_REQUIRED',
+                    'models': [{'id': 'gpt-7-sol', 'supported_efforts': ['high']}],
+                    'quota_groups': [{'name': 'Codex Models', 'buckets': [{'remaining_fraction': .8}]}]}
+        snapshot = dict(self.snapshot, providers=[provider])
+        self.assertEqual(s.route(snapshot, 'COMPLEX')['status'], 'BLOCKED')
+        provider['models'][0]['description'] = 'Official workhorse model for coding.'
+        self.assertEqual(s.route(snapshot, 'COMPLEX')['status'], 'BLOCKED')
+        provider['models'][0]['id'] = 'unknown-family'
+        self.assertEqual(s.route(snapshot, 'COMPLEX')['status'], 'BLOCKED')
 
     def test_codex_metadata_rpc_is_sanitized_bounded_and_owned(self):
         model = {'id': 'gpt-5.6-luna', 'supportedReasoningEfforts': [{'reasoningEffort': 'low'}],
@@ -170,7 +182,7 @@ class SubscriptionChecks(unittest.TestCase):
         self.assertIn('qwen', result['excluded'])
 
     def test_additional_installed_clients_remain_unverified_without_probing(self):
-        names = ('mimo', 'cursor', 'windsurf', 'cline', 'codebuff', 'freebuff', 'zed', 'ollama')
+        names = ('cursor', 'windsurf', 'cline', 'codebuff', 'freebuff', 'zed', 'ollama')
         with patch('shutil.which', side_effect=lambda cli: cli if cli in names else None):
             result = s.inventory(lambda *args, **kwargs: self.fail('Unsupported adapter was probed'),
                                  lambda cli: cli, {})
@@ -181,6 +193,14 @@ class SubscriptionChecks(unittest.TestCase):
                              ('UNVERIFIED', 'UNKNOWN', 'NOT_PROBED'))
             self.assertIsNone(row['quota_remaining'])
         self.assertFalse(any(row['cli'] == 'openrouter' for row in result['providers']))
+
+    def test_mimo_catalogue_probe_still_cannot_grant_access(self):
+        with patch('shutil.which', side_effect=lambda cli: cli if cli == 'mimo' else None):
+            result = s.inventory(lambda *a, **k: {'exit_code': 0, 'stdout': 'xiaomi/mimo-v2.6-flash\n'}, lambda cli: cli, {})
+        row = next(row for row in result['providers'] if row['cli'] == 'mimo')
+        self.assertEqual(row['models'][0]['id'], 'xiaomi/mimo-v2.6-flash')
+        self.assertEqual((row['auth'], row['access']), ('UNKNOWN', 'NOT_PROBED'))
+        self.assertIsNone(row['quota_remaining'])
 
     def test_dynamic_host_registry_has_only_safe_hints_and_preserves_false_install(self):
         custom = {'key': 'custom-future-host', 'display_name': 'Future Custom Host',

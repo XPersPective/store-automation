@@ -53,3 +53,5 @@ Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`,
 
 - PUBLISHED2.2.0: branch factory-bootstrap/tag store-automation-v2.2.0 at e8c52a8; public release ZIP SHA256 matches uploaded asset. Hosted Windows+Ubuntu checks38176125753 SUCCESS. External starter885f681/core3cec0f9 pushed nonforce, platform generator fixes now available remotely. Installed41+4 targets verified. Remaining account/native visual gates explicitly open; unrelated medication app not modified.
 - Stage: Maintenance; Substage:2.2.0 published and installed; Next gate: per-provider actual access/native visual acceptance in PB-023/PB-019 when host interfaces/access are available.
+
+- VERIFIED2026-10-12 scoped dispatch correction: actual serialized snapshot budget, positive inclusive context_ranges, current known model-version ordering and public CLI path/docs/control metadata. Unknown future model description cannot grant suitability.110tests/syntax PASS; fresh native Terra/medium source review has no blockers. Complete target assignment/enrollment/transport still pending.

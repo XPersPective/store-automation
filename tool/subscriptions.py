@@ -9,11 +9,22 @@ LOGIN = {'agy': 'agy (official account setup)', 'claude': 'claude auth login',
          'codex': 'codex login', 'gemini': 'gemini (Login with Google)',
          'mcode': 'mcode login --region global', 'opencode': 'opencode auth login',
          **dict.fromkeys(('mimo', 'cursor', 'windsurf', 'cline', 'codebuff',
-                          'freebuff', 'zed', 'ollama', 'qwen', 'minimax', 'zcode', 'antigravity'),
+                          'freebuff', 'zed', 'ollama', 'qwen', 'minimax', 'zcode', 'antigravity',
+                          'kimi', 'hermes', 'lms', 'omniroute'),
                          'Verify the installed official client and its documented account/model/status controls')}
 RESERVE = 0.10
 # Task suitability assessed from the host's documented model roles; new IDs need reassessment.
-CODEX_TIERS = {'gpt-5.6-luna': 0, 'gpt-5.6-terra': 1, 'gpt-5.6-sol': 2, 'gpt-6-astra': 3}
+CODEX_TIERS = {'gpt-5.6-luna': 0, 'gpt-6-luna': 0, 'gpt-5.6-terra': 1,
+               'gpt-5.6-sol': 2, 'gpt-6-sol': 2, 'gpt-6.1-sol': 2, 'gpt-6-astra': 3}
+# Public documentation only; metadata cannot grant billing or tool permissions.
+CLI_DOCS = {'codex': 'https://developers.openai.com/codex/cli/',
+            'mcode': 'https://github.com/MiniMax-AI/minimax-code',
+            'minimax': 'https://agent.minimax.io/',
+            'mimo': 'https://github.com/XiaomiMiMo/MiMo-Code',
+            'opencode': 'https://opencode.ai/docs/',
+            'gemini': 'https://geminicli.com/docs/',
+            'claude': 'https://code.claude.com/docs/',
+            'kimi': 'https://github.com/MoonshotAI/kimi-cli'}
 OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models'
 CATALOGUE_MAX_BYTES = 8 * 1024 * 1024
 REPORT_FIELDS = ('task', 'role', 'provider', 'model', 'effort', 'state',
@@ -110,8 +121,12 @@ def codex_metadata(executable, env, timeout=30):
                         not isinstance(item, dict) or item.get('reasoningEffort') not in
                         ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra') for item in efforts):
                     raise ValueError('Invalid supported model effort')
-                models.append({'id': model['id'], 'supported_efforts': [item['reasoningEffort'] for item in efforts],
-                               'access': 'CATALOGUE_ONLY'})
+                entry = {'id': model['id'], 'supported_efforts': [item['reasoningEffort'] for item in efforts],
+                         'access': 'CATALOGUE_ONLY'}
+                for key in ('description', 'displayName'):
+                    if isinstance(model.get(key), str) and len(model[key]) <= 600:
+                        entry[key] = model[key]
+                models.append(entry)
             cursor = payload.get('nextCursor')
             if cursor is None:
                 break
@@ -310,6 +325,15 @@ def inventory(run, executable, env, excluded=('qwen',), include_openrouter=False
                'quota_groups': [], 'login_action': login, 'quota_remaining': None,
                'adapter': 'METADATA_ONLY' if cli in ('agy', 'claude', 'codex', 'opencode') else 'UNVERIFIED'}
         providers.append(row)
+        row['documentation'] = CLI_DOCS.get(cli)
+        row['executable'] = None
+        if row['installed']:
+            try:
+                row['executable'] = executable(cli)
+            except (OSError, RuntimeError):
+                row['executable'] = shutil.which(cli)
+        row['controls'] = {'models': 'UNKNOWN', 'effort': 'UNKNOWN', 'quota': 'UNKNOWN',
+                           'session': 'UNKNOWN', 'intervention': 'UNKNOWN', 'permissions': 'UNVERIFIED'}
         if not row['installed'] or cli in excluded:
             continue
         def probe(args):
@@ -324,6 +348,8 @@ def inventory(run, executable, env, excluded=('qwen',), include_openrouter=False
             except (ValueError, TypeError):
                 return {}
         if cli == 'agy':
+            row['controls'].update(models='agy models', effort='--effort', quota='/usage metadata',
+                                   session='--conversation', intervention='native TUI', permissions='--mode plan; sandbox unverified')
             models = probe(['models'])
             if models['exit_code'] == 0:
                 for line in models['stdout'].splitlines():
@@ -346,6 +372,9 @@ def inventory(run, executable, env, excluded=('qwen',), include_openrouter=False
             row['billing'] = 'EXTRA_USAGE_POLICY_REQUIRED'
             row['quota_action'] = 'Official interactive /usage; do not send it as an inference prompt'
         elif cli == 'codex':
+            row['controls'].update(models='app-server model/list', effort='model_reasoning_effort',
+                                   quota='app-server account/rateLimits/read', session='native thread',
+                                   intervention='exec snapshot: unavailable; app-server turn/steer', permissions='read-only snapshot wrapper')
             status = probe(['login', 'status'])
             output = status.get('stdout', '') + status.get('stderr', '')
             row['auth'] = 'SUBSCRIPTION_LOGIN' if status['exit_code'] == 0 and 'ChatGPT' in output else 'LOGIN_OR_PLAN_REQUIRED'
@@ -353,7 +382,7 @@ def inventory(run, executable, env, excluded=('qwen',), include_openrouter=False
                 row.update(codex_metadata(executable, env))
                 row['billing'] = 'SUBSCRIPTION_ONLY_REQUIRED'
             row['quota_action'] = 'Current Codex host usage tool or official interactive /status'
-        elif cli == 'opencode':
+        elif cli in ('opencode', 'mimo'):
             result = probe(['--pure', 'models'])
             if result['exit_code'] == 0:
                 row['models'] = [{'id': model, 'quality_tier': 'UNASSESSED', 'effort': 'UNKNOWN'}
@@ -361,6 +390,14 @@ def inventory(run, executable, env, excluded=('qwen',), include_openrouter=False
                                  if re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.:/-]{1,180}', model)]
                 row['catalogue'] = 'CLI_METADATA_VERIFIED'
             row['quota_action'] = 'Provider-specific official status required; catalogue is not account access'
+            row['controls'].update(models=cli + ' --pure models', session=cli + ' attach / session',
+                                   intervention='native HTTP requires owned config verification')
+        elif cli == 'mcode':
+            row['billing'] = 'TOKEN_PLAN_CREDITS_OR_BYOK_REQUIRES_VERIFICATION'
+            row['controls'].update(models='ACP session/new catalogue; account access unverified', effort='exec --effort',
+                                   quota='native /status; machine quota unverified', session='--session',
+                                   intervention='native TUI / ACP', permissions='exec --permission off (snapshot only)')
+            row['quota_action'] = 'Official /status; Token Plan credits are not free subscription entitlement'
         else:
             row['quota_action'] = 'Inspect current official CLI status; authentication/remaining quota not inferred from presence'
     if include_openrouter:
@@ -420,7 +457,8 @@ def route(snapshot, complexity, reserve=RESERVE, now=None):
                                'quota_group': group['name'], 'remaining_fraction': left,
                                'quality_tier': family})
     # Family/effort before quota: abundant quota does not justify a weaker quality floor.
-    candidates.sort(key=lambda c: (c['quality_tier'], ('low', 'medium', 'high').index(c['effort']), -c['remaining_fraction'], tuple(-int(x) for x in re.findall(r'\d+', c['model']))))
+    candidates.sort(key=lambda c: (c['quality_tier'], ('low', 'medium', 'high').index(c['effort']), -c['remaining_fraction'],
+                                   tuple(-int(x) for x in (re.findall(r'\d+', c['model']) + ['0'] * 4)[:4])))
     return {'status': 'CANDIDATES_REQUIRE_GATES' if candidates else 'BLOCKED',
             'selected': candidates[0] if candidates else None, 'candidates': candidates,
             'reserve_fraction': reserve, 'captured_at': snapshot['captured_at'],

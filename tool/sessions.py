@@ -662,7 +662,7 @@ def stream_run(argv, project, env, timeout=300, input_text=None, emit=None, meta
     data = {'project': str(Path(project).resolve()), 'state': 'STARTING', 'pid': None, 'language': language,
             'started_at': time.time(), 'events': events.name, 'usage': normalize_usage({})}
     data['native_sessions'] = []
-    for key in ('provider', 'model', 'task_id', 'role', 'contract_sha256'):
+    for key in ('provider', 'model', 'effort', 'task_id', 'role', 'contract_sha256'):
         value = (metadata or {}).get(key)
         if isinstance(value, str) and re.fullmatch(r'[\w ./:-]{1,160}', value):
             data[key] = value
