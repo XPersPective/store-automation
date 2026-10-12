@@ -64,5 +64,17 @@
     "runtime/.opencode/prompts/worker.md": "bbe2748548e65b08fe18e205039a27db2c7d1544100a8347642cf3018a36930d",
     "runtime/.opencode/skills/app-factory/SKILL.md": "46fd890a0e06805cd4dbf7b31f66b4302a995ed37913c8da4fe74b2e893e0f79",
     "runtime/.opencode/skills/factory-release/SKILL.md": "0c1ad286c32baab302ddceaac100cb4c5a8bbd3c7cf4218e73452355f1d14a58"
+  },
+  "remote": {
+    "release": "https://github.com/XPersPective/store-automation/releases/tag/store-automation-v2.4.0",
+    "tag": "store-automation-v2.4.0",
+    "asset_sha256": "45278cad9b4c15fdfbaf79c2abf7aba242a5ab2ba60a3181d35da777af7d665b",
+    "asset_digest_matches": true,
+    "ci_run": "https://github.com/XPersPective/store-automation/actions/runs/38249226813",
+    "ci": "SUCCESS",
+    "platforms": [
+      "windows-latest",
+      "ubuntu-latest"
+    ]
   }
 }

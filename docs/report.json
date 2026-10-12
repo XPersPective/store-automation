@@ -8,5 +8,7 @@
   "verification": "docs/evidence/release-240.json",
   "protocol": "skills/store-automation/references/product-delivery.md",
   "review_prompt": "skills/store-automation/references/architecture-review.md",
-  "historical_evidence": "docs/evidence/ (dated evidence is not current account/device/store authorization)"
+  "historical_evidence": "docs/evidence/ (dated evidence is not current account/device/store authorization)",
+  "release": "https://github.com/XPersPective/store-automation/releases/tag/store-automation-v2.4.0",
+  "ci": "https://github.com/XPersPective/store-automation/actions/runs/38249226813"
 }
