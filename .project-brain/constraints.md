@@ -22,3 +22,6 @@
 
 - C-018: Latest user allows polished Windows Terminal console; team size is task-dependent beyond three responsibilities. Earlier Codex-only/three-agent UI constraint is superseded for this request; actual interactive visibility/relay still needs evidence.
 - C-019: Automatically discover all installed supported AI CLIs/subscriptions and current free/optional user API catalogues on intake/resume and refresh before dispatch; monitor coordinator plus children/retries. No static model list or AGY-only policy; unknown access/quota remains unverified, paid inference still needs exact authorization.
+
+- C-020: Latest user2026-10-12 requires architecture-first repeated independent critique, mandatory native CLI discovery/delegation and least-sufficient task model including own cheaper/stronger models; preserve quality and checkpoint before equivalent fallback/director takeover. Never silently proxy or use expensive native subagents.
+- C-021: Phone transport setup is secondary; use existing user remote console. Approved official CLI installation and exact contract-scoped worker permissions need no repeated approval; login/account/billing boundaries stay native and unchanged.

@@ -58,3 +58,6 @@ PB-021/PB-022 cover required platform/store/money/ad-placement/license/exclusion
 
 ## Confirmed publication extension2026-10-12
 "Tüm işleri üretim düzeyinde bitir kontrol et ve yayınla bilgisayarımdaki tüm ajanlara sistemlere ekle ... skill manager ... sürüm yükselt" (user). Complete executable skill gaps, fresh checks/independent evidence, version bump and public GitHub publication plus all-host Skills Manager distribution. This selects factory/skill publication; no particular application store/account/track is selected.
+
+## Confirmed architecture-first extension2026-10-12
+"Butun gonderdiklerimi toplu dusun ... bastan sona mimari tasarla ... elestir ... degistir ... tekrar elestir" (user). Preserve sensible existing components; compare merged/two/third skill options and native CLI versus optional OmniRoute. Mandatory installed CLI discovery, economical task-specific quality/effort, own lower/stronger models, fresh quota/reset recognition, durable equivalent partial-work handoff and another director takeover, actual visible intervention/artifact proof. Phone setup secondary; existing remote console expected. PB030 owns reviewed target architecture; PB027-PB029 and adapter/runtime tasks implement it afterward. Architecture review is not runtime completion.

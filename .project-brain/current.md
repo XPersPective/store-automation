@@ -13,6 +13,7 @@
 - `tests/` — stdlib negative boundaries and meaningful live-process lifecycle regressions.
 - `.github/workflows/checks.yml` — Windows/Linux portable syntax/session/release checks.
 - `docs/evidence/`, `docs/report.json` — public evidence summaries and explicit limits; raw project runs remain ignored.
+- `docs/architecture-cli-team.md` — independently criticized CLI-team target design; implementation gates stay in Brain tasks.
 - `.project-brain/` — one repository-owned plan; source repositories own separate Brains.
 ## Domains
 ### factory
@@ -55,3 +56,6 @@ Sources: `tool/**`, `tests/**`, `.opencode/**`, `contracts/**`, `opencode.json`,
 - Stage: Maintenance; Substage:2.2.0 published and installed; Next gate: per-provider actual access/native visual acceptance in PB-023/PB-019 when host interfaces/access are available.
 
 - VERIFIED2026-10-12 scoped dispatch correction: actual serialized snapshot budget, positive inclusive context_ranges, current known model-version ordering and public CLI path/docs/control metadata. Unknown future model description cannot grant suitability.110tests/syntax PASS; fresh native Terra/medium source review has no blockers. Complete target assignment/enrollment/transport still pending.
+
+- VERIFIED2026-10-12 architecture-first request: three independent official CLI design critiques, final target blockers=[], actual13CLI discovery including MCode/MiMo/Kimi/Hermes/LMStudio/OmniRoute. Native ACP MCode/Kimi model/effort metadata acquired without prompts. Two skill boundaries and target controller/suitability/enrollment/admission/handoff/visibility gates in ADR004; unimplemented features never recorded as current runtime.
+- Stage: Design; Substage: revised CLI-team architecture reviewed; Next gate: PB031single authority/risk/enrollment/report implementation, then native quota/transport/handoff/rendered acceptance and versioned distribution. Existing installed2.2.0 unchanged.
