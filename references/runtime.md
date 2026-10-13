@@ -26,7 +26,7 @@ Kayıtlar `.store-automation/runs/` altında yeni, benzersiz JSON dosyalarıdır
 `gate` isteği `bundle` ve **yönetici tarafından ayrı hazırlanmış** `attestations` içerir. Worker raporundaki attestation/provenance alanlarını güvenilir kabul etme.
 
 - Bundle: `task`, `source` (snapshot sonucu), `implementation` (finish referansı), `observations` referans listesi; gerekliyse `reviewer` finish referansı ve `review` referansı.
-- Observation: `id`, `task`, `project`, `task_hash`, `subject`, `criterion`, `kind`, `result` PASS/FAIL/UNVERIFIED/NOT_APPLICABLE, `reference`, `evidence` (hashli public kanıt kaydı), `observer`, `method`, `environment`, `captured_at`. Zorunlu kriter N/A yapılamaz. Makine kanıtında gerçek check kaydı gerekir; ekran için ekranı gerçekten görmüş olma ve dosya hashli gözlem gerekir.
+- Observation: `id`, `task`, `project`, `task_hash`, `subject`, `criterion`, `kind`, `result` PASS/FAIL/UNVERIFIED/NOT_APPLICABLE, `reference`, `evidence` (hashli public kanıt kaydı), `observer`, `method`, `environment`, `captured_at`. Zorunlu kriter N/A yapılamaz. Makine kanıtında gerçek check kaydı gerekir; ekran için ekranı gerçekten görmüş olma ve dosya hashli gözlem gerekir. Evidence kaydındaki `artifacts` alanı `snapshot` sonucudur (ör. ekran görüntüleri); gate bu dosyaları yeniden hashler. `visual` gözlemde `artifacts` zorunludur.
 - Review: `task`, `project`, `task_hash`, `subject`, `attempt`, `criteria`, `verdict` PASS/BLOCKED/UNVERIFIED, `findings`. Her açık bulgu description/severity/violates içerir. Yalnız kriter ihlali olmayan MINOR, accepted disposition, reason ve decision_owner ile kabul edilebilir. Düzeltme sonrası taze inceleme gerekir.
 - Yönetici attestation: `record` referansı, `observer`, `method`, `native_reference`, `observed_at`; outcome için araçtan görülen `actor` ve `state`. Yönetici native kaydı gerçekten açar; task/attempt/parent ilişkisi, rol ve son çıktı eşleşmesini kontrol eder. Sahte transcript otomatik doğrulanamaz. Bir host bunu sağlayamıyorsa attestation yazılmaz.
 
@@ -34,7 +34,7 @@ Gate güncel kaynak ve kanıt dosyalarını yeniden hashler, task/atama/sonuç/r
 
 ## Devam ve yayın
 
-`handoff`: `task_ref`, `assignments` referansları, `next_action`, `ownership` (state active/absent/unknown + reference), `pending_external` (state not_started/confirmed/response_unknown + readback), `public_files`, `notes`. Canlı/bilinmeyen owner önce uzlaştırılır; belirsiz dış işlem önce geri okunur. Handoff hiçbir süreci öldürmez veya upload'ı tekrar etmez. Yer değişikliğinde eski project-bound receipt'i düzenleyerek yeniden kullanma; geçmiş olarak koru, yeni kökte yeni atama/gözlem üret.
+`handoff`: `task_ref`, `assignments` referansları, `next_action`, `ownership` (state active/absent/unknown + reference), `pending_external` (state not_started/confirmed/response_unknown + readback), `public_files`, `notes`. `task_ref` ve bütün `assignments` aynı task/task_hash/project kaydına ait olmalıdır. Canlı/bilinmeyen owner önce uzlaştırılır; belirsiz dış işlem önce geri okunur. Handoff hiçbir süreci öldürmez veya upload'ı tekrar etmez. Yer değişikliğinde eski project-bound receipt'i düzenleyerek yeniden kullanma; geçmiş olarak koru, yeni kökte yeni atama/gözlem üret.
 
 `usage`: `attempts` ve `expected_ids`. Yalnız disjoint_last_turn input_tokens/output_tokens sayılır; eksik parent/worker/retry varsa toplam null. Kota değişimi token değildir.
 

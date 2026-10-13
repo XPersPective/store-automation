@@ -68,6 +68,9 @@ def gate(root, bundle, attestations):
                     Path(text(evidence.get('cwd'), 'check project')).resolve() != Path(root).resolve() or
                     verify_snapshot(root, evidence['input_snapshot']) != subject):
                 raise ValueError('Machine evidence does not establish current success')
+        # Screenshots and other referenced files are rehashed, not trusted by name.
+        if 'artifacts' in evidence or obs['kind'] == 'visual':
+            verify_snapshot(root, evidence.get('artifacts'))
         observations.append(obs)
     reviewer = outcome(bundle['reviewer']) if bundle.get('reviewer') else None
     review = resolve(bundle['review']) if bundle.get('review') else None

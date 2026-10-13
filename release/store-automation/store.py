@@ -6,6 +6,8 @@ import sys
 
 # Keep installed skill directories free of generated Python bytecode.
 sys.dont_write_bytecode = True
+# JSON consumers expect UTF-8 even when a Windows pipe defaults to the ANSI code page.
+sys.stdout.reconfigure(encoding='utf-8')
 
 from runtime import receipts
 from runtime.acceptance import validate_task
@@ -20,8 +22,8 @@ def main(argv=None):
         'finish', 'record', 'check', 'gate', 'handoff', 'release-readback', 'usage'])
     parser.add_argument('--request', help='Public JSON request relative to project root')
     args = parser.parse_args(argv)
-    root = Path(args.project).resolve(strict=True)
     try:
+        root = Path(args.project).resolve(strict=True)
         if args.command == 'doctor':
             result = dict(status='READY' if sys.version_info >= (3, 11) else 'BLOCKED',
                           python=sys.version.split()[0], project=str(root),

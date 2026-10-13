@@ -1,14 +1,14 @@
 {
   "SKILL.md": "be085dd9f45ea391d56896ac072fd53032906a13abdd3ebcdaca83ea0c10105d",
-  "store.py": "96f70bc99bb327d48b0f7ef1480724dc1b6b5f10e9e44eccaceeaf042198f8f1",
+  "store.py": "a5bcf1727b8a9b4b4e523878dead07592117a61a3014f951c5559c89c9224e20",
   "runtime/acceptance.py": "4a5f7dd46637f882c616e4c62e7df32bb7ab1177a26cf4667e07b2a430944483",
-  "runtime/gate.py": "bb4070720bb84b5170d4d37def7357946b5fa1ad28d4192189dc70e7d7207447",
+  "runtime/gate.py": "8e6a1294351ce790a613626629500b8abee58f0a2508bb508e82d60268e4d375",
   "runtime/processes.py": "23115bc142d1197c4f284604e66ce3d67cb2bbe21216404ac7ef9a25ff711812",
-  "runtime/receipts.py": "bfd950b30aed297cbdc5267e4bc5d15619169698aab63ca8502bd53629453672",
+  "runtime/receipts.py": "8d52b889671153c87f7fad1e9836f00e73f9da8e587f0fb985d3c3542aa5476f",
   "runtime/verification.py": "cdd507d919b4428331afeece959b41b10677b9c7abb72018e6e46ece49d6721e",
   "references/execution.md": "ea3a2d38a69d853c0bd619a395f0bd04699f942ccfcd7e2eb2bbd804389aba03",
   "references/migration.md": "8cd141dafa7ffa2b0828236b026f2074b1c48526cb656df55a20f11dc7081cbb",
   "references/product-quality.md": "1c204fd9c6197f54445b83d45871c679c93df2f1bc52a928e049b7a9c73bcabf",
   "references/release.md": "d36f3e0b4b368d5677fa675c0c7765397b781b296daae806c6c7a1200c3a263c",
-  "references/runtime.md": "5f3c6a5a46a72b76729bbf819dd7a625b99bdc17fee1614875cbd4ffa21b02fd"
+  "references/runtime.md": "25511175548b280fd5801c1c4cbbcc5d6ed80b12ddf1e8585ae82842e3570ce5"
 }

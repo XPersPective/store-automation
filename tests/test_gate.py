@@ -62,6 +62,33 @@ class GateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'current success'):
             gate(self.root, self.bundle, self.attestations)
 
+    def test_changed_screenshot_invalidates_visual_evidence(self):
+        self.task['criteria'][0]['kinds'] = ['visual']
+        self.bundle['task'] = self.task
+        ref = receipts.prepare(self.root, self.task, 'implementer', 'worker', ['source.py'])
+        assignment = receipts.read_record(self.root, ref)
+        report = {k: assignment[k] for k in ('task', 'project', 'attempt', 'role', 'provider', 'model', 'effort')}
+        report.update(state='COMPLETED', changed_files=[], evidence=[], blockers=[], next_action='Review')
+        self.bundle['implementation'] = self.attestations[0]['record'] = receipts.finish(self.root, ref, report,
+            output_files=['source.py'], native_reference='synthetic:native', observed_actor='worker',
+            observed_state='COMPLETED', observer='controller')
+        (self.root / 'shot.png').write_bytes(b'seen')
+        def observe(evidence):
+            ref = receipts.append_record(self.root, 'observation', dict(id='V1', task=self.task['id'],
+                project=str(self.root), task_hash=fingerprint(self.task), subject=self.bundle['source']['subject'],
+                criterion='C1', kind='visual', result='PASS', evidence=receipts.append_record(self.root, 'observation', evidence),
+                reference='shot.png', observer='controller', method='viewed', environment='temp', captured_at='2026-10-13'))
+            self.bundle['observations'] = [ref]
+            self.attestations[1]['record'] = ref
+        observe(dict(note='screenshot shot.png'))
+        with self.assertRaisesRegex(ValueError, 'Snapshot record required'):
+            gate(self.root, self.bundle, self.attestations)
+        observe(dict(artifacts=receipts.snapshot(self.root, ['shot.png'])))
+        self.assertEqual(gate(self.root, self.bundle, self.attestations)['status'], 'ACCEPTED')
+        (self.root / 'shot.png').write_bytes(b'edited')
+        with self.assertRaisesRegex(ValueError, 'Stale'):
+            gate(self.root, self.bundle, self.attestations)
+
     def test_completed_outcome_cannot_hide_blocked_report(self):
         record = receipts.read_record(self.root, self.bundle['implementation'])
         record['report'].update(state='BLOCKED', blockers=['unfinished'])

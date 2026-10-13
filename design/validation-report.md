@@ -52,7 +52,7 @@ Gerçek browser: Türkçe boş durum, başlık doğrulama, kayıt ve reload ile 
 | S13 süre/kota | A+B: gerçek check süreleri, gerçek kota kesintisi, eksik usage toplamı null. Eşdeğer önce/sonra benchmark ve toplam token yok |
 | S14 erken dilim | A/C: final sistem bitmeden çalışan küçük ürün kullanıcıya gösterildi; diğer risk sıraları rehberde |
 | S15 platform/bakım | C+D: hedefe göre rehber ve resmi kaynaklar; cihaz/CI/store hesapları denenmedi |
-| S16 paket/taşıma | A+B: bağımsız temp paket, overwrite reddi, PowerShell gerçek fixture promote+restore. Global sonuç ayrıca migration kaydında |
+| S16 paket/taşıma | A+B: bağımsız temp paket, overwrite reddi, PowerShell gerçek fixture promote+restore (tek seferlik script taşıma sonrası kaldırıldı; git geçmişinde). Global sonuç ayrıca migration kaydında |
 
 ## Yayın sınırı ve güncel kaynaklar
 
@@ -65,4 +65,4 @@ Eski 130 testin 26.230s, yeni 29 testin yaklaşık 7–8s sürmesi eşdeğer kap
 
 ## 2026-10-14 geçiş sonucu
 
-N08 gerçek repository üzerinde tamamlandı; Next kaldırıldı, eski kaynak repo dışında korundu. Yeni kökte son 29 test 6.345s, Node regression ve doctor başarılı. Merkezi kayıt ID/preset korundu; 41 managed + 4 ek kurulumun 12 paket dosyası SHA256 eşleşti. Launcher merkezi store.py üzerinde READY verdi. GitHub factory-bootstrap eb22605 dağıtım commitini içeriyor; private görünürlük korunuyor. Restore bilgileri HANDOFF içinde. Bu sonuç 45 sağlayıcıda AI görevi çalıştırıldığı iddiası değildir.
+N08 gerçek repository üzerinde tamamlandı; Next kaldırıldı, eski kaynak repo dışında korundu. Yeni kökte son 29 test 6.345s, Node regression ve doctor başarılı. Merkezi kayıt ID/preset korundu; 41 managed + 4 ek kurulumun 12 paket dosyası SHA256 eşleşti. Launcher merkezi store.py üzerinde READY verdi. Dağıtım commit'i eb22605; güncel GitHub dalı master (HANDOFF); private görünürlük korunuyor. Restore bilgileri HANDOFF içinde. Bu sonuç 45 sağlayıcıda AI görevi çalıştırıldığı iddiası değildir.

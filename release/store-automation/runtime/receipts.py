@@ -6,6 +6,7 @@ cryptographic guarantee against another program running as the same OS user.
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path, PureWindowsPath
 import re
 import uuid
@@ -74,7 +75,6 @@ def append_record(root, category, value):
     with path.open('x', encoding='utf-8') as stream:
         stream.write(body + '\n')
         stream.flush()
-        import os
         os.fsync(stream.fileno())
     return {'path': relative, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
 
@@ -147,9 +147,13 @@ def handoff(root, *, task_ref, assignments, next_action, ownership, pending_exte
     text(notes, 'handoff notes')
     if not isinstance(ownership, list) or not isinstance(pending_external, list):
         raise ValueError('Ownership and pending external actions must be explicit lists')
-    read_record(root, task_ref)
+    task = read_record(root, task_ref)
+    if not isinstance(assignments, list) or Path(text(task.get('project'), 'task project')).resolve() != Path(root).resolve():
+        raise ValueError('Handoff task belongs to another project')
     for ref in assignments:
-        read_record(root, ref)
+        record = read_record(root, ref)
+        if any(record.get(key) != task.get(key) for key in ('task', 'task_hash', 'project')):
+            raise ValueError('Handoff assignment belongs to another task')
     for item in ownership:
         if not isinstance(item, dict) or item.get('state') not in ('active', 'absent', 'unknown'):
             raise ValueError('Explicit owner state required')

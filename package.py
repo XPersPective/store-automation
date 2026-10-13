@@ -26,7 +26,7 @@ def build(source, destination):
         output.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source / name, output)
         manifest[name] = hashlib.sha256(output.read_bytes()).hexdigest()
-    (destination / 'package-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+    (destination / 'package-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8', newline='\n')
     return manifest
 
 

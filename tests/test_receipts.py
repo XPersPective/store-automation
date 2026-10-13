@@ -91,6 +91,11 @@ class ReceiptTests(unittest.TestCase):
             self.assertEqual(receipts.read_record(self.root, result)['resume'], expected)
         self.assertEqual((self.root / 'user.txt').read_text(), 'unrelated user edit')
         self.assertEqual((self.root / 'app.py').read_text(), 'partial work')
+        self.task['id'] = 'OTHER-TASK'
+        foreign = receipts.prepare(self.root, self.task, 'implementer', 'worker', ['app.py'])
+        with self.assertRaisesRegex(ValueError, 'another task'):
+            receipts.handoff(self.root, task_ref=ref, assignments=[ref, foreign], next_action='x',
+                ownership=[], pending_external=[], public_files=['app.py'], notes='n')
 
 
 if __name__ == '__main__':
