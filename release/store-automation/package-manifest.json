@@ -1,0 +1,14 @@
+{
+  "SKILL.md": "afc3db595bd3cfc126d81bdb89284cacf1d1f1bd1836c4f0cf17c6b817044e6b",
+  "store.py": "534218fb1ea15da79d21cef998fe650f671006291a85c9acfda179658fb44241",
+  "runtime/acceptance.py": "d939a6eecfdf970ca07289e2ded447dde8582c26cbfc233d3be0cb2a5fdf9ec0",
+  "runtime/gate.py": "bb4070720bb84b5170d4d37def7357946b5fa1ad28d4192189dc70e7d7207447",
+  "runtime/processes.py": "01ca2fe90d0d77d6f3e9c41671962aecd14f4df92d28a5246aa2bd5bc135342d",
+  "runtime/receipts.py": "bfd950b30aed297cbdc5267e4bc5d15619169698aab63ca8502bd53629453672",
+  "runtime/verification.py": "cdd507d919b4428331afeece959b41b10677b9c7abb72018e6e46ece49d6721e",
+  "references/execution.md": "ea3a2d38a69d853c0bd619a395f0bd04699f942ccfcd7e2eb2bbd804389aba03",
+  "references/migration.md": "1eeec173f3ba385be93b536d3542fdfe3eb03b0e0682d28ae08370b177e849f3",
+  "references/product-quality.md": "1c204fd9c6197f54445b83d45871c679c93df2f1bc52a928e049b7a9c73bcabf",
+  "references/release.md": "d36f3e0b4b368d5677fa675c0c7765397b781b296daae806c6c7a1200c3a263c",
+  "references/runtime.md": "5f3c6a5a46a72b76729bbf819dd7a625b99bdc17fee1614875cbd4ffa21b02fd"
+}

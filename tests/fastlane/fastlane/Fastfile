@@ -1,7 +1,0 @@
-default_platform(:android)
-platform :android do
-  desc "Local Factory smoke: no build, credentials, network or store writes"
-  lane :factory_smoke do
-    UI.success("FACTORY_FASTLANE_LOCAL_SMOKE_PASS")
-  end
-end
