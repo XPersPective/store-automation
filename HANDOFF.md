@@ -41,3 +41,7 @@ Kod dışı protokol (SKILL/references/design) gerçek benimseme senaryosuyla (i
 ## 2.x proje izlerini kaldırma — 2026-10-14
 
 Yeni `legacy` komutu (runtime/legacy.py): 2.x `.factory/` ve `.factory-bootstrap.json`'u dry-run envanterinden sonra tek rename ile proje yanındaki store-automation-legacy-archive altına taşır, .gitignore `.factory` satırlarını kaldırıp `.store-automation/` ekler, migration kaydı yazar; git'te izlenen/bağlı/açık dosyada durur, Brain'e dokunmaz. SKILL benimseme adımı doctor'daki `legacy` alanıyla bunu ilk iş yapar. Gerçek dry-run: ilac-vakti 489 MB, n-ai-science-lab 61 MB, n-alphesis-lab küçük iz.
+
+## v4 tasarımı — 2026-10-14
+
+Kullanıcı Project Brain sentezini, plan dosyalarının `.store-automation/` altında git'e girmesini ve alt ajanlı devralma denemesini onayladı. Hedef, tasarım brief'i, dört tur öner-eleştir ve son mimari: design/v4-target.md. Durum P0: kullanıcı hedef/mimari onayı ve §6'daki üç açık karar bekleniyor. Kod yazılmadı; ilk güvenli adım P1 (şema + validate).
