@@ -35,3 +35,5 @@ Uçtan uca CLI denemesi (task→prepare→check→finish→record→gate ACCEPTE
 ## Protokol derin incelemesi — 2026-10-14
 
 Kod dışı protokol (SKILL/references/design) gerçek benimseme senaryosuyla (ilac-vakti, salt okunur) incelendi. Düzeltilen: Windows'ta check `npm`/`flutter`/`.cmd` ve proje-göreli `./gradlew` çalıştıramıyordu; CLI `record` sahte check/outcome/acceptance yazabiliyordu (artık yalnız observation/review); `task` artık task_hash döndürür. SKILL'e: devam kaydının yeri ve resume sırası, gate'in ne zaman zorunlu olduğu, tek ajanlı host'ta bağımsız incelemenin UNVERIFIED kalması, yeni ürün/mimaride 2–3 farklı yön keşfi. migration.md'ye somut benimseme envanteri ve smoke check. architecture/roadmap eski durum satırları düzeltildi. Açık sınır: gerçek bir projede bu skill ile baştan sona yeni ajan oturumu (A düzeyi benimseme) henüz koşulmadı.
+
+2cf6ccf dağıtımı: `skills update` Cursor dağıtımını düşürdü (aynı saniyede ~/.cursor/skills değişti); `skills deploy store-automation --agent cursor` ile geri kuruldu. Merkez + 41 managed + 4 ek = 46 kopya yeni manifestle eşleşti. Bakımda update sonrası `skills status` deployed_to sayısını önceki listeyle karşılaştır.
