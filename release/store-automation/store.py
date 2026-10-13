@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 import sys
 
+# Keep installed skill directories free of generated Python bytecode.
+sys.dont_write_bytecode = True
+
 from runtime import receipts
 from runtime.acceptance import validate_task
 from runtime.gate import gate
