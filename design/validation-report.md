@@ -66,3 +66,7 @@ Eski 130 testin 26.230s, yeni 29 testin yaklaşık 7–8s sürmesi eşdeğer kap
 ## 2026-10-14 geçiş sonucu
 
 N08 gerçek repository üzerinde tamamlandı; Next kaldırıldı, eski kaynak repo dışında korundu. Yeni kökte son 29 test 6.345s, Node regression ve doctor başarılı. Merkezi kayıt ID/preset korundu; 41 managed + 4 ek kurulumun 12 paket dosyası SHA256 eşleşti. Launcher merkezi store.py üzerinde READY verdi. Dağıtım commit'i eb22605; güncel GitHub dalı master (HANDOFF); private görünürlük korunuyor. Restore bilgileri HANDOFF içinde. Bu sonuç 45 sağlayıcıda AI görevi çalıştırıldığı iddiası değildir.
+
+## 2026-10-14 — Store Automation 4
+
+4.0.0 git tabanlı plan (Project Brain sentezi) ve kanıta bağlı kabulle 3.x JSON akışının yerine geçti. Hedef, mimari ve P6 gerçek alt ajan zinciri sonuçları (Opus Genesis → Haiku çökme → Sonnet devralma → Opus inceleme → Haiku devam/WAITING_USER → Opus inceleme → Haiku küçük iş) design/v4-target.md §7'dedir. Kaynak deposunda 33 Python testi + Node regresyonu geçti; test_reference'taki aralıklı Windows bağlantı sıfırlaması kök nedeniyle (reddetmeden önce gövde okunmuyordu) demo sunucuda düzeltildi, 12/12 tekrar geçti. Gerçek mağaza yayını, gerçek kullanıcı geri bildirimi ve diğer sağlayıcı host'larında koşu bu turun kanıtı değildir.

@@ -1,26 +1,27 @@
-# Store Automation 3
+# Store Automation 4
 
-Kullanıcı yolculuğuna, erken ürün gösterimine ve güncel kanıta dayalı uygulama geliştirme skill'i. Mevcut native host uzmanları yürütür; küçük Python araçları görev, kaynak, kontrol, kabul ve devir kayıtlarını doğrular. Project Brain veya sağlayıcı kataloğu zorunlu bağımlılık değildir.
+Uygulama fikrini veya mevcut projeyi, herhangi bir ajanın yalnız repodan devralabileceği git tabanlı bir planla ürüne ve yayına götüren skill. Güçlü model ürünü, mimariyi ve risk sıralı aşamaları kurar; küçük modeller tam tarifli görevleri uygular; her görev güncel kaynağa bağlı kanıt ve gerektiğinde bağımsız inceleme olmadan kapanmaz. Project Brain'in plan/devam/harita mekanizması bu skill'e alındı; başka skill'e bağımlılık yoktur.
 
-Güncel durum: [HANDOFF.md](HANDOFF.md). Mimari: [design/architecture.md](design/architecture.md). Aşamalı plan: [design/roadmap.md](design/roadmap.md). Kanıtlar: [design/validation-report.md](design/validation-report.md).
+Güncel durum: [HANDOFF.md](HANDOFF.md). Hedef ve mimari: [design/v4-target.md](design/v4-target.md). Kanıtlar: [design/validation-report.md](design/validation-report.md).
 
 ## Kullanım
 
-Kurulu host'ta `$store-automation` ile uygulama fikrini veya mevcut projeyi belirt. Python 3.11+ ile yerel yardımcı:
+Kurulu host'ta `$store-automation` ile uygulama fikrini veya mevcut projeyi belirt; "devam et" kalınan yerden sürdürür. Ajanlar ilk iş `store.py boot` çalıştırır. Projedeki durum `.store-automation/` altında git'e girer (product, current, tasks, decisions); yalnız `runs/` logları git dışıdır.
 
 ```powershell
 python store.py --project "D:/path/to/app" doctor
+python store.py --project "D:/path/to/app" boot
 python -m unittest discover -s tests -v
 node tests/reference-ui-check.cjs
 ```
 
-Son iki komut bu kaynak deponun kontrolleridir; uygulama kabulünün yerine geçmez. [Runtime rehberi](references/runtime.md) JSON istekleri, CLI ve güven sınırını açıklar. [Referans demo](examples/reference/README.md) HTTP/SQLite ve browser akışını sentetik veriyle gösterir.
+Son iki komut bu kaynak deponun kontrolleridir; uygulama kabulünün yerine geçmez. Komutlar ve dosya biçimi: [runtime](references/runtime.md); protokol: [SKILL.md](SKILL.md) ve [plan](references/plan.md). [Referans demo](examples/reference/README.md) HTTP/SQLite ve browser akışını sentetik veriyle gösterir.
 
 ## Başka yapay zekaya devir
 
-> Bu klasördeki AGENTS.md ve HANDOFF.md'yi oku. HANDOFF'taki ilk açık işi gerçek dosya ve design/roadmap.md kabul ölçütleriyle sürdür. Üst/eski projedeki Brain veya factory talimatlarını yeni sistemin yönetim kuralı sayma. Bilinmeyen kullanıcı işi, Git geçmişi ve geri dönüş yedeğini koru. Tamamlanmış işi tekrar kurma, bilinmeyen kanıtı PASS yapma. Taşıma tamamlandı; durum HANDOFF'tadır. Üretim mağaza yayını ve ücretli API bu yetkinin parçası değildir.
+> Bu klasördeki AGENTS.md ve HANDOFF.md'yi oku. HANDOFF'taki ilk açık işi gerçek dosya ve design/v4-target.md kabul ölçütleriyle sürdür. Eski Brain veya factory talimatlarını bu deponun yönetim kuralı sayma. Bilinmeyen kullanıcı işi, Git geçmişi ve geri dönüş yedeğini koru. Tamamlanmış işi tekrar kurma, bilinmeyen kanıtı PASS yapma. Üretim mağaza yayını ve ücretli API bu yetkinin parçası değildir.
 
-Kaynak: SKILL.md, references/, runtime/, store.py. Geliştirme: design/, tests/, examples/, package.py. Paket `python package.py <yeni-boş-hedef>` ile üretilir. release/store-automation yayımlanmış pakettir; elle düzenlenmez. [Sürüm geçişi](references/migration.md) eski komutları ve proje kayıtlarını açıklar.
+Kaynak: SKILL.md, references/, runtime/, store.py. Geliştirme: design/, tests/, examples/, package.py. Paket `python package.py <yeni-boş-hedef>` ile üretilir. release/store-automation yayımlanmış pakettir; elle düzenlenmez. [Sürüm geçişi](references/migration.md) 2.x/3.x ve Project Brain projelerinin devralınmasını açıklar.
 
 Kurulu kopyaların byte eşleşmesi gerçek sağlayıcı görevi çalıştığını kanıtlamaz. Android/iOS/Windows/web yayını her ürünün seçilmiş hedefinde ayrıca doğrulanır.
 

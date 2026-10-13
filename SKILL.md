@@ -1,59 +1,90 @@
 ---
 name: store-automation
-description: Develop or adopt an application through early user feedback, integrated user journeys, proportionate specialist work, and evidence-based release preparation. Use for app delivery and maintenance; publishing requires the selected destination and existing operation authority.
+description: Plan, build, verify and release applications with a git-native plan any agent can resume. A strong model shapes the product, architecture and risk-ordered milestones; smaller models execute fully specified tasks; acceptance needs current evidence and independent review. Use for app ideas, existing app projects, continue/resume/devam et/kaldığın yerden, plans and roadmaps, adoption, release preparation and maintenance.
 metadata:
-  version: "3.0.0"
+  version: "4.0.0"
 ---
 
 # Store Automation
 
-Native host üzerinde çalışan ürün teslim rehberi ve küçük Python doğrulama araçları. Zorunlu Project Brain/katalog preflight yoktur. Ürün, cihaz ve uzak yayın kabulü her görevde kendi gerçek kanıtını ister; kurulum bütün sağlayıcılarda çalıştırılmış görev anlamına gelmez.
+**One plan, many agents, honest "done".** Any session can stop at any moment; the next agent, maybe a
+smaller model from another vendor with no chat history, continues from the repository alone. State lives
+in `.store-automation/` files and commits, never only in chat. Talk to the user in their language; plan
+file headings and field names stay English, their content in the user's language.
+`SA` = `python "<directory of this SKILL.md>/store.py" --project "<app root>"`. Python 3.11+ and git.
 
-## Kullanıcının sonucundan başla
+## 1. Start every session
 
-Kullanıcının amacı, mevcut proje ve etkilenen gerçek akışı incele. Eksik kullanılabilirlik/hata ayrıntılarını tamamla; istenmemiş büyük özellik, backend, maliyet veya veri işlemi ekleme. Mevcut mimariyi, tasarım dilini, kararları ve çalışan entegrasyonları koruyarak sorunun ortak kök nedenini bul.
+1. `SA boot`. Read its output and the LOAD files before writes or tests. Route the user's message (§2).
+2. Act on STATE: **NO_PLAN** → small request: just do it; multi-session work, new product, plan request or
+   adoption → Genesis ([plan](references/plan.md) §6). **READBACK_FIRST** → read back every listed external
+   operation with the existing tool before anything else; never resend first. **INTERRUPTED** → compare the
+   diff with Resume; another owner's task needs `start --takeover "<reason>"`. **ADVANCED** → map the
+   listed files in current.md and checkpoint. **CONFLICTED / DIRTY** → [edge cases](references/edge-cases.md).
+   **QUESTIONS** → ask the user those first when present. **RESUME** → §2.
+3. `SA doctor` shows `legacy` → 2.x or Project Brain state exists: `SA legacy` (preview), then
+   `SA legacy --apply` before planning ([migration](references/migration.md)).
+4. Takeover check once per session: run the configured test command; red → find the cause first.
+   Trust nothing unverified, including your predecessor.
 
-Görevi anlamadan katalog taraması, tam ürün anketi veya büyük ekip başlatma. Önce en küçük ilgili kaynak ve çalışan davranış incelemesiyle kapsam/risk belirle. Daha önce cevaplanmış kararları yeniden sorma. Mevcut Brain veya başka proje kaydı varsa bağlam ve devam için kullan; yeni plan sistemine geçişi işin önkoşulu yapma.
+## 2. Route the message
 
-## Göreve uygun ilerle
+| Message | Action |
+|---|---|
+| Question | Answer from current.md Map + targeted reads. No writes. |
+| Trivial: ≤1 file, ≤20 lines, no behavior/API/data/security change | Do → verify → commit with `[SA]` in the subject. No task. |
+| "continue", "devam", empty | Work the queue ([plan](references/plan.md) §3) until empty or all BLOCKED. |
+| New feature, bug, refactor | `SA new` per independently verifiable piece; write it for a weaker model; then work it. |
+| Product or flow feedback | Wrong goal/flow → goal change gate; visual/detail → edit the affected task; new scope → new task ([plan](references/plan.md) §5). |
+| Plan, roadmap, audit | [plan](references/plan.md) §6–7. |
+| Release | [release](references/release.md) with the existing AppPublishing/Fastlane setup. |
 
-- **Küçük yerel düzeltme:** yeniden üret, ortak kök nedeni düzelt, ilgili kontrolü çalıştır. Güvenlik/veri kaybı küçük diff olsa da yüksek risklidir. Mekanik iş için gereksiz ajan açma.
-- **Akış değiştiren özellik:** etkilenen kullanıcı yolculuğunu ve durumları çıkar; pahalı kararları erken göster; önce bir çalışan uçtan uca dilim, sonra kalan kapsam.
-- **Yeni ürün veya önemli belirsizlik:** önce en pahalı yanlış varsayımı test et. Bu bir UX prototipi, teknik deneme veya veri/yetki sözleşmesi olabilir. Bütün ekranları ya da backend'i doğrulanmamış varsayımla bitirme.
-- **Mevcut projeyi benimseme:** gerçek kaynak, test, tasarım ve yayın düzeninden doğrulanmış başlangıcı çıkar. Çalışır görünen kodu geçmiş PASS ile kabul etme; eski planı sıfırlama. `doctor` çıktısında `legacy` varsa (2.x `.factory/`, `.factory-bootstrap.json`) ilk iş olarak taşı: `legacy` dry-run, çalışan sahipli süreç yoksa `legacy --apply`. Eski izler proje dışına arşivlenir, `.gitignore` temizlenir; eski kayıt yeni kanıt sayılmaz, arşiv yolunu kullanıcıya bildir.
-- **Yayın/bakım:** mevcut üründeki ilgili kanıtı ve seçilmiş hedefi değerlendir; etkilenmeyen ürün kararlarını yeniden açma.
+Keep the user's words: a short quote goes into the task Objective or the product Goal. Nothing the user
+asked lives only in chat.
 
-İlgili olduğunda [ürün kalitesi](references/product-quality.md) rehberini oku. Bütün referansları her küçük işte yükleme.
+## 3. Roles and models
 
-## Erken göster, sonra büyüt
+- **Strong model (tier H):** Genesis interview, product.md, architecture, milestones, writing executable
+  task specs, plan changes, ADRs, and the REVIEW queue.
+- **Smaller model (tier L/M):** READY tasks only. A task that needs invented design is not READY: stop,
+  write Resume, leave it for a strong model.
+- `SA start <task> --owner <your model id>` before implementing. Never review your own work.
 
-Akış veya görsel yön belirsizse temsilî ekran/etkileşimi erken göster. İlk gerçek çalışan yolculuğu geniş uygulamadan önce, son paketi de yayın öncesinde göster. Gösterim, her küçük teknik işlem için izin istemek değildir. Kritik ürün tercihi gerekiyorsa cevapsızlığı kabul sayma; bağımsız işleri sürdür.
+## 4. Work a task
 
-Yeni ürün, belirsiz akış, görsel yön veya mimari kararda ilk fikre kilitlenme: anlamlı biçimde farklı 2–3 yön çıkar, ödünleşimini kısa göster, en riskli varsayımı ucuz denemeyle seç. Koruma kuralları mevcut kararları ve kapsamı korur; yeni çözümün kalitesini veya özgünlüğünü sınırlamaz. Kalite listeleri tabandır, tavan değil.
+`start` → implement Steps → `SA check <task> --as <id>` (runs Verify, writes machine evidence) → for each
+interaction/visual/accessibility/security/integration/remote item observe it for real and record it with
+`SA evidence <task> --as <id> --kind <k> --note "..." [--file shot.png]` → tick an Acceptance box only with
+that evidence → `SA accept <task> --as <id>`. Results: **DONE** (commit with the printed trailers, push, delete the task
+file in the next commit), **REVIEW_PENDING** (MEDIUM/HIGH: a different, stronger agent runs
+`SA review <task> --reviewer <id> --verdict PASS|BLOCKED [--finding "..."]`, then `accept`),
+**WAITING_USER** (only a user_feedback item is open: the task becomes BLOCKED with the question; other
+work continues), **UNVERIFIED** (missing evidence listed) or **BLOCKED** (failing check, blocking finding,
+stale artifact).
 
-Geri bildirimi görsel tercih, kullanılabilirlik, iş akışı, yanlış anlaşılmış ihtiyaç, teknik hata veya yeni kapsam olarak değerlendir. Paylaşılan bileşenleri ve bağlı ekran/veri/test/mağaza materyallerini birlikte izle. Yalnız değişiklikten etkilenen kanıtı yeniden üret; etki bilinmiyorsa belirsizliği açıkça tut.
+Evidence is bound to the content of the task's Areas: changing code after a check makes it stale. A
+finished command, a COMPLETED report, passing tests, a screenshot and an upload each prove only themselves.
 
-## Uzmanlık ve yürütme
+## 5. Before you stop
 
-Karar, uygulama ve bağımsız kabul sorumluluklarını ayır; sabit büyük ekip kurma. Uzman; amacı, kesin kapsamı, kaynakları, somut teslimi, kabul ölçütünü, hata durumlarını ve gerçek izinlerini bilsin. Model/efor seçimi uzmanlık isminden ayrıdır. Mevcut host'un doğrulanmış araçlarını tercih et; başka CLI somut bir eksik yeteneği karşılıyorsa kullan.
+Write `## Resume` (Next / Failing / Dirty) in the active task, record any external operation in
+`## External` as `- <op> | not_started|sent|confirmed|response_unknown | readback: <how>`, commit
+(`SA-WIP: true` if unverified) and push per config. Report in ≤8 lines: done, blocked with what is
+needed, next, commits. Never `git reset --hard`, `clean`, `stash`, `checkout --` or force-push on work
+you did not create; preserve unknown user edits.
 
-Uzman görevlendirme, kota, rapor ve kesinti için [yürütme](references/execution.md) rehberine bak. Talimatla verilmiş kapsamı teknik sandbox garantisi sayma. Aynı çalışma alanındaki yazıcıları çakıştırma; bağımsız salt okunur işler veya izole alanlar paralel ilerleyebilir.
+## 6. Product quality and boundaries
 
-## Kabul
+Show the riskiest assumption and the first working journey early; do not finish every screen on an
+unverified assumption. For new products, flows, visual direction or architecture, generate 2–3 genuinely
+different options with trade-offs before converging; guardrails protect existing decisions, not the
+ambition of new ones. Quality lists are a floor, not a ceiling ([product quality](references/product-quality.md)).
+No paid APIs, no reading or moving credential contents, no automatic billing/signing changes, no
+production release without the selected destination and existing authority. Instructions are not an OS
+sandbox; identities in Owner/reviewer/trailers are declared, not authenticated.
 
-Komutun bitmesi, ajanın COMPLETED raporu, makine kontrolleri, kullanıcı yolculuğu ve yayın birbirinden ayrı sonuçlardır. Her gerekli kabul ölçütünü ilgili güncel gözleme bağla. Kaynak incelemesi görsel/cihaz davranışını, ekran görüntüsü gerçek etkileşimi, yerel test de uzak yayını tek başına kanıtlamaz.
+## References
 
-Önemli davranış/veri/güvenlik değişikliği ve yayın adayında taze bağımsız inceleme kullan. Çözülmemiş zorunlu ölçüt veya engelleyici bulgu varken kabul etme. Gerekçeli, yetki içindeki küçük sınırlamalar açık kalabilir; etiket değiştirerek güvenlik veya veri kaybını küçültme. Yeni kanıt üretmeyen aynı inceleme/deneme döngüsünü tekrarlama.
-
-Host ayrı inceleyici başlatamıyorsa bağımsız inceleme UNVERIFIED kalır; aynı oturumu başka adla inceleyici yapma. Kayıtlı `gate` akışı MEDIUM/HIGH risk, güvenlik/veri, yayın adayı veya başka oturuma devredilecek kabul içindir; küçük işte ilgili kontrol çıktısı ve kısa sonuç yeterlidir.
-
-## Yayın ve devam
-
-[Yayın rehberi](references/release.md) ile mevcut AppPublishing/Fastlane düzenini kullan. Yerel hazırlık, yükleme, incelemeye gönderim, kabul ve gerçek erişilebilirliği ayır. Var olan tam yetkiyi yeniden sorma; eksik dış işlem yetkisini ancak hazırlanan somut aday üzerinden tamamla. Ücretli API, credential içeriği okuma/aktarma ve otomatik billing/signing değişikliği yok.
-
-Kesintide gerçek kaynak/diff, sahiplik, açık işlem, geçerli kanıt ve sonraki güvenli adımı koru. Devam kaydını projenin mevcut plan/Brain/docs düzenine yaz; yoksa `handoff` komutunu kullan. `.store-automation/runs/` yerel ve git dışıdır: başka makine veya bulut oturumu için kısa özeti projede görünür yere (mevcut notlar, PR açıklaması) de bırak. Yeni oturum önce git durumu/diff'i, sonra en yeni handoff kaydının `resume` alanını (RECONCILE_OWNER → READBACK_FIRST → INSPECT_DIFF) gerçek durumla uzlaştırarak sürdürür. Kalan dış engelleri ve neyin doğrulanmadığını somut bildir.
-
-
-## Yerel araçlar ve sürüm geçişi
-
-Çalışan komutlar, kayıt şemaları ve güven sınırı için [runtime rehberi](references/runtime.md); mevcut projeyi bozmadan sürüm yükseltmek için [geçiş rehberi](references/migration.md). Ana giriş mevcut host içindeki `$store-automation` çağrısıdır. `python "<skill>/store.py" --project "<uygulama>" doctor` yalnız yerel araç kontrolüdür. Native ajanları mevcut host başlatır; CLI ajan başlattığını veya bütün sağlayıcıları desteklediğini iddia etmez.
+[plan](references/plan.md) Genesis, specs, loop, audits · [edge cases](references/edge-cases.md) ·
+[runtime](references/runtime.md) commands and formats · [product quality](references/product-quality.md) ·
+[release](references/release.md) · [execution](references/execution.md) · [migration](references/migration.md)

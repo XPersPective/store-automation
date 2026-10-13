@@ -1,6 +1,6 @@
 # Store Automation 4 — hedef, tasarım brief'i ve mimari
 
-Durum: TASARIM. Kod yazılmadı. Kullanıcı 2026-10-14'te Project Brain'in gereken kısımlarını store-automation'a sentezlemeyi, plan dosyalarının git'e girmesini ve alt ajanlı devralma denemesini onayladı. Bu belge onaylanınca roadmap'in tek kaynağıdır; ilerleme HANDOFF'tadır.
+Durum: UYGULANDI (4.0.0, P0–P6 tamam; P7 dağıtım HANDOFF'ta). Kullanıcı 2026-10-14'te Project Brain'in gereken kısımlarını store-automation'a sentezlemeyi, plan dosyalarının git'e girmesini ve alt ajanlı devralma denemesini onayladı. Bu belge onaylanınca roadmap'in tek kaynağıdır; ilerleme HANDOFF'tadır.
 
 ## 1. Hedef — bittiğinde ne elde etmiş olacağız
 
@@ -168,6 +168,8 @@ DONE + Evidence → checkpoint commit (SA-Task, SA-Verification, SA-Agent[, SA-R
 | `legacy` | 2.x `.factory` arşivi; `.project-brain` → `.store-automation` dönüşümü | store 3 + yeni |
 | `doctor` | Python/git/proje durumu | store 3 |
 
+Uygulamada eklenen: `start` (Owner/takeover), `evidence` (makine dışı kanıt), `review` (bağımsız inceleme). Güncel komut listesi ve biçimler için tek kaynak references/runtime.md.
+
 Kaldırılan: `task`, `snapshot`, `prepare`, `finish`, `record`, `gate`, `handoff`, `usage` (görev dosyası modeli bunları kapsar; değerli kuralları `accept`'e taşınır).
 
 ### Model ayrımı mekanizması
@@ -197,7 +199,27 @@ Kimlik ve inceleyici bağımsızlığı beyana dayanır. Kilit yoktur; paralel i
 | P6 | Gerçek alt ajanlı deneme: güçlü model Genesis → küçük model görevi yarıda keser → temiz ajan devralır → REVIEW → DONE; ayrıca küçük iş yolu | H1–H4, H6, H7 gözlemi; transcript ve commit'ler |
 | P7 | Paket, push, Skills Manager dağıtımı, 46 kopya doğrulaması | Hash eşleşmesi, doctor |
 
-## 6. Kullanıcıya açık kararlar
-1. Eski JSON komutlarının (`task/prepare/finish/record/snapshot/gate/handoff/usage`) kaldırılması — öneri: kaldır.
-2. Checkpoint commit varsayılanı — öneri: `git.commit: auto` (yetki içinde), `git.push: ask`.
-3. Plan dosyalarının dili — öneri: bölüm başlıkları ve alan adları sabit İngilizce (parser için), içerik kullanıcının dilinde.
+## 6. Kullanıcı kararları (2026-10-14)
+1. Eski JSON komutları kaldırıldı (`task/prepare/finish/record/snapshot/gate/handoff/usage`); kuralları `accept`'te.
+2. Checkpoint commit otomatik; **push da otomatik** (`git.push: auto`, kullanıcı "sorulmasın push edilsin" dedi).
+3. Plan dosyalarında başlık/alan adları İngilizce, içerik kullanıcının dilinde. Uygulamada çekirdek protokol (SKILL.md ve references) de tutarlılık için İngilizceye çevrildi; ajan kullanıcıyla kullanıcının dilinde konuşur.
+
+## 7. Uygulama sonucu ve P6 kanıtı
+
+Tasarımdan sapmalar (P6 bulgularıyla): `start --takeover "<gerekçe>"` (terk edilmiş görev), `check/evidence/accept --as <id>` (yalnız Owner; REVIEW'da inceleyici de check yapabilir), WAITING_USER (yalnız user_feedback eksikse görev BLOCKED olur, boot QUESTIONS satırında gösterir), kabul edilen MINOR'ın sahibi yalnız `user` veya açık takip görevi, boot'ta remote/push görünürlüğü, Map yolları ve son kısmi checkpoint ile ADVANCED'in temizlenmesi, görev bütçesi 120 satır.
+
+P6 gerçek alt ajan zinciri (geçici repo `p6/app`, 16 commit, sonunda `validate` OK, 18 uygulama testi):
+
+| # | Gözlem | Sonuç |
+|---|---|---|
+| H1 | Opus boş repodan Genesis: product.md (CONFIRMED, 5 açık karar), ADR-001 (3 seçenek), risk sıralı M1–M4, tam tarifli M1, plan audit | Karşılandı |
+| H2 | Haiku SA-001'de ilk dosyada çöktü (Resume yok); Sonnet yalnız "devam et" ile INTERRUPTED'ı buldu, mirası doğrulayıp sıfırdan yazdı | Karşılandı; devralma komutu eksikti → `--takeover` eklendi |
+| H3 | HIGH risk SA-001/SA-007 kanıtla bile REVIEW'da durdu; Opus bağımsız inceledi, edge-case script'i çalıştırdı, gerçek kusur buldu (okunamayan dosyanın üzerine yazma) | Karşılandı |
+| H4 | Haiku README yazım düzeltmesi: görev yok, plan dosyası yok, tek `[SA]` commit | Karşılandı |
+| H5 | `legacy` 2.x arşivi + Brain şema 4 dönüşümü birim testleriyle; gerçek kullanıcı projesine uygulanmadı | Kısmi (B) |
+| H6 | `response_unknown` → READBACK_FIRST ve accept engeli birim testleriyle; gerçek mağaza işlemi yok | Kısmi (B) |
+| H7 | Haiku tier L işi yaptı, Opus inceleme kuyruğunu işledi; inceleyici kendi istisnasını sahiplenemedi, SA-008 takip görevi açıldı | Karşılandı |
+| H8 | Yalnız Python 3.11 + git; ağ/ek paket yok; Windows'ta doğrulandı, POSIX yolu yalnız WSL testleriyle dolaylı | Kısmi |
+| H9 | SKILL.md 90 satır; runtime ≈1.600 satır (hedef ≈1.400 aşıldı: şablonlar ve takeover/WAITING_USER eklemeleri) | Kısmen aşıldı, bilerek |
+
+Açık sınırlar: kimlikler beyandır; gerçek mobil/mağaza yayını, gerçek kullanıcı geri bildirimi ve başka sağlayıcıların (Codex, Gemini) host'larında koşu bu turda yok.

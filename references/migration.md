@@ -1,21 +1,63 @@
-# Sürüm yükseltme ve proje devralma
+# Upgrades and adoption
 
-3.0.0, eski 2.x factory komutlarıyla uyumlu bir drop-in runner değildir. Skill adı store-automation kalır; yönetici mevcut native host'tur. Eski factory.py/providers/Brain-first zinciri kaldırılmıştır. Yeni deterministik giriş store.py; [komutlar](runtime.md). Eski start komutunu sessizce başka iş yapan komuta yönlendirme.
+4.0.0 keeps the plan and resume state in the project, in git (`.store-automation/`). Project Brain is no
+longer needed: its plan, resume and map mechanics are part of this skill. The 3.x JSON flow (`task`,
+`prepare`, `finish`, `record`, `snapshot`, `gate`, `handoff`, `usage`) was removed; the task file plus
+`start/check/evidence/review/accept` replace it ([runtime](runtime.md)). Never route an old command name
+silently to a command that does something else.
 
-## Var olan uygulamayı devralma
+## Removing old state: `legacy`
 
-1. Seçilmiş uygulamanın git durumu, ilgili kaynak/çağıran, test, tasarım ve yayın düzenini incele. Kısa envanter: çalıştırma/build/test komutları ve gerçek sonuçları, hedef platformlar, veri depoları ve şemalar, tasarım token/bileşen kaynağı, yayın lane'leri, mevcut plan/devam kayıtları. Secret içeriği değil yalnız varlığı/konumu not edilir. Çalışan hiçbir kontrol yoksa değişiklikten önce en küçük gerçek smoke check'i kur ve sonucunu kaydet. Bilinmeyen diff'i koru. Mevcut plan ve Brain kayıtları varsa tarihçedir; yeniden init veya plan sıfırlama yapma.
-2. Son kullanıcı ihtiyacı ve ilk tamamlanmamış kriteri çıkar. 2.x izi varsa önce kaldır: `store.py --project <app> legacy` envanteri (dosya/boyut, eski handoff adları, .gitignore satırları, arşiv yolu) gösterir; eski handoff'larda açık iş varsa özetini yeni devam kaydına al, sonra `legacy --apply`. Komut `.factory/` ve `.factory-bootstrap.json`'u tek rename ile proje yanındaki `store-automation-legacy-archive/<proje>-<zaman>` altına taşır, `.factory` ignore satırlarını kaldırıp `.store-automation/` ekler, `migration` kaydı yazar. Git'te izlenen eski dosya, bağlı yol veya açık dosya/çalışan süreç varsa hiçbir şey taşımadan durur. Project Brain dosyaları ayrı skill'e aittir, dokunulmaz. Eski receipt'ler yeni şemaya PASS olarak taşınmaz; arşiv artık gerekmediğinde silinebilir. Yeni görev ve public kaynak snapshot'ı oluştur.
-3. Ajan sahipliğini host'tan uzlaştır. Durdurulduğu bilinmeyen yazıcıyı yenisiyle çakıştırma. Belirsiz upload varsa mevcut yayın aracından readback yapmadan replay etme.
-4. En küçük gerçek akışı tekrar çalıştır. Uyumlu kaynak, napp/Fastlane, tasarım ve testler korunur. Yeni klasör veya backend sırf şablon için uygulanmaz.
-5. Devir kaydına durum, source/evidence, owner, pending effects ve sonraki güvenli işi yaz. Yer değişikliği project kimliğini değiştirir; eski receipt'i düzenlemek yerine yeni konum için taze kanıt üret.
+When `SA doctor` shows `legacy`, before planning:
 
-## Skill paketini yükseltme
+1. `SA legacy` previews: 2.x `.factory/` and `.factory-bootstrap.json`, Project Brain `.project-brain/`
+   (schema 4 only), file count/size, old handoff names, `.gitignore` lines to remove, plan files to
+   convert, the archive path.
+2. If old handoffs or Brain tasks hold open work, read the preview; after conversion summarize it in the
+   matching task's Resume.
+3. `SA legacy --apply`:
+   - moves old directories in one same-volume rename each to `store-automation-legacy-archive/<project>-<time>`
+     beside the project; nothing is deleted;
+   - converts a Brain plan: `target.md` → `product.md` (missing Users / Core Journeys / Platforms / Riskiest
+     Assumptions sections are added as UNKNOWN), `PB-NNN` → `SA-NNN`, dependencies on tasks that are no
+     longer open are removed with a Notes line, `config.yaml` → `config.json`, the AGENTS.md Brain pointer
+     is replaced by this skill's pointer;
+   - removes `.factory` and whole-`.store-automation/` ignore lines (the plan must be tracked; only
+     `runs/` stays ignored through its own `.gitignore`).
+4. It moves nothing when 2.x files are tracked by git, a path is linked, a file is open or a process
+   runs inside, or both a Brain and a new plan exist.
+5. Untagged Acceptance items in converted tasks fail `validate`; a strong model adds each item's evidence
+   kind deliberately, never by guessing. UNKNOWN product.md sections are filled in the adoption interview.
+6. Record it in one commit (`chore(plan): adopt store-automation 4`, `SA-Current-Checkpoint: all`).
+   Tracked `.project-brain` files show as deleted in that commit; git history keeps them. Delete the
+   archive once nothing needs it.
 
-Kaynak ile kurulu paket ayrıdır. package.py yalnız SKILL.md, store.py, runtime Python ve reference Markdown dosyalarını yeni boş hedefe kopyalar; hash manifesti bırakır. Eski hedef üzerine yazmayı reddeder. Paket bağımsız dizinde doctor ve ilgili kontrollerle sınanır. Python 3.11+ gerekir; Node yalnız JS regresyon testi içindir.
+Old receipts, Brain evidence and 3.x `.store-automation/runs/*.json` records never become PASS; they are
+history. Acceptance is produced again with `check/evidence/review` on current source.
 
-Skills Manager kaydı varsa aynı id/tags/preset/deployment korunarak kaynak güncellenir. Bu repository'nin release/store-automation paketi kullanılır. Git URL/branch/subpath değişimi kaydedilir. Mevcut kaydı remove+install yapma. Yönetilmeyen kopyaların yalnız bu skill'e ait olduğu manifestle kontrol edilir. Kullanıcı özel içeriği önce yedeklenir; sessizce kaybolmaz.
+## Adopting an existing app
 
-Sıra: çalışan işleri bitir → envanter → repo dışında yedek → restore denemesi → aday kabulü → kaynak geçişi → merkez/ajan dağıtımı → manifest hashleri → launcher/doctor → GitHub readback. Kesilirse migration kaydı yeni/eski/unknown hedefleri tutar; rename/commit/upload kör tekrar edilmez.
+Follow [plan](plan.md) §6, plus:
 
-Rollback: yeni kaynak ve kurulumları ayrı yere al, yedekteki dosyaları geri koy. Git geçmişi, bilinmeyen diff ve Skills Manager metadata yedeğini koru. Canlı yazıcı veya değişmiş hedef varsa önce sahipliği/diff'i çöz. Başka uygulamanın veri şemasına otomatik migration yapma.
+1. Inspect git state, relevant sources and callers, tests, design and release setup. The short inventory
+   goes into current.md: run/build/test commands with real results, target platforms, data stores and
+   schemas, design token/component source, release lanes. Note only the existence and location of
+   secrets, never their content.
+2. If no check runs at all, add the smallest real smoke check before any change and put it in config.json.
+3. Preserve unknown diffs. Never start a writer over one not known to have stopped. With an uncertain
+   upload, read back from the existing release tool before any replay.
+4. Keep compatible source, napp/Fastlane, design and tests. No new folders or backend just for a template.
+
+## Upgrading the skill package
+
+Source and installed package are separate. package.py copies only SKILL.md, store.py, runtime Python and
+reference Markdown files into a new empty directory with a hash manifest and refuses to overwrite. Test the
+package in its own directory with doctor and the test suite.
+
+With a Skills Manager record, update the source keeping the same id/tags/preset/deployments; never
+remove+install. After the update, confirm with `skills status` that no agent deployment dropped and check
+the installed hashes against the manifest. Unmanaged copies are replaced only when they are byte-identical
+to the previous release.
+
+Rollback: move the new source and installs aside, restore the backup. Keep git history, unknown diffs and
+the Skills Manager metadata backup. Never migrate another app's data schema automatically.

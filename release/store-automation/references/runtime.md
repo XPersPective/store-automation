@@ -1,43 +1,71 @@
-# Çalışan küçük araç seti
+# Runtime reference
 
-Python 3.11+ standart kitaplığı yeterlidir. `<skill>` bu SKILL.md'nin bulunduğu klasördür; çalışma dizini seçilen uygulama olur. Kurulu araç eski depoya, Brain'e veya belirli bir sağlayıcıya import yapmaz.
+`SA` = `python "<skill>/store.py" --project "<app root>"`. Python 3.11+ standard library and git; no
+network, no paid API, no other skill. Plan commands print short text lines; `doctor`, `legacy` and
+`release-readback` print JSON. Exit codes: 0 ok, 1 warnings / UNVERIFIED / REVIEW_PENDING / WAITING_USER,
+2 errors or BLOCKED, 3 the command needs a plan and there is none (`new`, `validate`). `boot` always exits
+0 when it can report a state, including NO_PLAN.
 
-```powershell
-python "<skill>/store.py" --project "<uygulama>" doctor
-python "<skill>/store.py" --project "<uygulama>" check --request checks.json
-```
+## Commands
 
-`checks.json` örneği: `{"argv":["python","-m","unittest","discover","-s","tests"],"inputs":["app.py","tests/test_app.py"],"timeout":120}`. Windows'ta `npm`/`flutter` gibi .cmd/.bat araçları PATH'ten çözülür; `./gradlew` gibi göreli script proje kökünden çalışır. Argümanlara kabuk metni koyma. Komutu yönetici gerçek projedeki akışı inceleyerek seçer; worker çıktısından komut çalıştırılmaz. Inputs listesi kontrolün etkilediği tüm public kaynak/sözleşme/test/config dosyalarını kapsar. Büyük projede listeyi elle yazma; örn. `git ls-files lib test pubspec.yaml` çıktısından üret, secret/imza dosyalarını çıkar (kalırsa snapshot okumadan reddeder). Bir dosyanın değişmediği kanıtı listelenmeyen dosyalar için geçerli değildir. Secret dosyalarını ekleme. Araç gizli ortam değişkenlerini süzer ama aynı OS kullanıcısına karşı sandbox değildir.
+| Command | Does |
+|---|---|
+| `doctor` | Python, git, plan presence, legacy state, skill path |
+| `boot` | STATE, git line, product status, EXTERNAL, REVIEW queue, PLAN, FOCUS, RECENT, STALE, LOAD, CMDS, MODE, NEXT |
+| `map` | File tree summary, root/doc files, legacy markers, detected commands |
+| `init` | Creates the plan skeleton (never overwrites) and the AGENTS.md pointer; refuses if `.store-automation/` is gitignored |
+| `new "title" [--priority] [--tier] [--risk] [--milestone] [--depends]` | Next SA-NNN as a PLANNED scaffold; IDs are never reused (Git history checked) |
+| `start SA-NNN --owner <id> [--takeover "reason"]` | READY or unblocked BLOCKED → IN_PROGRESS, records Owner; refuses a second writer and non-executable specs; another owner's IN_PROGRESS/REVIEW task only with `--takeover`, recorded in Notes |
+| `check SA-NNN --as <id> [--timeout s]` | Runs each Verify line in a contained process tree, full log to `runs/`, writes `[machine]` evidence with the Areas digest; source changing during the run → FAIL |
+| `evidence SA-NNN --as <id> --kind K --note "..." [--file F]...` | Writes a non-machine observation with the digest and file hashes; `machine` is refused |
+| `review SA-NNN --reviewer <id> --verdict PASS\|BLOCKED [--finding "..."]...` | Reviewer must differ from Owner; review is bound to the digest |
+| `accept SA-NNN --as <id>` | DONE / REVIEW_PENDING / WAITING_USER / UNVERIFIED / BLOCKED; on DONE sets Status and prints commit trailers |
+| `changed` | Files changed since the applicable current.md checkpoints, by domain |
+| `validate` | Grammar, statuses, Owner, kind tags, External lines, Verify shell use, budgets, dependency cycles |
+| `legacy [--apply]` | Archives 2.x `.factory/`; converts `.project-brain` schema 4 to `.store-automation` |
+| `release-readback --request file.json` | Compares `{expected, observed}` release objects |
 
-CLI her komutta JSON döndürür: başarılı işlem 0, BLOCKED/UNVERIFIED/başarısız check 1, bozuk istek 2. `doctor` yalnız Python/paket erişimidir; sağlayıcı veya ürün kabulü değildir. Küçük mekanik işlerde bu araç bile zorunlu değildir: mevcut ilgili test ve kısa sonuç yeterlidir.
+## Task file grammar
 
-## Görev ve native ajan
+Header lines before the first `## ` heading, one per line: `Status`, `Priority`, `Tier`, `Risk`,
+`Milestone`, `Depends`, `Owner`, `Areas` (backticked globs), `Domains`, `Blocked`. Sections: Objective,
+Steps, Acceptance, Verify, Escalate if, External, Evidence, Review, Resume, Notes.
 
-`task` komutuna verilen JSON alanları: `id`, `project` (gerçek uygulama yolu), `objective`, `acceptance_scope`, `scope`/`out_of_scope` metin listeleri, `risk` LOW/MEDIUM/HIGH, `permissions` (`write` boolean, `paid_api:false`, `production:false`), `independent_review` boolean, `criteria` listesi. Her kriter `id`, `description`, `required` boolean ve `kinds` listesine sahiptir. Türler: machine, interaction, visual, accessibility, security, integration, artifact, remote, user_feedback. MEDIUM/HIGH bağımsız inceleme ister. Çıktı `status: VALID`, gözlem/inceleme kayıtlarında kullanılacak `task_hash` ve görevin kendisidir; sonraki isteklere `task` alanını ver, sarmalayıcı nesneyi değil. Dış yayın yetkisi bu yerel görevden türetilmez.
+- Acceptance: `- [ ] [kind] text` / `- [x] [kind] text`.
+- Verify: `` - `command args` `` — split like a POSIX shell, run without a shell. Windows resolves
+  `npm`, `flutter`, `npx` (.cmd/.bat) from PATH; `./gradlew` style paths resolve from the project root.
+  Secret-looking environment variables (TOKEN, SECRET, PASSWORD, API_KEY…) are removed.
+- External: `- <operation> | not_started|sent|confirmed|response_unknown | readback: <how>`.
+- Resume: `Next:`, `Failing:`, `Dirty:` lines.
+- Evidence and Review lines are tool-written:
+  `- [machine] check `cmd` | PASS | exit=0 | 3.1s | digest=<16 hex> | log=runs/...`,
+  `- [visual] note | files=shot.png@<16 hex> | digest=<16 hex>`,
+  `- review by <id> | PASS | digest=<16 hex>` followed by `- finding MINOR: text | accepted: reason | owner: who`.
 
-`prepare` isteği: `task` nesnesi, `role`, `actor` (gerçek native atama kimliği), `files` listesi; varsa `provider`, `model`, `effort`, `enforced_scope`. Host kimliği ancak başlatma sonucunda geliyorsa önce görev ve input snapshot'ını kaydet; gelen kimliği bağla ve worker'a başlangıç snapshot'ını doğrulatmadan yazdırma. Kimlik veya model uydurma. `prepare` kendi başına ajan başlatmaz. Mevcut host'un gerçek delegation aracını kullan, sonuç/kimliği araçtan gözle; brief'e görev, izin ve süre sınırını ekle. Host yeteneği yoksa bağımsız inceleme UNVERIFIED kalır.
+`--as` names the acting agent: on IN_PROGRESS only the Owner may act; on REVIEW the Owner or the latest
+reviewer. Anyone else must `start --takeover` first.
 
-`finish` isteği: `assignment_ref` (prepare'in döndürdüğü path/sha256), `report`, `output_files`, `native_reference`, `observed_actor`, `observed_state`, `observer`. Report atamadaki task/project/attempt/role/provider/model/effort ile aynıdır; ayrıca `state`, `changed_files`, `evidence`, `blockers`, `next_action` ve ölçülmüşse `usage` içerir. Hatalı veya kota nedeniyle yarım bitmiş ajan COMPLETED olamaz. Final çıktı input'tan ayrı hashlenir; read-only/reviewer input değişimini kabul etmez.
+## Acceptance rules (`accept`)
 
-## Dosyaya bağlı kabul
+1. Every Acceptance box ticked; open boxes are listed as missing.
+2. Each Verify command's latest check is PASS on the current Areas digest.
+3. Each non-machine kind that is ticked has evidence on the current digest; referenced files still hash
+   the same (changed file → BLOCKED).
+4. External operations are not `sent` / `response_unknown`.
+5. MEDIUM/HIGH: latest review on the current digest, reviewer ≠ Owner, verdict PASS; BLOCKER/MAJOR
+   findings block; MINOR needs `accepted: <reason> | owner: user|SA-NNN` (an open follow-up task; `review`
+   refuses any other owner). Only the review missing → Status REVIEW and REVIEW_PENDING.
+6. Only `user_feedback` items open (review aside) → Status BLOCKED, `Blocked: user feedback: <item>`,
+   WAITING_USER; boot lists it under QUESTIONS.
+7. All satisfied → Status DONE, an `accept: DONE` evidence line and the trailers to commit.
 
-Kayıtlar `.store-automation/runs/` altında yeni, benzersiz JSON dosyalarıdır. Git'e ekleme. `record` yalnız `observation` veya `review` kategorisinde `{"category":"observation","value":{...}}` kaydı saklar; check/outcome/acceptance yalnız kendi komutlarından (check/finish/gate) doğar; doğruluk veya köken vermez. Yerel dosyayı başka program değiştirebilir; SHA yalnız referansın değişmediğini gösterir.
+The digest covers public files matched by Areas (tracked and untracked, ignored excluded; private names
+such as `.env`, `key.properties`, `*.jks` skipped). Files outside Areas do not invalidate evidence:
+write Areas to include every source and test the Verify depends on.
 
-`gate` isteği `bundle` ve **yönetici tarafından ayrı hazırlanmış** `attestations` içerir. Worker raporundaki attestation/provenance alanlarını güvenilir kabul etme.
+## Trust boundary
 
-- Bundle: `task`, `source` (snapshot sonucu), `implementation` (finish referansı), `observations` referans listesi; gerekliyse `reviewer` finish referansı ve `review` referansı.
-- Observation: `id`, `task`, `project`, `task_hash`, `subject`, `criterion`, `kind`, `result` PASS/FAIL/UNVERIFIED/NOT_APPLICABLE, `reference`, `evidence` (hashli public kanıt kaydı), `observer`, `method`, `environment`, `captured_at`. Zorunlu kriter N/A yapılamaz. Makine kanıtında gerçek check kaydı gerekir; ekran için ekranı gerçekten görmüş olma ve dosya hashli gözlem gerekir. Evidence kaydındaki `artifacts` alanı `snapshot` sonucudur (ör. ekran görüntüleri); gate bu dosyaları yeniden hashler. `visual` gözlemde `artifacts` zorunludur.
-- Review: `task`, `project`, `task_hash`, `subject`, `attempt`, `criteria`, `verdict` PASS/BLOCKED/UNVERIFIED, `findings`. Her açık bulgu description/severity/violates içerir. Yalnız kriter ihlali olmayan MINOR, accepted disposition, reason ve decision_owner ile kabul edilebilir. Düzeltme sonrası taze inceleme gerekir.
-- Yönetici attestation: `record` referansı, `observer`, `method`, `native_reference`, `observed_at`; outcome için araçtan görülen `actor` ve `state`. Yönetici native kaydı gerçekten açar; task/attempt/parent ilişkisi, rol ve son çıktı eşleşmesini kontrol eder. Sahte transcript otomatik doğrulanamaz. Bir host bunu sağlayamıyorsa attestation yazılmaz.
-
-Gate güncel kaynak ve kanıt dosyalarını yeniden hashler, task/atama/sonuç/rapor bağlarını ve kriterleri denetler. ACCEPTED yalnız belirtilen kapsam ve yönetici gözlem güveni içindir. Farklı dosyaya aynı metni yazmak native authentication sağlamaz. Yeni requirement/kod sonrası eski bundle kullanılamaz; yeni snapshot ve etkilenmiş gözlemler gerekir. Referanslar ve alanlar için `runtime/` işlev imzaları tek çalıştırılabilir kaynaktır; `tests/test_gate.py` yalnız sentetik format örneğidir.
-
-## Devam ve yayın
-
-`legacy`: istek dosyası yok. Varsayılan dry-run; `--apply` 2.x `.factory/` ve `.factory-bootstrap.json`'u proje dışı arşive taşır (ayrıntı [geçiş](migration.md)). `doctor` çıktısındaki `legacy` alanı bu izleri gösterir.
-
-`handoff`: `task_ref`, `assignments` referansları, `next_action`, `ownership` (state active/absent/unknown + reference), `pending_external` (state not_started/confirmed/response_unknown + readback), `public_files`, `notes`. `task_ref` ve bütün `assignments` aynı task/task_hash/project kaydına ait olmalıdır. Canlı/bilinmeyen owner önce uzlaştırılır; belirsiz dış işlem önce geri okunur. Handoff hiçbir süreci öldürmez veya upload'ı tekrar etmez. Yer değişikliğinde eski project-bound receipt'i düzenleyerek yeniden kullanma; geçmiş olarak koru, yeni kökte yeni atama/gözlem üret.
-
-`usage`: `attempts` ve `expected_ids`. Yalnız disjoint_last_turn input_tokens/output_tokens sayılır; eksik parent/worker/retry varsa toplam null. Kota değişimi token değildir.
-
-`release-readback`: `expected` ve `observed` nesneleri; platform/account/app/channel/version/artifact_sha256/state eşleşir. Observed ayrıca readback_reference/observed_at/provenance, AVAILABLE için availability_reference ister. Bu komut store'a bağlanmaz; yönetici gerçek native Fastlane/store sonucunu gözler ve güncelliğini kontrol eder. Üretim gönderimini mevcut yetkili yayın düzeni yapar; bu skill ikinci uploader kurmaz.
+Evidence proves the recorded command ran on those bytes; it does not prove the condition is the right
+one. Owner, reviewer and `SA-Agent` are declared identities: the rules stop honest mistakes and casual
+self-review, not a forger running as the same OS user. `release-readback` compares what the supervisor
+observed with the real store tool; it never contacts a store. Instructions are not an OS sandbox.

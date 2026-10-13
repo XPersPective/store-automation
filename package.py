@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
-from runtime.receipts import public_path
+from runtime.paths import public_path
 
 
 def build(source, destination):

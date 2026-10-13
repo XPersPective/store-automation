@@ -1,41 +1,64 @@
-# Uzman yürütmesi, kanıt ve devam
+# Specialists, permissions and measurement
 
-## Görevlendirme
+The task loop, review and takeover rules live in [plan](plan.md); this file covers how to brief helpers
+and what their results mean.
 
-Uzman ancak net teslim veya bağımsız inceleme ihtiyacı varsa açılır. Brief şunları içerir: kullanıcı amacı/bağlamı, uzmanlık, kesin görev/kapsam, ilgili kaynak ve çağıranlar, teslim, ölçülebilir kabul, beklenen hatalar, bağımlılık/sözleşme, gerçek araç/yazma yetkileri, zaman/bağlam/çıktı bütçesi ve engelde sonraki adım. Genel “dünya çapında uzman” persona yerine işe özgü yetkinlik ve kontrol ver.
+## Briefing a specialist
 
-Uzmanlık, model ve effort ayrı kararlardır. Açıklanan budget gerçek kullanım değildir; bilinmeyen kullanım null'dır. Mevcut host gerçek model/eforu açıklamıyorsa inherited/unknown de, isim uydurma. Başlatmadan önce rol, iş, seçimin gerekçesi ve önemli sınırı kullanıcıya kısa anlat; sonucu ve engeli de bildir.
+Start a specialist only for a clear deliverable or an independent review. The brief contains: the user's
+goal and context, the expertise needed, the exact task and scope, the relevant sources and callers, the
+deliverable, measurable acceptance, expected failure modes, dependencies and contracts, real tool and
+write permissions, time/context/output budget, and the next step when blocked. Give task-specific
+competence and checks, not a generic "world-class expert" persona. A tier L/M task file is already such a
+brief: hand over the task path, not a paraphrase.
 
-Mevcut resmi abonelik/host araçlarını kullan. Katalog erişimi, login, model entitlement, görev yeteneği, kota ve izin farklıdır. Sırf kurulu/listeleniyor diye çalışır sayma. Kota bilgisi mevcut araçtan tazelenir; bilinmeyen/koruma eşiğinin altındaki paylaşılan kotayla yeni worker açma. Ücretli API veya sessiz kalite düşürme yok. Katalog keşfi işin önünde zorunlu küresel ritüel değildir.
+Expertise, model and effort are separate decisions. A declared budget is not measured usage; unknown
+usage is null. If the host does not reveal the real model or effort, say inherited/unknown; never invent
+names. Before starting a helper tell the user briefly: role, job, why this choice, the important limit;
+report the result and any blocker afterwards.
 
-## İzin ve sahiplik
+Use the existing official subscription and host tools. Catalog access, login, model entitlement, task
+capability, quota and permission are different things; listed is not working. Refresh quota from the
+existing tool; do not start a new worker on unknown or below-threshold shared quota. No paid API and no
+silent quality downgrade. Catalog discovery is not a mandatory ritual before work.
 
-Prompt'taki “yalnız şu dosyayı yaz” gerçek erişim denetimi değildir. Requested scope ve enforced scope ayrı kaydedilir. Host dar yazma sınırı uygulayamıyorsa güvenli seçenek read-only öneri/patch veya incelenmiş izole checkout'tur. Aynı kullanıcıya ait worktree, credential erişimine karşı güvenlik sandbox'ı değildir.
+## Permissions and ownership
 
-Ortak checkout'ta tek yazıcı. İzole ayrık işler paralel olabilir; veri/API sözleşmesi çakışıyorsa bağımsız kabul edilmez. Entegrasyon sahibi difflere ve birleşmiş davranışa bakar. Bilinmeyen kullanıcı düzenlemesi korunur.
+"Only write this file" in a prompt is not access control. If the host cannot enforce a narrow write
+boundary, the safe options are a read-only proposal/patch or a reviewed isolated checkout. A worktree of
+the same OS user is not a sandbox against credential access.
 
-## Sonuç ve kabul ayrımı
+One writer per checkout. Isolated disjoint work may run in parallel; work that shares a data or API
+contract is not independent even in separate files. The integration owner reviews the diffs and the
+merged behaviour. Unknown user edits are preserved.
 
-- Süreç bitti: yalnız transport/process sonucu.
-- Uzman COMPLETED dedi: doğrulanacak rapor.
-- Makine kontrolleri geçti: belirtilen kaynak/ortamda belirtilen komutların sonucu.
-- Yolculuk kabulü: gerekli davranış/görsel/erişilebilirlik ölçütlerinin uygun gözlemi.
-- Yayın sonucu: hedef uzak sistemin geri okuması; kullanılabilirlik ayrıca gözlenir.
+## Results are different things
 
-Rapor atanan task/project/rol ve bilinen gerçek route ile eşleşmeli; bilinmeyen durum başarı sayılmaz. Bağımsız inceleme kökeni sağlayıcıya özel kimlik regex'iyle evrenselleştirilmez. Atama ile native sonuç ilişkilendirilir. Mevcut host bunu kanıtlayamıyorsa otomatik köken onayı verilmez.
+- Process finished: transport result only.
+- Specialist said COMPLETED: a report to verify.
+- Machine checks passed: those commands on that source and environment.
+- Journey accepted: the required behaviour/visual/accessibility observations.
+- Release result: readback from the remote system; availability is observed separately.
 
-Her kriterin kanıtı kendi kapsamıyla tutulur. Eksik kanıt `UNVERIFIED`, başarısız kriter `FAIL` olur. Güncel hash bile sahte/yanlış gözlemi doğru yapmaz. Ekran ve servis kanıtı uygun araçla gerçekten incelenir. Kabul edilmesi yetki içinde olan küçük bulgu gerekçesiyle kalabilir; zorunlu şartın ihlali minor diye geçemez.
+A specialist report must match the task, its Owner and the known real model; unknown state is never
+success. A current hash does not make a fake or wrong observation true. Screens and services are
+inspected with the right tool for real.
 
-## Kesinti, başarısızlık ve tekrar
+## Interruption and failure
 
-Önce gerçek çalışan süreç/atama ve sahipliği incele. Erişim reddi süreç öldü demek değildir. Yalnız sahip olunan süreç durdurulur; eski yazıcı bitmeden yerine yenisi açılmaz. Kısmi diff, rapor, kanıt ve bilinmeyen kullanıcı işi korunur.
+First inspect real running processes and ownership. Access denied does not mean a process died. Stop only
+processes you own; never start a replacement writer before the old one has stopped. Partial diffs,
+reports, evidence and unknown user work are preserved. Do not confuse quota, access, model and tool
+errors. Do not repeat a call that produces no new evidence. No blind fallback or replay after a partial
+operation; after a lost response, query the remote state first. Without equivalent permission and
+capability the work stays blocked while unrelated authorized work continues.
 
-Devam kaydı: görev ve son gereksinim, gerçek dosya/diff, çalışan veya durumu bilinmeyen sahipli süreç, son geçerli kanıt, ilk başarısız/eksik kriter, bekleyen dış etki ve **sonraki güvenli eylem**. Sadece sonraki checkbox yeterli değildir. Yeni oturum bunları yeniden uzlaştırır.
+## Measurement
 
-Kota/erişim/model/araç hatasını birbirine karıştırma. Yeni kanıt üretmeyen aynı çağrıyı tekrarlama. Kısmi işlemden sonra kör fallback/replay yok. Dış çağrıda yanıt kayıpsa tekrar önce uzak durum sorgulanır. Eşdeğer izin ve yeterlilik yoksa iş bloke kalır; ilgili olmayan yetkili işler sürer.
-
-## Ölçüm
-
-Yeni telemetri servisi kurma; mevcut deneme kayıtlarına zaman damgaları ekle: ihtiyaç alındı, ilk yararlı çıktı, worker başlangıç/bitiş, kontrol, geri bildirim, rework ve kabul. Analiz/yürütme/bekleme/yeniden işleme sürelerini yalnız gözlenen olaylardan çıkar; paralel süreleri toplam duvar süresi diye toplama.
-
-Parent/worker/retry kullanımını ancak kapsama ve authoritative counter yeterliyse topla. Eksik giriş varsa toplam null veya açık kısmi toplamdır. Hesap kotasındaki değişim bu görevin token harcaması değildir. Önce/sonra karşılaştırmasında aynı sınıfta görev, aynı gerekli kalite, benzer kaynak/ortam ve tüm başarısız denemeler bulunmalıdır.
+No new telemetry service: commit times, check durations and task Notes are enough. When needed, add time
+stamps for: need received, first useful output, worker start/end, check, feedback, rework, acceptance.
+Derive analysis/execution/waiting/rework time only from observed events; never add parallel durations as
+wall time. Sum parent/worker/retry token usage only with complete coverage and authoritative counters;
+otherwise the total is null or an explicit partial. An account quota change is not this task's usage.
+Before/after comparisons need the same task class, the same required quality, a similar source and
+environment, and every failed attempt.

@@ -1,8 +1,8 @@
 # Bu kaynakta çalışan ajan için
 
-Store Automation 3 kaynağı. Next'ten köke taşıma ve dağıtım tamamlandı; eski Brain/factory/backlog devamına kayma. Project Brain veya başka skill protokolüne zorunlu bağlı değildir.
+Store Automation 4 kaynağı (git tabanlı plan + kanıta bağlı kabul; Project Brain sentezi). Next'ten köke taşıma ve dağıtım tamamlandı; eski Brain/factory/backlog devamına kayma. Project Brain veya başka skill protokolüne zorunlu bağlı değildir.
 
-Önce HANDOFF.md ve gerçek git durumunu oku. design/architecture.md kararları, design/validation-report.md kanıt sınırlarını tutar. Durumu yalnız HANDOFF'ta güncelle. Kaynak/test/çağıranları anla; mevcut yardımcı, stdlib ve native özellikleri kullan. Yeni dependency/framework/prosedür için somut ihtiyaç gerekir. Nontrivial davranışa bir anlamlı runnable check bırak.
+Önce HANDOFF.md ve gerçek git durumunu oku. design/v4-target.md hedef/mimari/aşamaları, design/validation-report.md kanıt sınırlarını tutar; design/architecture.md ve roadmap.md 3.x geçmişidir. Durumu yalnız HANDOFF'ta güncelle. Kaynak/test/çağıranları anla; mevcut yardımcı, stdlib ve native özellikleri kullan. Yeni dependency/framework/prosedür için somut ihtiyaç gerekir. Nontrivial davranışa bir anlamlı runnable check bırak.
 
 Kaynak değişince: testler + `node tests/reference-ui-check.cjs`, `python package.py <yeni-boş-dizin>` ile paket, release/store-automation'ı o paketle değiştir, master'a push, Skills Manager `skills update store-automation`, ardından `skills status` ile ajan listesinin düşmediğini ve kurulum hashlerini manifestle doğrula. Release elle düzenlenmez.
 

@@ -1,52 +1,73 @@
-# Ürün kalitesi ve erken geri bildirim
+# Product quality and early feedback
 
-Bu referansı ürün/akış/arayüz işi için kullan. Küçük teknik işte bütün ürün fazlarını açma. Mevcut ürün kararları ve görsel dil başlangıçtır; kullanıcı hedefi değişmedikçe şablon uğruna değiştirme.
+Use this for product, flow and interface work. Do not open every product phase for a small technical
+task. Existing product decisions and visual language are the starting point; do not replace them for a
+template unless the user's goal changes. These lists are a floor, not a ceiling.
 
-## İşin biçimi
+## Shape of the work
 
-| İş | En küçük yararlı teslim | Genişlemeyi gerektiren durum |
+| Work | Smallest useful delivery | Grows when |
 |---|---|---|
-| Küçük hata | Yeniden üretim + ortak kök neden düzeltmesi + ilgili kontrol | Güvenlik, veri kaybı, ortak akış veya platform etkisi |
-| Akış özelliği | Etkilenen yolculuk + erken gösterim + gerçek çalışan dilim | Birden çok rol, servis, migration veya yeni ürün kararı |
-| Yeni ürün | Amaç/kapsam + risk denemesi + ilk gerçek görev | Temel deneyim kabul edildikten sonra kalan akışlar |
-| Benimseme | Kaynak/test/tasarım/yayın haritası + kanıtlanmış başlangıç | Eski planda çelişki; değişiklik gerekçesiyle sınırlı geçiş |
-| Tasarım geri bildirimi | Somut fark + etkilenen bileşenler + yeni temsilî çıktı | Yanlış ihtiyaç veya yeni kapsam varsa ilgili ürün kararı |
+| Small defect | Reproduction + shared root-cause fix + relevant check | Security, data loss, a shared flow or platform impact |
+| Flow feature | Affected journey + early demo + real working slice | Several roles, services, migrations or a new product decision |
+| New product | Goal and scope + risk probe + first real task | The core experience is accepted, then the remaining flows |
+| Adoption | Source/test/design/release map + verified baseline | Contradictions in an old plan; change limited by its reason |
+| Design feedback | Concrete difference + affected components + new representative output | A wrong need or new scope → the related product decision |
 
-## Faz bazında kalite
+## Quality per phase
 
-| Faz / uzmanlık | Girdi → çıktı | Ölçüt ve doğrulama | Kullanıcı kararı / geri dönüş |
+| Phase / expertise | Input → output | Measure and verification | User decision / loop back |
 |---|---|---|---|
-| Ürün / ürün sorumlusu | İhtiyaç, mevcut iş → kısa amaç, kullanıcı, akış, kapsam dışı | Gözlenebilir başarı; ana ihtiyaç için örnek görev | Yanlış anlaşılma veya çelişki varsa amacı düzelt |
-| Araştırma / alan uzmanı | Kararı değiştiren bilinmeyen → kanıtlı cevap | Tarih/kaynak, uygulanabilirlik, bilinmeyenlerin sınırı | Maliyet/veri/ürün seçimini değiştiren sonuca dön |
-| UX / tasarımcı | Ana görev ve durumlar → akış/prototip | Kullanıcı başlangıcı, sonraki adımı ve sonucu anlayıp görevi tamamlayabiliyor; gözlenen sürtünme kaydı | Kullanım mantığını erken göster; akışa dön |
-| Görsel / UI tasarımcı | Akış ve mevcut dil → temsilî ekran/bileşen | Gerçek render; tutarlı tipografi, boşluk, hizalama, hiyerarşi; taşma yok | Görsel yönü tüm ekranlara yaymadan göster |
-| Mimari / mühendis | Akış, platform, veriler → sahiplik ve sınırlar | En riskli varsayımın dar denemesi; mevcut/native alternatif karşılaştırması | Maliyet, veri veya yetki kapsamı değişiyorsa karar |
-| Frontend / uygulayıcı | Ekran ve durum → çalışan etkileşim | Geçerli/geçersiz giriş, klavye/odak, bekleme/hata/boş/başarı, geri/iptal | Ortak bileşen ve kardeş ekranları birlikte düzelt |
-| Backend / gerektiğinde uzman | Veri/yetki sözleşmesi → gerçek davranış | İzolasyon, giriş doğrulama, timeout/retry, migration/geri dönüş ve veri kaybı riskine uygun kontroller | Sözleşme değişirse iki tarafı hizala; gerekmiyorsa backend ekleme |
-| Entegrasyon / akış sahibi | İstemci + gerçek storage/service → bütün yolculuk | UI eylemi doğru kalıcı sonucu üretir ve okur; ilgili hata/toparlanma da çalışır | İlk çalışan akışı geniş kapsamdan önce göster |
-| Doğrulama / bağımsız uzman | Son kaynak/paket → sınırlı kabul | İlgili test, cihaz etkileşimi, görsel, erişilebilirlik, güvenlik kanıtı | Başarısız kriterin aşamasına dön |
-| Materyal / içerik-yayın uzmanı | Son ürün + hedef → mağaza metin/görsel | Gerçek özellik, doğru dil, lisans, güncel format ve aday eşleşmesi | Ürün sunumunu göster; eski materyali yeniden üret |
-| Yayın / yayın sorumlusu | Aday + tam yetki → uzak sonuç | Hesap/app/channel/version readback; gerçek erişilebilirlik ayrı | Ret/eksik bilgiye dön; belirsiz upload'ı tekrarlama |
+| Product owner | Need, existing work → short goal, user, journey, out of scope | Observable success; a sample task for the main need | Misunderstanding or conflict → fix the goal |
+| Research / domain | The unknown that changes a decision → an evidenced answer | Date/source, feasibility, limits of the unknown | A result that changes cost, data or product choice |
+| UX designer | Main task and states → flow/prototype | The user understands the start, next step and result and completes the task; observed friction recorded | Show the usage logic early; back to the flow |
+| Visual / UI designer | Flow and existing language → representative screen/component | Real render; consistent type, spacing, alignment, hierarchy; no overflow | Show the visual direction before spreading it to every screen |
+| Architect / engineer | Flow, platform, data → ownership and boundaries | A narrow probe of the riskiest assumption; comparison with existing/native options | Cost, data or permission scope changes → decision |
+| Frontend | Screen and state → working interaction | Valid/invalid input, keyboard/focus, waiting/error/empty/success, back/cancel | Fix shared components and sibling screens together |
+| Backend, when needed | Data/permission contract → real behaviour | Isolation, input validation, timeout/retry, migration/rollback, data-loss checks | Contract changes → align both sides; no backend if not needed |
+| Integration owner | Client + real storage/service → the whole journey | A UI action produces and reads back the right persistent result; errors and recovery work | Show the first working journey before broad scope |
+| Independent verification | Final source/package → bounded acceptance | Relevant tests, device interaction, visual, accessibility, security evidence | Return to the phase of the failing criterion |
+| Material / content | Final product + target → store text and images | Real features, correct language, licenses, current formats, candidate match | Show the presentation; regenerate stale material |
+| Release owner | Candidate + full authority → remote result | Account/app/channel/version readback; real availability separately | Back on rejection or missing info; never repeat an uncertain upload |
 
-Bu tablo zorunlu ayrı belgeler istemez. Kabul ölçütü ilgili görevde bir kez yazılır; test/gözlem oraya referans verir. Araştırma artık kararı değiştirmiyorsa uygulamaya geç. Kritik belirsizlik sürüyorsa sonraki deneyin neyi çözeceğini açıkla; aynı analizi tekrar etme.
+This table does not require separate documents. Acceptance is written once in the task; tests and
+observations refer to it. When research no longer changes a decision, implement. If a critical
+uncertainty remains, say what the next experiment resolves; do not repeat the same analysis.
 
-## Somut UI ve etkileşim kontrolleri
+## Concrete UI and interaction checks
 
-- Seçilen küçük/geniş viewport, uzun metin/locale ve gerekli yönlerde kesilme, örtüşme veya ulaşılamayan ana eylem olmamalı. Beklenen breakpoint ve hedef cihazlar görevde belirtilir; evrensel cihaz matrisi yok.
-- Metin ölçeği büyütüldüğünde görev tamamlanabilmeli. Web hedefinde WCAG 2.2 AA için normal metin kontrastı 4.5:1, büyük metin 3:1 ve %200 büyütme ölçütlerini ilgili istisnalarıyla doğrula; bunlar tek başına erişilebilirlik sertifikası değildir. Native ölçütleri platform rehberiyle seç.
-- Tipografi/boşluk/radius/renk mevcut ortak tokenlardan gelsin. İstisna gerekçeli olsun; her ekranda bağımsız stil uydurma. Görsel hiyerarşinin görevi anlaşılır kıldığını ekran üzerinden incele.
-- Diyalog: amaç belirgin; alan/validasyon anlaşılır; birincil eylem ve iptal ayırt edilir; dar ekran/klavye içeriği kapatmaz; odak açılış/kapanışta doğru; hatada giriş korunur; bekleyen işlemde tekrar tetikleme ele alınır.
-- Boş/yükleniyor/hata/başarı durumları gerçek akışta görülmeli. İzin reddi, geri, tekrar deneme, iptal ve varsa geri alma tutarlı olmalı. Uzman seçenekler temel görevi zorlaştırmadan açılmalı.
-- Screenshot incelemesi ve etkileşim kontrolü ayrı kanıttır. Ekran okuyucu, klavye, azaltılmış hareket ve dokunma hedefleri hedef platform/ürüne göre denenir. Kaynak okumak görsel kabul değildir.
+- At the selected small/large viewports, long text/locale and required orientations: no clipping, overlap
+  or unreachable primary action. Breakpoints and target devices are named in the task; there is no
+  universal device matrix.
+- The task stays completable with enlarged text. For web targets verify WCAG 2.2 AA: normal text contrast
+  4.5:1, large text 3:1, 200% resize, with their exceptions; this alone is not an accessibility
+  certification. Choose native criteria from the platform guidelines.
+- Typography, spacing, radius and color come from shared tokens; exceptions have a reason. Check on screen
+  that the visual hierarchy makes the task clear.
+- Dialogs: clear purpose; understandable fields and validation; primary and cancel actions distinct; narrow
+  screens and the keyboard do not hide content; focus correct on open and close; input kept on error;
+  repeated triggering while pending is handled.
+- Empty, loading, error and success states are seen in the real flow. Permission denial, back, retry,
+  cancel and undo (when present) are consistent. Advanced options do not complicate the basic task.
+- Screenshot review and interaction checks are separate evidence. Screen reader, keyboard, reduced motion
+  and touch targets are tried per target platform. Reading source is not visual acceptance.
 
-Resmi dayanaklar: [WCAG metin ölçeği](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html), [kontrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html). Sürüm/platforma özgü iddiaları uygulamada tekrar doğrula.
+Official references: [WCAG resize text](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html),
+[contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html). Re-verify version- and
+platform-specific claims in the app.
 
-## Geri bildirimi uygulama
+## Applying feedback
 
-Görsel tercih → tasarım token/bileşeni; kullanılabilirlik → etkileşim/metin; akış → geçiş/durum; yanlış ihtiyaç → amaç; teknik hata → ortak kök neden; yeni kapsam → ayrı iş ve maliyet/veri etkisi.
+Visual preference → design token/component; usability → interaction/copy; flow → transitions/states;
+misunderstood need → goal; defect → shared root cause; new scope → separate work with cost/data impact.
+Record feedback briefly: the concrete problem said, the decision that changes, the affected
+source/test/material, the evidence needed again. No separate feedback database. Silence is not approval.
+Work on already-authorized details does not stop; work outside a blocked critical choice continues.
 
-Geri bildirim kaydı kısa tutulur: söylenen somut sorun, değişen karar, etkilenen kaynak/test/materyal ve yeniden gereken kanıt. Ayrı feedback veritabanı yok. Kullanıcının sessizliği onay değildir. Önceden yetkili küçük ayrıntılar için çalışma durdurulmaz; bloke kritik tercihin dışındaki işler devam eder.
+## Frontend and backend accepted together
 
-## Frontend/backend birlikte kabul
-
-İsimlendirme, veri sahipliği, durum geçişi, validasyon ve hata biçimi ortak olmalı. Örneğin “kaydedildi” arayüzü yalnız gerekli kalıcılık gerçekleşince görünür. Çift tıklama, yanıt kaybı veya retry aynı işi çoğaltmamalı; ürünün ihtiyacına göre idempotency/çatışma davranışı seçilir. Offline/senkronizasyon, log gizliliği, silme/export ve migration yalnız ilgiliyse sözleşmeye girer. Mock servisle geçen demo gerçek servis kabulü olarak sunulmaz.
+Naming, data ownership, state transitions, validation and error shape are shared. "Saved" appears only
+after the required persistence happened. Double clicks, lost responses or retries must not duplicate work;
+choose idempotency or conflict behaviour for the product's need. Offline/sync, log privacy,
+delete/export and migration enter the contract only when relevant. A demo that passes against a mock
+service is not presented as real service acceptance.

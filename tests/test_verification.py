@@ -4,8 +4,7 @@ import sys
 import tempfile
 import unittest
 
-from runtime.receipts import read_record
-from runtime.verification import measured_usage, release_readback, run_check
+from runtime.verification import release_readback, run_command
 
 
 class VerificationTests(unittest.TestCase):
@@ -15,26 +14,25 @@ class VerificationTests(unittest.TestCase):
         self.root = Path(temp.name)
         (self.root / 'source.txt').write_text('input')
 
-    def test_actual_command_success_failure_and_mutation(self):
-        for code, expected in [
-            ('print("real execution")', 'PASS'),
-            ('raise SystemExit(2)', 'FAIL'),
-            ('from pathlib import Path; Path("source.txt").write_text("changed")', 'FAIL')]:
-            result = run_check(self.root, [sys.executable, '-c', code], ['source.txt'])
-            self.assertEqual(result['state'], expected)
-            self.assertTrue(read_record(self.root, result['reference'])['duration_seconds'] > 0)
+    def execute(self, argv, timeout=60):
+        return run_command(self.root, argv, self.root / 'runs/x.log', timeout)
+
+    def test_actual_command_success_and_failure_with_full_log(self):
+        result = self.execute([sys.executable, '-c', 'print("real execution")'])
+        self.assertEqual(result['exit_code'], 0)
+        self.assertIn('real execution', (self.root / 'runs/x.log').read_text())
+        self.assertEqual(self.execute([sys.executable, '-c', 'raise SystemExit(2)'])['exit_code'], 2)
 
     @unittest.skipUnless(os.name == 'nt', 'Windows batch resolution')
     def test_batch_tools_and_project_scripts_resolve_like_a_shell(self):
         tools = self.root / 'tools'
         tools.mkdir()
         (tools / 'probe.cmd').write_text('@exit /b 0')
-        result = run_check(self.root, ['tools/probe.cmd'], ['source.txt'])
-        self.assertEqual(result['state'], 'PASS')
+        self.assertEqual(self.execute(['tools/probe.cmd'])['exit_code'], 0)
         old = os.environ['PATH']
         os.environ['PATH'] = str(tools) + os.pathsep + old
         try:
-            self.assertEqual(run_check(self.root, ['probe'], ['source.txt'])['state'], 'PASS')
+            self.assertEqual(self.execute(['probe'])['exit_code'], 0)
         finally:
             os.environ['PATH'] = old
 
@@ -42,7 +40,7 @@ class VerificationTests(unittest.TestCase):
         marker = self.root / 'orphan.txt'
         child = 'import time; from pathlib import Path; time.sleep(1.5); Path("orphan.txt").write_text("bad")'
         parent = 'import subprocess,sys,time; subprocess.Popen([sys.executable,"-c",' + repr(child) + ']); time.sleep(20)'
-        result = run_check(self.root, [sys.executable, '-c', parent], ['source.txt'], timeout=.15)
+        result = self.execute([sys.executable, '-c', parent], timeout=.15)
         self.assertEqual(result['exit_code'], 124)
         import time
         time.sleep(1.7)
@@ -63,16 +61,6 @@ class VerificationTests(unittest.TestCase):
                 release_readback(expected, dict(observed, **{key: True}))
         with self.assertRaises(ValueError):
             release_readback(expected, dict(observed, observed_at='2026-10-13T12:00:00'))
-
-    def test_usage_missing_retry_and_inclusive_parent_never_fabricate_total(self):
-        one = dict(id='parent', usage_scope='disjoint_last_turn', usage=dict(input_tokens=10,output_tokens=2))
-        two = dict(id='worker', usage_scope='disjoint_last_turn', usage=dict(input_tokens=20,output_tokens=3))
-        self.assertEqual(measured_usage([one,two], ['parent','worker'])['totals'],
-                         dict(input_tokens=30,output_tokens=5))
-        self.assertIsNone(measured_usage([one,two], ['parent','worker','retry'])['totals'])
-        self.assertIsNone(measured_usage([dict(one,usage_scope='includes_children'),two], ['parent','worker'])['totals'])
-        with self.assertRaises(ValueError):
-            measured_usage([one,one], ['parent'])
 
 
 if __name__ == '__main__':

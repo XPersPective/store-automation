@@ -34,6 +34,18 @@ def create_server(db, port=8765):
             self.end_headers()
             self.wfile.write(body)
 
+        def reject(self, status, payload):
+            # Drain a small unread body first: closing with unread bytes makes Windows reset the
+            # connection before the client can read this response.
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+                if 0 < length <= 8192:
+                    self.connection.settimeout(5)
+                    self.rfile.read(length)
+            except (ValueError, OSError):
+                pass
+            return self.respond(status, payload)
+
         def valid_host(self):
             return self.headers.get_all('Host', []) == [f'127.0.0.1:{self.server.server_port}']
 
@@ -58,11 +70,11 @@ def create_server(db, port=8765):
         def do_POST(self):
             origin = f'http://127.0.0.1:{self.server.server_port}'
             if not self.valid_host() or self.headers.get_all('Origin', []) != [origin]:
-                return self.respond(403, {'error': 'İstek kaynağı doğrulanamadı.'})
+                return self.reject(403, {'error': 'İstek kaynağı doğrulanamadı.'})
             if self.path != '/api/notes':
-                return self.respond(404, {'error': 'İşlem bulunamadı.'})
+                return self.reject(404, {'error': 'İşlem bulunamadı.'})
             if self.headers.get('Content-Type') != 'application/json' or self.headers.get('Transfer-Encoding'):
-                return self.respond(415, {'error': 'JSON isteği gerekli.'})
+                return self.reject(415, {'error': 'JSON isteği gerekli.'})
             try:
                 lengths = self.headers.get_all('Content-Length', [])
                 if len(lengths) != 1 or not 0 < int(lengths[0]) <= 8192:

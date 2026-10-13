@@ -1,40 +1,75 @@
-# Yayın, ürün sunumu ve bakım
+# Release, presentation and maintenance
 
-Mevcut yayın düzenini incele: bu makinede `D:/AppPublishing/README.md` ve seçilen uygulamanın Fastlane dosyaları. Başka ortamda gerçek mevcut konumu belirle; sabit yolu evrensel şart yapma. İkinci katalog, credential şeması veya uploader kurma.
+Inspect the existing release setup first: on this machine `D:/AppPublishing/README.md` and the selected
+app's Fastlane files; elsewhere find the real current location and never require a fixed path. Do not
+create a second catalog, credential schema or uploader.
 
-## Platforma göre kanıt
+## Evidence per platform
 
-| Hedef | Aday ve yerel kontrol | Ayrı dış kanıt |
+| Target | Candidate and local check | Separate remote evidence |
 |---|---|---|
-| Google Play | Son AAB, iç package/version, imza, ilgili Android cihaz akışı, metadata/görseller/beyanlar | Hesap/app/track/version geri okuması; inceleme ve dağıtım durumu |
-| App Store | Archive/IPA, bundle/version/signing, gerekli iOS cihaz/simulator kapsamı, store materyali | App Store Connect build processing, seçilmiş submission, kabul ve erişilebilirlik |
-| Windows | Seçilmiş installer/MSIX/portable paket; kurulum/açılış/güncelleme/kaldırma | Seçilmiş kanal/store/indirme ve yayımlanan sürüm |
-| Web | Son bundle + deployment config; gerçek browser/servis akışı | Hedef hosting URL, revision, ortam ve çalışan erişim |
+| Google Play | Final AAB, internal package/version, signature, relevant Android device flow, metadata/images/declarations | Account/app/track/version readback; review and rollout status |
+| App Store | Archive/IPA, bundle/version/signing, required iOS device/simulator coverage, store material | App Store Connect build processing, the selected submission, approval and availability |
+| Windows / macOS / Linux | Selected installer, MSIX, package or portable build; install, launch, update, uninstall | Selected channel/store/download and the published version |
+| Web | Final bundle + deployment config; real browser and service flow | Target hosting URL, revision, environment and working access |
+| CLI / internal | Package or install command on each selected OS | Published package version, or none when the channel is internal use |
 
-Factory testi uygulama kabulü değildir; APK kontrolü AAB'yi, Android screenshot iOS'u, simulator debug signed release'i kanıtlamaz. Seçilmeyen platform için işlem başlatma. Desteklenmeyen adapter/ortamı başarılı sayma.
+A factory test is not app acceptance; an APK check does not prove the AAB, an Android screenshot does not
+prove iOS, a debug simulator run does not prove a signed release. Start nothing for unselected platforms;
+an unsupported adapter or environment is never success.
 
-## Tek son adayla tutarlılık
+## One final candidate
 
-Kaynak/gereksinim snapshot'ı, artifact hash, gömülü kimlik/sürüm, imza kontrolü, cihaz/locale görüntüleri, metadata ve uzak sürüm referanslarını aynı adaya bağla. Yeni bir yayın veritabanı gerekmez; mevcut release evidence kaydı bu referansları tutabilir. Görsel manifest kaydı, görüntünün decode edildiği veya UX'in kabul edildiği anlamına gelmez.
+Bind the source snapshot, artifact hash, embedded identity/version, signature check, device/locale
+screenshots, metadata and remote version references to the same candidate. No release database: the
+release task's Evidence lines (`[artifact]`, `[remote]`, `[visual]`) hold these references. A manifest
+entry for an image does not mean the image was decoded or the UX accepted.
 
-Konumlandırma ve ürün adı gerçek kullanıcı ihtiyacını anlatsın. İkon, screenshot sırası/anlatımı, kısa/uzun açıklama, yerelleştirme, sürüm notu, gizlilik/destek bağlantıları aynı ürünü tarif etsin. Olmayan özellik, temelsiz sağlık/güvenlik iddiası, sahte rating veya keyword doldurma yok. ASO ve web SEO farklı hedef/kurallara göre değerlendirilir; ticari başarı garanti edilmez.
+Positioning and the product name describe the real user need. Icon, screenshot order and story, short and
+long description, localization, release notes, privacy and support links describe the same product. No
+missing features, unfounded health/safety claims, fake ratings or keyword stuffing. ASO and web SEO follow
+different rules; commercial success is not guaranteed.
 
-Görselleri gerçek son uygulamadan al; tanıtım kompozisyonu gerçek cihaz/etkileşim kanıtının yerine geçmez. Son export'u görüntüle, metin/lokalizasyon/formatı kontrol et; görsel/font/audio kaynağı ve kullanım hakkını kaydet. Makine çevirisi tek başına dil kalitesi kabulü değildir. Kaynak değişince etkilenen görüntü ve metni tekrar kontrol et.
+Take visuals from the real final app; a marketing composition does not replace real device or interaction
+evidence. View the final export; check text, localization and format; record the source and usage rights
+of images, fonts and audio. Machine translation alone is not language quality. When the source changes,
+recheck the affected images and texts.
 
-Güncel resmi kaynakları hedef sürümde kontrol et: [Google preview assets](https://support.google.com/googleplay/android-developer/answer/9866151), [Apple review](https://developer.apple.com/app-store/review/guidelines/), [Fastlane supply](https://docs.fastlane.tools/actions/supply/), [deliver](https://docs.fastlane.tools/actions/deliver/). Statik limitleri sonsuza dek geçerli sayma.
+Check current official sources for the target version: [Google preview assets](https://support.google.com/googleplay/android-developer/answer/9866151),
+[Apple review](https://developer.apple.com/app-store/review/guidelines/),
+[Fastlane supply](https://docs.fastlane.tools/actions/supply/), [deliver](https://docs.fastlane.tools/actions/deliver/).
+Static limits do not stay valid forever.
 
-## Yetki ve uzak sonuç
+## Authority and remote results
 
-Kullanıcının mevcut tam app/account/action/destination yetkisi geçerlidir; tekrar sorulmaz. Eksikse önce geri alınabilir hazırlığı bitir ve somut adayı göster; sadece eksik dış kararı iste. Genel skill kurulum veya uygulama yap talebi üretim mağaza yetkisi değildir.
+The user's existing full app/account/action/destination authority stands; do not ask again. If it is
+missing, finish the reversible preparation, show the concrete candidate and ask only for the missing
+external decision. A general "install the skill" or "build the app" request is not production store
+authority. Never put credential contents into model context; existing native tools consume them by path
+or reference. No automatic billing, signing or role changes. Never run a production lane "as a test".
 
-Credential içeriğini model bağlamına alma. Mevcut native araçların doğrudan path/secret referansıyla tüketmesi kullanılır. Billing/signing/rol değişikliği otomatik yapılmaz. Production lane'i “deneme” diye çalıştırma.
+States are reported separately: `LOCAL_PREPARED`, `UPLOADED`, `SUBMITTED`, `APPROVED`, `AVAILABLE`; each is
+observed on the real target and no linear progression is assumed. Without account/app/channel/version/
+status readback, a submission is not complete. An API "completed" status alone does not prove worldwide
+availability.
 
-Durumlar ayrı raporlanır: `LOCAL_PREPARED`, `UPLOADED`, `SUBMITTED`, `APPROVED`, `AVAILABLE`; her biri gerçek hedefe göre gözlenir, doğrusal geçiş varsayılmaz. Hesap/app/channel/version/status readback olmadan gönderim tamamlandı denmez. Yanıt kaybında yeniden upload'dan önce remote state incelenir. API'deki completed durumu dünya çapında kullanıcı erişimini tek başına kanıtlamaz.
+Before any external operation write `- <operation> | not_started | readback: <command>` in the task's
+`## External`; set `sent` right before the call and `confirmed` once the result is observed. A lost
+response stays `response_unknown`, and boot stops every later agent with READBACK_FIRST. Compare the read
+back result with `SA release-readback`, record `[remote]` evidence with `SA evidence`. Release tasks are
+HIGH risk and need independent review.
 
-## iOS / CI
+## iOS and CI
 
-Uygun macOS/Xcode veya seçilmiş CI gerekir. Public standard runner, private kota, larger runner ve storage ayrı maliyet şartlarıdır; plan adı kalan ücretsiz hakkı kanıtlamaz. Hesap/repo/runner ve geçerli maliyet sınırı doğrulanmadan “ücretsiz” denmez. Özel kaynak veya kullanıcı verisi ücretsiz CI uğruna yayınlanmaz. Bütçe/billing ayarı değiştirilmez. [GitHub billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
+A suitable macOS/Xcode machine or selected CI is required. Public standard runners, private quota, larger
+runners and storage have separate cost terms; a plan name does not prove remaining free minutes. Do not
+call anything free before the account, repository, runner and current cost limit are verified. Never
+publish private source or user data for free CI. Never change budgets or billing.
+[GitHub billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
 
-## Yayın sonrası
+## After release
 
-Gerçek destek sorunu, uygun crash/performance verisi ve uygulanabilir SDK/store değişikliği ile küçük bakım işi aç. Yeni tracking varsayılan eklenmez. Kullanıcı yalnız seçilmiş projeler için izleme istediyse mevcut host zamanlayıcısını kullan; aynı kalan durumda sessiz, anlamlı değişimde bildirim. Yeni daemon kurma. Düzeltme ilgili test/cihaz/materyal/yayın kanıtını yeniler; bütün ürün kararlarını baştan açmaz.
+Open small maintenance tasks from real support issues, suitable crash/performance data and applicable
+SDK/store changes. No new tracking by default. If the user asked to monitor selected projects, use the
+host's existing scheduler: silent when nothing changes, notify on meaningful change; no new daemon. A fix
+renews the affected test/device/material/release evidence; it does not reopen every product decision.

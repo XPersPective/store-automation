@@ -1,6 +1,6 @@
 # Hedef mimari ve kararlar
 
-Durum: Uygulanmış ve dağıtılmış Store Automation 3 mimarisi; aşağıdaki N01/N08 ifadeleri karar geçmişidir. İlerleme [HANDOFF](../HANDOFF.md), işler [roadmap](roadmap.md), davranış denemeleri [acceptance-scenarios](acceptance-scenarios.md) içindedir.
+Durum: GEÇMİŞ. Store Automation 3 mimarisi; 4.0.0 ile [v4-target](v4-target.md) yerine geçti. JSON kayıt akışı (task/prepare/finish/gate) kaldırıldı. İlerleme [HANDOFF](../HANDOFF.md), işler [roadmap](roadmap.md), davranış denemeleri [acceptance-scenarios](acceptance-scenarios.md) içindedir.
 
 ## 1. Amaç ve tasarım ölçütü
 
