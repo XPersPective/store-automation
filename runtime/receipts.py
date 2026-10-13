@@ -64,7 +64,7 @@ def verify_snapshot(root, recorded):
 
 
 def append_record(root, category, value):
-    if category not in ('assignment', 'outcome', 'observation', 'handoff', 'check', 'review', 'acceptance'):
+    if category not in ('assignment', 'outcome', 'observation', 'handoff', 'check', 'review', 'acceptance', 'migration'):
         raise ValueError('Unknown record category')
     body = json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False)
     if len(body.encode()) > MAX_RECORD:

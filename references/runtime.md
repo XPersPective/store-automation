@@ -34,6 +34,8 @@ Gate güncel kaynak ve kanıt dosyalarını yeniden hashler, task/atama/sonuç/r
 
 ## Devam ve yayın
 
+`legacy`: istek dosyası yok. Varsayılan dry-run; `--apply` 2.x `.factory/` ve `.factory-bootstrap.json`'u proje dışı arşive taşır (ayrıntı [geçiş](migration.md)). `doctor` çıktısındaki `legacy` alanı bu izleri gösterir.
+
 `handoff`: `task_ref`, `assignments` referansları, `next_action`, `ownership` (state active/absent/unknown + reference), `pending_external` (state not_started/confirmed/response_unknown + readback), `public_files`, `notes`. `task_ref` ve bütün `assignments` aynı task/task_hash/project kaydına ait olmalıdır. Canlı/bilinmeyen owner önce uzlaştırılır; belirsiz dış işlem önce geri okunur. Handoff hiçbir süreci öldürmez veya upload'ı tekrar etmez. Yer değişikliğinde eski project-bound receipt'i düzenleyerek yeniden kullanma; geçmiş olarak koru, yeni kökte yeni atama/gözlem üret.
 
 `usage`: `attempts` ve `expected_ids`. Yalnız disjoint_last_turn input_tokens/output_tokens sayılır; eksik parent/worker/retry varsa toplam null. Kota değişimi token değildir.

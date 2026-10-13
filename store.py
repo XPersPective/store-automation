@@ -12,6 +12,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 from runtime import receipts
 from runtime.acceptance import fingerprint, validate_task
 from runtime.gate import gate
+from runtime.legacy import found as legacy_found, legacy
 from runtime.verification import run_check, release_readback, measured_usage
 
 
@@ -19,7 +20,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--project', default='.', help='Selected application root')
     parser.add_argument('command', choices=['doctor', 'task', 'snapshot', 'prepare',
-        'finish', 'record', 'check', 'gate', 'handoff', 'release-readback', 'usage'])
+        'finish', 'record', 'check', 'gate', 'handoff', 'release-readback', 'usage', 'legacy'])
+    parser.add_argument('--apply', action='store_true', help='legacy: move old 2.x state out of the project')
     parser.add_argument('--request', help='Public JSON request relative to project root')
     args = parser.parse_args(argv)
     try:
@@ -29,7 +31,10 @@ def main(argv=None):
                           python=sys.version.split()[0], project=str(root),
                           skill=str(Path(__file__).resolve().parent / 'SKILL.md'),
                           host='Use the current native host; no provider login or model scan required',
-                          isolation='Scope instructions are not an OS sandbox')
+                          isolation='Scope instructions are not an OS sandbox',
+                          legacy=legacy_found(root) or None)
+        elif args.command == 'legacy':
+            result = legacy(root, apply=args.apply)
         else:
             if not args.request:
                 parser.error('--request is required')

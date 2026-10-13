@@ -20,7 +20,7 @@ Görevi anlamadan katalog taraması, tam ürün anketi veya büyük ekip başlat
 - **Küçük yerel düzeltme:** yeniden üret, ortak kök nedeni düzelt, ilgili kontrolü çalıştır. Güvenlik/veri kaybı küçük diff olsa da yüksek risklidir. Mekanik iş için gereksiz ajan açma.
 - **Akış değiştiren özellik:** etkilenen kullanıcı yolculuğunu ve durumları çıkar; pahalı kararları erken göster; önce bir çalışan uçtan uca dilim, sonra kalan kapsam.
 - **Yeni ürün veya önemli belirsizlik:** önce en pahalı yanlış varsayımı test et. Bu bir UX prototipi, teknik deneme veya veri/yetki sözleşmesi olabilir. Bütün ekranları ya da backend'i doğrulanmamış varsayımla bitirme.
-- **Mevcut projeyi benimseme:** gerçek kaynak, test, tasarım ve yayın düzeninden doğrulanmış başlangıcı çıkar. Çalışır görünen kodu geçmiş PASS ile kabul etme; eski planı sıfırlama.
+- **Mevcut projeyi benimseme:** gerçek kaynak, test, tasarım ve yayın düzeninden doğrulanmış başlangıcı çıkar. Çalışır görünen kodu geçmiş PASS ile kabul etme; eski planı sıfırlama. `doctor` çıktısında `legacy` varsa (2.x `.factory/`, `.factory-bootstrap.json`) ilk iş olarak taşı: `legacy` dry-run, çalışan sahipli süreç yoksa `legacy --apply`. Eski izler proje dışına arşivlenir, `.gitignore` temizlenir; eski kayıt yeni kanıt sayılmaz, arşiv yolunu kullanıcıya bildir.
 - **Yayın/bakım:** mevcut üründeki ilgili kanıtı ve seçilmiş hedefi değerlendir; etkilenmeyen ürün kararlarını yeniden açma.
 
 İlgili olduğunda [ürün kalitesi](references/product-quality.md) rehberini oku. Bütün referansları her küçük işte yükleme.
