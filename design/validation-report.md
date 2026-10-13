@@ -61,3 +61,8 @@ Gerçek browser: Türkçe boş durum, başlık doğrulama, kayıt ve reload ile 
 ## Ölçüm yorumu
 
 Eski 130 testin 26.230s, yeni 29 testin yaklaşık 7–8s sürmesi eşdeğer kapsam karşılaştırması değildir; hız kazanımı iddiası yok. Yeni sistem küçük işte zorunlu küresel keşfi kaldırır, fakat toplam teslim/analiz/bekleme/rework ve token maliyeti eksiksiz ölçülmedi. Ölçülmeyen değerler null kalır. Dağıtım byte eşleşmesi, o ajan sağlayıcısında gerçek çalıştırma kanıtından ayrı raporlanır.
+
+
+## 2026-10-14 geçiş sonucu
+
+N08 gerçek repository üzerinde tamamlandı; Next kaldırıldı, eski kaynak repo dışında korundu. Yeni kökte son 29 test 6.345s, Node regression ve doctor başarılı. Merkezi kayıt ID/preset korundu; 41 managed + 4 ek kurulumun 12 paket dosyası SHA256 eşleşti. Launcher merkezi store.py üzerinde READY verdi. GitHub factory-bootstrap eb22605 dağıtım commitini içeriyor; private görünürlük korunuyor. Restore bilgileri HANDOFF içinde. Bu sonuç 45 sağlayıcıda AI görevi çalıştırıldığı iddiası değildir.
