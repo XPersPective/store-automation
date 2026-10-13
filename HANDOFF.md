@@ -8,9 +8,9 @@ N00–N07 yerel kapsamda tamamlandı: runtime, CLI, native receipt/gate, kesinti
 
 N08 TAMAMLANDI (2026-10-14): Next içeriği köke taşındı, boş Next kaldırıldı. .git yerinde; eski kök ve bilinmeyen kullanıcı işi D:/repositories/store-automation-backup-20261014/repository altında. Backup içindeki migration.json taşıma günlüğüdür. central-skill önceki merkez, skill-metadata.json önceki ID/preset/source, agents.json hedef envanteri, extra-0..3 eski ek kurulumlar, store-automation.cmd ve launcher-manifest.json eski launcher yedeğidir.
 
-Yeni kökte 29 Python testi (son 6.345s), Node regression, paket ve kurulu launcher doctor geçti. GitHub kaynak/paket dalı factory-bootstrap; ilk geçiş commit'i 53807cc, dağıtım commit'i eb22605c56bb433e6f6510a9e56d1a17a4839441. Son dokümantasyon commit'i git log ile bulunur. Remote private kaldı; main değiştirilmedi.
+Yeni kökte 29 Python testi (son 6.345s), Node regression, paket ve kurulu launcher doctor geçti. GitHub kaynak/paket dalı master; ilk geçiş commit'i 53807cc, dağıtım commit'i eb22605c56bb433e6f6510a9e56d1a17a4839441. Son dokümantasyon commit'i git log ile bulunur. Remote private kaldı. Son kullanıcı talebiyle varsayılan dal master yapıldı; eski main/factory-bootstrap dalları pre-master-all.bundle yedeğinden sonra kaldırıldı.
 
-Skills Manager aynı cebd951e-c23f-4fcc-9a3f-c6d2bca285c2 kimliği ve Default preset'i koruyor. Git kaynağı XPersPective/store-automation, branch factory-bootstrap, subpath release/store-automation. 41 managed ajan ve 4 ek dizin, toplam 45 kurulum paket manifestindeki 12 dosyayla SHA256 eşleşti. Ek hedefler sırasıyla .minimax/skills, .config/mimocode/skills, .gemini/antigravity-cli/skills, .gemini/config/skills altındaki store-automation. Launcher .local/bin/store-automation.cmd merkezi store.py'yi çağırıyor.
+Skills Manager aynı cebd951e-c23f-4fcc-9a3f-c6d2bca285c2 kimliği ve Default preset'i koruyor. Git kaynağı XPersPective/store-automation, branch master, subpath release/store-automation. 41 managed ajan ve 4 ek dizin, toplam 45 kurulum paket manifestindeki 12 dosyayla SHA256 eşleşti. Ek hedefler sırasıyla .minimax/skills, .config/mimocode/skills, .gemini/antigravity-cli/skills, .gemini/config/skills altındaki store-automation. Launcher .local/bin/store-automation.cmd merkezi store.py'yi çağırıyor.
 
 ## Devam ve bakım
 
@@ -23,3 +23,7 @@ Rollback: canlı yazıcı olmadığını doğrula; yeni kökü .git hariç ayrı
 ## Kanıt ve sınır
 
 N07 gerçek native task subject e7fa10f1fd538d13562a88208fa350ba235c522906e88b65c33bffc820402acd; .store-automation/native-acceptance.json ACCEPTED yalnız yerel runtime/package/reference checks. Yer değişince eski project-bound receipt geçmiş olur. Son kaynak yeni kökte tekrar kontrol edilir. Toplam token ve eşdeğer önce/sonra benchmark yok. Native host güveni yönetici gözlemine dayanır; OS kullanıcıları arası sandbox iddiası yok.
+
+## Master düzenlemesi — 2026-10-14
+
+Yerel tek dal master, upstream origin/master; GitHub varsayılanı master. Skills Manager kaynağı master/release/store-automation. Eski tüm refler repo dışındaki pre-master-all.bundle içinde doğrulandı. Eski iki worktree dosyası önceki repository yedeğinde; artık geçersiz checkout kayıtları temizlendi. 45 kurulum hash doğrulaması tekrar geçti. Projedeki geçici .store-automation kanıtları cleanup-master/local-evidence altında, Python cacheleri aynı dış yedekte. Yukarıdaki .store-automation referansları bu arşive göre okunur. Yeni oturumlarda yalnız master üzerinde devam et.
