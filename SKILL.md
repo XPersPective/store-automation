@@ -29,6 +29,8 @@ Görevi anlamadan katalog taraması, tam ürün anketi veya büyük ekip başlat
 
 Akış veya görsel yön belirsizse temsilî ekran/etkileşimi erken göster. İlk gerçek çalışan yolculuğu geniş uygulamadan önce, son paketi de yayın öncesinde göster. Gösterim, her küçük teknik işlem için izin istemek değildir. Kritik ürün tercihi gerekiyorsa cevapsızlığı kabul sayma; bağımsız işleri sürdür.
 
+Yeni ürün, belirsiz akış, görsel yön veya mimari kararda ilk fikre kilitlenme: anlamlı biçimde farklı 2–3 yön çıkar, ödünleşimini kısa göster, en riskli varsayımı ucuz denemeyle seç. Koruma kuralları mevcut kararları ve kapsamı korur; yeni çözümün kalitesini veya özgünlüğünü sınırlamaz. Kalite listeleri tabandır, tavan değil.
+
 Geri bildirimi görsel tercih, kullanılabilirlik, iş akışı, yanlış anlaşılmış ihtiyaç, teknik hata veya yeni kapsam olarak değerlendir. Paylaşılan bileşenleri ve bağlı ekran/veri/test/mağaza materyallerini birlikte izle. Yalnız değişiklikten etkilenen kanıtı yeniden üret; etki bilinmiyorsa belirsizliği açıkça tut.
 
 ## Uzmanlık ve yürütme
@@ -43,11 +45,13 @@ Komutun bitmesi, ajanın COMPLETED raporu, makine kontrolleri, kullanıcı yolcu
 
 Önemli davranış/veri/güvenlik değişikliği ve yayın adayında taze bağımsız inceleme kullan. Çözülmemiş zorunlu ölçüt veya engelleyici bulgu varken kabul etme. Gerekçeli, yetki içindeki küçük sınırlamalar açık kalabilir; etiket değiştirerek güvenlik veya veri kaybını küçültme. Yeni kanıt üretmeyen aynı inceleme/deneme döngüsünü tekrarlama.
 
+Host ayrı inceleyici başlatamıyorsa bağımsız inceleme UNVERIFIED kalır; aynı oturumu başka adla inceleyici yapma. Kayıtlı `gate` akışı MEDIUM/HIGH risk, güvenlik/veri, yayın adayı veya başka oturuma devredilecek kabul içindir; küçük işte ilgili kontrol çıktısı ve kısa sonuç yeterlidir.
+
 ## Yayın ve devam
 
 [Yayın rehberi](references/release.md) ile mevcut AppPublishing/Fastlane düzenini kullan. Yerel hazırlık, yükleme, incelemeye gönderim, kabul ve gerçek erişilebilirliği ayır. Var olan tam yetkiyi yeniden sorma; eksik dış işlem yetkisini ancak hazırlanan somut aday üzerinden tamamla. Ücretli API, credential içeriği okuma/aktarma ve otomatik billing/signing değişikliği yok.
 
-Kesintide gerçek kaynak/diff, sahiplik, açık işlem, geçerli kanıt ve sonraki güvenli adımı koru. Başka ajan veya oturum, bu kaydı gerçek durumla uzlaştırarak sürdürür. Kalan dış engelleri ve neyin doğrulanmadığını somut bildir.
+Kesintide gerçek kaynak/diff, sahiplik, açık işlem, geçerli kanıt ve sonraki güvenli adımı koru. Devam kaydını projenin mevcut plan/Brain/docs düzenine yaz; yoksa `handoff` komutunu kullan. `.store-automation/runs/` yerel ve git dışıdır: başka makine veya bulut oturumu için kısa özeti projede görünür yere (mevcut notlar, PR açıklaması) de bırak. Yeni oturum önce git durumu/diff'i, sonra en yeni handoff kaydının `resume` alanını (RECONCILE_OWNER → READBACK_FIRST → INSPECT_DIFF) gerçek durumla uzlaştırarak sürdürür. Kalan dış engelleri ve neyin doğrulanmadığını somut bildir.
 
 
 ## Yerel araçlar ve sürüm geçişi

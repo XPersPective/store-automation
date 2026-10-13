@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -22,6 +23,20 @@ class VerificationTests(unittest.TestCase):
             result = run_check(self.root, [sys.executable, '-c', code], ['source.txt'])
             self.assertEqual(result['state'], expected)
             self.assertTrue(read_record(self.root, result['reference'])['duration_seconds'] > 0)
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows batch resolution')
+    def test_batch_tools_and_project_scripts_resolve_like_a_shell(self):
+        tools = self.root / 'tools'
+        tools.mkdir()
+        (tools / 'probe.cmd').write_text('@exit /b 0')
+        result = run_check(self.root, ['tools/probe.cmd'], ['source.txt'])
+        self.assertEqual(result['state'], 'PASS')
+        old = os.environ['PATH']
+        os.environ['PATH'] = str(tools) + os.pathsep + old
+        try:
+            self.assertEqual(run_check(self.root, ['probe'], ['source.txt'])['state'], 'PASS')
+        finally:
+            os.environ['PATH'] = old
 
     def test_real_timeout_kills_owned_descendant_before_delayed_write(self):
         marker = self.root / 'orphan.txt'

@@ -10,7 +10,7 @@ Bu dosya iş tarifidir; güncel durum yalnız [HANDOFF](../HANDOFF.md) içindedi
 4. Önemli davranışta taze bağımsız inceleme al, bulguyu yeniden üret, ilgili düzeltmeyi doğrula.
 5. HANDOFF'a komut/sonuç/kanıt ve sonraki güvenli adımı yaz. Dış bloke koşulu bütün bağımsız işleri durdurmasın.
 
-Yeni framework veya genel adapter katmanı gerekiyormuş gibi görünürse önce en küçük stdlib/native çözümle karşılaştır. Süre/tokens hedefi ölçülmüş baz olmadan kesin SLA yapılmaz. Test komutları aşağıda **dosyalar oluşturulduktan sonra** geçerlidir; bugün varmış gibi çağırma.
+Yeni framework veya genel adapter katmanı gerekiyormuş gibi görünürse önce en küçük stdlib/native çözümle karşılaştır. Süre/tokens hedefi ölçülmüş baz olmadan kesin SLA yapılmaz. N00–N08 tamamlandı (HANDOFF); aşağıdaki aşamalar karar ve kabul geçmişidir.
 
 ## N00 — Mimari ve devredilebilir aday skill
 

@@ -10,7 +10,7 @@ sys.dont_write_bytecode = True
 sys.stdout.reconfigure(encoding='utf-8')
 
 from runtime import receipts
-from runtime.acceptance import validate_task
+from runtime.acceptance import fingerprint, validate_task
 from runtime.gate import gate
 from runtime.verification import run_check, release_readback, measured_usage
 
@@ -40,7 +40,7 @@ def main(argv=None):
             if not isinstance(data, dict):
                 raise ValueError('Request must be an object')
             if args.command == 'task':
-                result = validate_task(data)
+                result = dict(status='VALID', task_hash=fingerprint(validate_task(data)), task=data)
             elif args.command == 'snapshot':
                 result = receipts.snapshot(root, data['files'])
             elif args.command == 'prepare':
@@ -48,6 +48,9 @@ def main(argv=None):
             elif args.command == 'finish':
                 result = receipts.finish(root, **data)
             elif args.command == 'record':
+                # check/outcome/acceptance come only from their producing commands.
+                if data.get('category') not in ('observation', 'review'):
+                    raise ValueError('record accepts only observation or review')
                 result = receipts.append_record(root, **data)
             elif args.command == 'check':
                 result = run_check(root, **data)

@@ -4,7 +4,7 @@
 
 ## Var olan uygulamayı devralma
 
-1. Seçilmiş uygulamanın git durumu, ilgili kaynak/çağıran, test, tasarım ve yayın düzenini incele. Bilinmeyen diff'i koru. Mevcut plan ve Brain kayıtları varsa tarihçedir; yeniden init veya plan sıfırlama yapma.
+1. Seçilmiş uygulamanın git durumu, ilgili kaynak/çağıran, test, tasarım ve yayın düzenini incele. Kısa envanter: çalıştırma/build/test komutları ve gerçek sonuçları, hedef platformlar, veri depoları ve şemalar, tasarım token/bileşen kaynağı, yayın lane'leri, mevcut plan/devam kayıtları. Secret içeriği değil yalnız varlığı/konumu not edilir. Çalışan hiçbir kontrol yoksa değişiklikten önce en küçük gerçek smoke check'i kur ve sonucunu kaydet. Bilinmeyen diff'i koru. Mevcut plan ve Brain kayıtları varsa tarihçedir; yeniden init veya plan sıfırlama yapma.
 2. Son kullanıcı ihtiyacı ve ilk tamamlanmamış kriteri çıkar. Eski factory receipt'lerini geçmiş olarak koru; yeni şemaya otomatik PASS taşıma. Yeni görev ve public kaynak snapshot'ı oluştur.
 3. Ajan sahipliğini host'tan uzlaştır. Durdurulduğu bilinmeyen yazıcıyı yenisiyle çakıştırma. Belirsiz upload varsa mevcut yayın aracından readback yapmadan replay etme.
 4. En küçük gerçek akışı tekrar çalıştır. Uyumlu kaynak, napp/Fastlane, tasarım ve testler korunur. Yeni klasör veya backend sırf şablon için uygulanmaz.

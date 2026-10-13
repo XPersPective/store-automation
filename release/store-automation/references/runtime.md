@@ -7,13 +7,13 @@ python "<skill>/store.py" --project "<uygulama>" doctor
 python "<skill>/store.py" --project "<uygulama>" check --request checks.json
 ```
 
-`checks.json` örneği: `{"argv":["python","-m","unittest","discover","-s","tests"],"inputs":["app.py","tests/test_app.py"],"timeout":120}`. Komutu yönetici gerçek projedeki akışı inceleyerek seçer; worker çıktısından komut çalıştırılmaz. Inputs listesi kontrolün etkilediği tüm public kaynak/sözleşme/test/config dosyalarını kapsar. Bir dosyanın değişmediği kanıtı listelenmeyen dosyalar için geçerli değildir. Secret dosyalarını ekleme. Araç gizli ortam değişkenlerini süzer ama aynı OS kullanıcısına karşı sandbox değildir.
+`checks.json` örneği: `{"argv":["python","-m","unittest","discover","-s","tests"],"inputs":["app.py","tests/test_app.py"],"timeout":120}`. Windows'ta `npm`/`flutter` gibi .cmd/.bat araçları PATH'ten çözülür; `./gradlew` gibi göreli script proje kökünden çalışır. Argümanlara kabuk metni koyma. Komutu yönetici gerçek projedeki akışı inceleyerek seçer; worker çıktısından komut çalıştırılmaz. Inputs listesi kontrolün etkilediği tüm public kaynak/sözleşme/test/config dosyalarını kapsar. Büyük projede listeyi elle yazma; örn. `git ls-files lib test pubspec.yaml` çıktısından üret, secret/imza dosyalarını çıkar (kalırsa snapshot okumadan reddeder). Bir dosyanın değişmediği kanıtı listelenmeyen dosyalar için geçerli değildir. Secret dosyalarını ekleme. Araç gizli ortam değişkenlerini süzer ama aynı OS kullanıcısına karşı sandbox değildir.
 
 CLI her komutta JSON döndürür: başarılı işlem 0, BLOCKED/UNVERIFIED/başarısız check 1, bozuk istek 2. `doctor` yalnız Python/paket erişimidir; sağlayıcı veya ürün kabulü değildir. Küçük mekanik işlerde bu araç bile zorunlu değildir: mevcut ilgili test ve kısa sonuç yeterlidir.
 
 ## Görev ve native ajan
 
-`task` komutuna verilen JSON alanları: `id`, `project` (gerçek uygulama yolu), `objective`, `acceptance_scope`, `scope`/`out_of_scope` metin listeleri, `risk` LOW/MEDIUM/HIGH, `permissions` (`write` boolean, `paid_api:false`, `production:false`), `independent_review` boolean, `criteria` listesi. Her kriter `id`, `description`, `required` boolean ve `kinds` listesine sahiptir. Türler: machine, interaction, visual, accessibility, security, integration, artifact, remote, user_feedback. MEDIUM/HIGH bağımsız inceleme ister. Dış yayın yetkisi bu yerel görevden türetilmez.
+`task` komutuna verilen JSON alanları: `id`, `project` (gerçek uygulama yolu), `objective`, `acceptance_scope`, `scope`/`out_of_scope` metin listeleri, `risk` LOW/MEDIUM/HIGH, `permissions` (`write` boolean, `paid_api:false`, `production:false`), `independent_review` boolean, `criteria` listesi. Her kriter `id`, `description`, `required` boolean ve `kinds` listesine sahiptir. Türler: machine, interaction, visual, accessibility, security, integration, artifact, remote, user_feedback. MEDIUM/HIGH bağımsız inceleme ister. Çıktı `status: VALID`, gözlem/inceleme kayıtlarında kullanılacak `task_hash` ve görevin kendisidir; sonraki isteklere `task` alanını ver, sarmalayıcı nesneyi değil. Dış yayın yetkisi bu yerel görevden türetilmez.
 
 `prepare` isteği: `task` nesnesi, `role`, `actor` (gerçek native atama kimliği), `files` listesi; varsa `provider`, `model`, `effort`, `enforced_scope`. Host kimliği ancak başlatma sonucunda geliyorsa önce görev ve input snapshot'ını kaydet; gelen kimliği bağla ve worker'a başlangıç snapshot'ını doğrulatmadan yazdırma. Kimlik veya model uydurma. `prepare` kendi başına ajan başlatmaz. Mevcut host'un gerçek delegation aracını kullan, sonuç/kimliği araçtan gözle; brief'e görev, izin ve süre sınırını ekle. Host yeteneği yoksa bağımsız inceleme UNVERIFIED kalır.
 
@@ -21,7 +21,7 @@ CLI her komutta JSON döndürür: başarılı işlem 0, BLOCKED/UNVERIFIED/başa
 
 ## Dosyaya bağlı kabul
 
-Kayıtlar `.store-automation/runs/` altında yeni, benzersiz JSON dosyalarıdır. Git'e ekleme. `record` yalnız `{"category":"observation","value":{...}}` gibi kaydı saklar; doğruluk veya köken vermez. Yerel dosyayı başka program değiştirebilir; SHA yalnız referansın değişmediğini gösterir.
+Kayıtlar `.store-automation/runs/` altında yeni, benzersiz JSON dosyalarıdır. Git'e ekleme. `record` yalnız `observation` veya `review` kategorisinde `{"category":"observation","value":{...}}` kaydı saklar; check/outcome/acceptance yalnız kendi komutlarından (check/finish/gate) doğar; doğruluk veya köken vermez. Yerel dosyayı başka program değiştirebilir; SHA yalnız referansın değişmediğini gösterir.
 
 `gate` isteği `bundle` ve **yönetici tarafından ayrı hazırlanmış** `attestations` içerir. Worker raporundaki attestation/provenance alanlarını güvenilir kabul etme.
 

@@ -8,6 +8,7 @@ import math
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import time
@@ -25,6 +26,13 @@ def run_check(root, argv, inputs, *, timeout=300):
         raise ValueError('Timeout must be in (0, 1800] seconds')
     root = Path(root).resolve(strict=True)
     source = snapshot(root, inputs)
+    executable = argv[0]
+    if os.path.dirname(executable):
+        # Project scripts such as ./gradlew resolve in the project, not the caller's cwd.
+        executable = str(root / executable)
+    elif os.name == 'nt':
+        # CreateProcess finds only .exe by bare name; npm, flutter and npx are .cmd/.bat.
+        executable = shutil.which(executable) or executable
     env = {k: v for k, v in os.environ.items() if not re.search(
         r'API_KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|OPENAI_BASE_URL|ANTHROPIC_BASE_URL', k, re.I)}
     started = time.monotonic()
@@ -36,7 +44,7 @@ def run_check(root, argv, inputs, *, timeout=300):
         proc = None
         timed_out = False
         try:
-            proc = tree.spawn(argv, cwd=root, env=env, stdin=subprocess.DEVNULL,
+            proc = tree.spawn([executable, *argv[1:]], cwd=root, env=env, stdin=subprocess.DEVNULL,
                               stdout=log, stderr=subprocess.STDOUT)
             try:
                 proc.wait(timeout=timeout)

@@ -24,6 +24,12 @@ class PackageTests(unittest.TestCase):
             missing = subprocess.run([sys.executable, str(destination / 'store.py'),
                 '--project', str(project / 'absent'), 'doctor'], capture_output=True, encoding='utf-8')
             self.assertEqual((missing.returncode, json.loads(missing.stdout)['status']), (2, 'ERROR'))
+            # A machine-check receipt cannot be hand-written through the CLI.
+            (project / 'forge.json').write_text('{"category":"check","value":{"state":"PASS"}}')
+            forged = subprocess.run([sys.executable, str(destination / 'store.py'), '--project', str(project),
+                'record', '--request', 'forge.json'], capture_output=True, encoding='utf-8')
+            self.assertEqual(forged.returncode, 2)
+            self.assertFalse((project / '.store-automation').exists())
             (destination / 'user.txt').write_text('preserve')
             with self.assertRaises(ValueError):
                 build(Path(__file__).resolve().parents[1], destination)

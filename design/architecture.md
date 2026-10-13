@@ -1,6 +1,6 @@
 # Hedef mimari ve kararlar
 
-Durum: Kullanıcının istediği bağımsız mimariye göre hazırlanmış geliştirme tasarımı. Runtime uygulanmadı. İlerleme [HANDOFF](../HANDOFF.md), işler [roadmap](roadmap.md), davranış denemeleri [acceptance-scenarios](acceptance-scenarios.md) içindedir.
+Durum: Uygulanmış ve dağıtılmış Store Automation 3 mimarisi; aşağıdaki N01/N08 ifadeleri karar geçmişidir. İlerleme [HANDOFF](../HANDOFF.md), işler [roadmap](roadmap.md), davranış denemeleri [acceptance-scenarios](acceptance-scenarios.md) içindedir.
 
 ## 1. Amaç ve tasarım ölçütü
 
