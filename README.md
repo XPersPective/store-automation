@@ -25,6 +25,10 @@ Kaynak: SKILL.md, references/, runtime/, store.py. Geliştirme: design/, tests/,
 
 Kurulu kopyaların byte eşleşmesi gerçek sağlayıcı görevi çalıştığını kanıtlamaz. Android/iOS/Windows/web yayını her ürünün seçilmiş hedefinde ayrıca doğrulanır.
 
+## Lisans
+
+MIT, telif © 2026 XPersPective ([LICENSE](LICENSE)); dağıtılan pakete de dahildir.
+
 ## Kaynak ve dağıtım düzeni
 
-Tek aktif geliştirme ve GitHub varsayılan dalı **master**. Skills Manager güncellemeleri master dalındaki release/store-automation paketinden alır. Kurulu skill yalnız SKILL.md, store.py, runtime/, references/ ve paket hash manifestini içerir. design/, examples/ ve tests/ kaynak deponun geliştirme/doğrulama belgeleridir; ajanlara dağıtılmaz. Eski sistem, dallar ve geçici kanıtlar repo dışında D:/repositories/store-automation-backup-20261014 altında korunur.
+Tek aktif geliştirme ve GitHub varsayılan dalı **master**. Skills Manager güncellemeleri master dalındaki release/store-automation paketinden alır. Kurulu skill yalnız SKILL.md, store.py, LICENSE, runtime/, references/ ve paket hash manifestini içerir. design/, examples/ ve tests/ kaynak deponun geliştirme/doğrulama belgeleridir; ajanlara dağıtılmaz. Eski sistem, dallar ve geçici kanıtlar repo dışında D:/repositories/store-automation-backup-20261014 altında korunur.

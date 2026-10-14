@@ -13,6 +13,7 @@ class PackageTests(unittest.TestCase):
             destination = Path(temp) / 'skill'
             manifest = build(Path(__file__).resolve().parents[1], destination)
             self.assertIn('runtime/plan.py', manifest)
+            self.assertIn('LICENSE', manifest)
             self.assertFalse(any(name.startswith(('design/', 'tests/')) for name in manifest))
             # Agents read piped JSON as UTF-8 regardless of the console code page.
             project = Path(temp) / 'proje-şğ-日本'

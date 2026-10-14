@@ -66,3 +66,7 @@ Denetim yan etkisi: A/B alt ajanının kaynak repoya yazdığı d9d9ebf (push ed
 Açık: runtime bütçesi aşıldı (≈2.160/≈1.400); LICENSE kararı sahibinde; gerçek kullanıcı projesinde ve diğer host'larda 4.1.0 koşusu yapılmadı.
 
 Dağıtım (64aa2e7): Skills Manager `skills update` refreshed; aynı kimlik/Default preset, 41 deployment düşmedi. Merkez + 41 ajan + önceki sürümle birebir aynı olduğu doğrulanan 4 ek dizin = 46 kopya 4.1.0 manifestiyle SHA256 eşleşti.
+
+## İkinci tur — 2026-10-14 (4.1.1)
+
+Raporlardaki kısmi ve küçük önerilerin bu ortamda yapılabilenleri tamamlandı (design/audit-fixes-2026-10-14.md "İkinci tur"): runs/ budama, etkileşim kanıtı, boot'ta commit/kanıt farkı, RA-1 FAIL, ADR biçimi, tek yönlü import, ajan kimliği biçimi, readback alan sınırı, belge kuralları, MIT LICENSE (© XPersPective, pakette). Global talimatlarda kaçmış 4 Project Brain kalıntısı (codex rules ×2, Windsurf global_rules, ~/.clinerules) yedeklenip store-automation kuralına çevrildi. Windows 54 test + Node, WSL 54 test, paketlenmiş CLI ile uçtan uca akış geçti. Bilinçli yapılmayanlar ve gerekçeleri aynı belgede.

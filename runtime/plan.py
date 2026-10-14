@@ -14,6 +14,8 @@ import re
 import subprocess
 import time
 
+from .paths import PRIVATE
+
 DIR = '.store-automation'
 STATUS_VALUES = ('PLANNED', 'READY', 'IN_PROGRESS', 'REVIEW', 'BLOCKED', 'DONE')
 RISK_VALUES = ('LOW', 'MEDIUM', 'HIGH')
@@ -151,6 +153,23 @@ def has_placeholder(text):
     return any(token in text for token in TEMPLATE_TOKENS)
 
 
+# Foreign planning systems `boot` reports and `legacy` retires: path -> (system, carries plan content that
+# must be extracted first). Kept here so plan never imports legacy.
+LEGACY_MARKERS = {
+    '.project-brain': ('Project Brain', True),
+    'PROJECT_BRAIN.md': ('Project Brain (single file)', True),
+    '.taskmaster': ('Task Master', True),
+    'memory-bank': ('Cline memory bank', True),
+    '.kiro/specs': ('Kiro specs', True),
+    '.factory': ('Store Automation 2.x', False),
+    '.factory-bootstrap.json': ('Store Automation 2.x', False),
+}
+
+
+def legacy_found(root):
+    return [n for n in LEGACY_MARKERS if (Path(root) / n).exists() or (Path(root) / n).is_symlink()]
+
+
 POINTER_MARK = '<!-- store-automation -->'
 POINTER = POINTER_MARK + """
 ## Store Automation
@@ -191,6 +210,24 @@ def read_raw(path):
     """Text with its line endings untouched, for rewriting a file in place."""
     with open(path, encoding='utf-8', errors='replace', newline='') as stream:
         return stream.read()
+
+
+def agent_id(value, flag):
+    """A declared model/agent id: one short printable token run, safe inside `|`-separated plan lines."""
+    value = (value or '').strip()
+    if not re.fullmatch(r'[\w.:@/+-][\w .:@/+-]{0,79}', value) or value.endswith(' '):
+        raise ValueError(f'{flag} <your model/agent id> is required: letters, digits and . : @ / + - _ '
+                         'or spaces, at most 80 characters (e.g. claude-opus-5-5)')
+    return value
+
+
+def areas_digest(contents):
+    """Digest over (path, bytes) pairs; CRLF hashed as LF so another core.autocrlf keeps the evidence.
+
+    ponytail: a binary differing only in CRLF/LF hashes equal; use git-normalized blob hashes if that matters.
+    """
+    entries = [(f, hashlib.sha256(data.replace(b'\r\n', b'\n')).hexdigest()) for f, data in sorted(contents)]
+    return hashlib.sha256(json.dumps(entries).encode()).hexdigest()[:16]
 
 
 def norm_id(n):
@@ -505,8 +542,8 @@ def task_ids_in(body):
     return [norm_id(n) for v in trailer_values(body, 'SA-Tasks?') for n in re.findall(r'SA-(\d+)', v)]
 
 
-def cat_files(root, specs):
-    """`<rev>:<path>` -> text, or None when absent, for many objects in one git process; None if git failed."""
+def cat_files(root, specs, raw=False):
+    """`<rev>:<path>` -> text (bytes if raw), None when absent, for many objects in one git process; None if git failed."""
     if not specs:
         return {}
     try:
@@ -524,7 +561,7 @@ def cat_files(root, specs):
             out[spec] = None
             continue
         size = int(head[2])
-        out[spec] = data[pos:pos + size].decode('utf-8', 'replace')
+        out[spec] = data[pos:pos + size] if raw else data[pos:pos + size].decode('utf-8', 'replace')
         pos += size + 1
     return out
 
@@ -557,6 +594,30 @@ def task_history(root):
         out.append((sha, body, closed))
     _HISTORY[key] = out
     return out
+
+
+def committed_drift(root):
+    """The newest DONE commit whose committed Areas bytes differ from what `accept` verified, else None.
+
+    A pre-commit hook that rewrites files, or Areas files left out of the commit, makes the commit
+    differ from the evidence; boot says so instead of letting it pass as verified.
+    """
+    for sha, body, closed in task_history(root):
+        for tid in sorted(closed):
+            text = (cat_files(root, [f'{sha}:{DIR}/tasks/{tid}.md']) or {}).get(f'{sha}:{DIR}/tasks/{tid}.md')
+            m = text and re.search(r'^- accept: DONE \| digest=([0-9a-f]+)', text, re.M)
+            if not m:
+                continue
+            task = parse_task(Path(f'{tid}.md'), text)
+            names = [f for f in git_paths(root, 'ls-tree', '-r', '--name-only', sha) or []
+                     if not f.startswith(DIR + '/') and not PRIVATE.search(f)
+                     and any(matches(f, a) for a in task['areas'])]
+            blobs = cat_files(root, [f'{sha}:{f}' for f in names], raw=True) or {}
+            got = areas_digest([(f, blobs.get(f'{sha}:{f}') or b'') for f in names])
+            return None if got == m.group(1) else (tid, sha[:7])
+        if closed:
+            return None
+    return None
 
 
 def history_task_ids(root):
@@ -728,8 +789,7 @@ def detect_commands(root):
 # ── commands ─────────────────────────────────────────────────────────────
 
 def boot(root):
-    from .legacy import MARKERS, found as legacy_found  # legacy imports plan; resolve at call time
-    foreign = [f'{n} ({MARKERS[n][0]})' for n in legacy_found(root)]
+    foreign = [f'{n} ({LEGACY_MARKERS[n][0]})' for n in legacy_found(root)]
     if foreign and not plan_exists(root):
         return 0, ['STATE: LEGACY', 'FOREIGN STATE: ' + ', '.join(foreign),
                    'NEXT: Another planning/state system lives here. `legacy` (preview), extract its goal, decisions, '
@@ -870,6 +930,9 @@ def boot(root):
         out.append(f'  hint: {since_audit} tasks closed since the last plan audit -> Plan audit (references/plan.md)')
     if recent:
         out.append('RECENT: ' + '; '.join(f'{ids} by {agent} ({sha})' for ids, agent, sha in recent))
+        if drift := committed_drift(root):
+            out.append(f'  ! {drift[0]} ({drift[1]}): committed Areas differ from what `accept` verified (a hook '
+                       'rewrote files, or files were left uncommitted) -> verify that commit; fix in a new task')
     for d, files in stale.items():
         out.append(f"STALE {d}: {', '.join(files[:5])}{' ...' if len(files) > 5 else ''}")
     if unmapped:
@@ -946,9 +1009,8 @@ def map_repo(root):
             ('README.MD', 'AGENTS.MD', 'CLAUDE.MD', 'GEMINI.MD', 'CONTRIBUTING.MD', 'ARCHITECTURE.MD')]
     if docs:
         out.append('INSTRUCTION/DOC FILES: ' + ' '.join(docs[:15]))
-    from .legacy import MARKERS, found as legacy_found
     for marker in legacy_found(root):
-        out.append(f'FOREIGN STATE: {marker} ({MARKERS[marker][0]}) -> extract into the plan, then `legacy --apply`')
+        out.append(f'FOREIGN STATE: {marker} ({LEGACY_MARKERS[marker][0]}) -> extract into the plan, then `legacy --apply`')
     cmds = detect_commands(root)
     out.append('CMDS: ' + (' | '.join(f'{k}={v}' for k, v in cmds.items()) if cmds else 'none detected'))
     out.append('NEXT: Read only manifests, entry points and instruction files (<=15 files), then `init`.')
@@ -1029,9 +1091,7 @@ def new_task(root, title, depends='', risk=None, priority=None, tier=None, miles
 
 def start(root, task_id, owner, takeover=''):
     """READY -> IN_PROGRESS. Taking over another owner's IN_PROGRESS/REVIEW task needs a recorded reason."""
-    owner = (owner or '').strip()
-    if not owner or '|' in owner:
-        raise ValueError('--owner is your model/agent id (no "|")')
+    owner = agent_id(owner, '--owner')
     with checkout_lock(pdir(root)):
         task = find_task(root, task_id)  # read the file inside the lock: it may have changed while waiting
         all_tasks = list_tasks(root)
@@ -1194,8 +1254,16 @@ def validate(root):
                     re.M)
     if ra and all_tasks and not any(ra[0] in t['text'] for t in all_tasks) and not (
             git_ok and git(root, 'log', '-1', '--format=%H', f'-S{ra[0]}', '--', f'{DIR}/tasks')):
-        warns.append(f'{ra[0]} (product.md Riskiest Assumptions) is probed by no task: an M1 task names it '
+        fails.append(f'{ra[0]} (product.md Riskiest Assumptions) is probed by no task: an M1 task names it '
                      '(references/plan.md §6 step 8)')
+    for f in sorted((p / 'decisions').glob('ADR-*.md')) if (p / 'decisions').is_dir() else []:
+        adr = read(f) or ''
+        missing = [h for h in ('Problem', 'Evidence', 'Options', 'Choice', 'Impact')
+                   if not re.search(rf'^#+\s*{h}\b', adr, re.M | re.I)]
+        if not re.search(r'^Status:\s*(ACCEPTED|SUPERSEDED by ADR-\d+)', adr, re.M):
+            missing.insert(0, 'Status: ACCEPTED|SUPERSEDED by ADR-NNN')
+        if missing:
+            warns.append(f"{f.name}: missing {', '.join(missing)} (references/plan.md §1)")
     adj, seen = {t['id']: [d for d in t['deps'] if d in ids] for t in tasks}, {}
 
     def cyclic(n):

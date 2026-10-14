@@ -1,17 +1,18 @@
 {
-  "SKILL.md": "e9a502e7bdf492ae24d99dcddc0e32d41297d86b8dcc28ebac0f9c69a676ead9",
-  "store.py": "2daa67b3de2c1c81bbcb9d87a83fbbf9502f11bf4e8f99c6fbbb9ded09ebfebd",
-  "runtime/accept.py": "7d5a013573af6d39788a711f9dff63f97650718fd4292b8c30cbc30404730ae2",
-  "runtime/legacy.py": "c0cb732a946cf9e234788e0424615b23b7ac9569cd8ac673e44906a1062344c7",
+  "SKILL.md": "007c0332e1499651ba7a2870e5f47982ded7187b3bfecce975efdd4f3aa866a8",
+  "store.py": "3d88985b6ffe97ddfc2fd671719bf3308b0afb537b950ee1055fa56af300ced5",
+  "LICENSE": "f05205b0e38654f67199de5966b1772253ff56254f78096a24337513b35b991b",
+  "runtime/accept.py": "dd71b00a87d78b7510b03da119caa4afd07418943c49b523800cc902e6612a72",
+  "runtime/legacy.py": "e9bb3012a30c06280274e3974b15e1199e0836c3f388583b3474ba23508fbfa4",
   "runtime/paths.py": "0568db7730878bffc8baf5445b6bcfc5e34a5522843b744a6261b34098c70f58",
-  "runtime/plan.py": "090e6e13303ef218333a33b245ef843ef2e2596f41ced6ad107dd1812a800bfc",
+  "runtime/plan.py": "c7d9686d8232f9a272b607840ebaed6ebdbefabcb6c4484cb406a1cbcc7d1d96",
   "runtime/processes.py": "23115bc142d1197c4f284604e66ce3d67cb2bbe21216404ac7ef9a25ff711812",
-  "runtime/verification.py": "74de57d73c0f056254b1fdcef20edaacc83cb8d4c8b11a40b6eb62c903aed6ca",
+  "runtime/verification.py": "61ca36e2afc3cb0c04184d9e7847fd4d2f107be81cc839b201045685349023bf",
   "references/edge-cases.md": "74716338a02e2a8f48778be4197938a7e2c31de3548b2155a6c616b3b9dd974c",
   "references/execution.md": "518ef63547128b0066fffc7f119e2619eec06e3bc50de18f2153085065931676",
   "references/migration.md": "1ca24f0144917c07f8ae3d4407104ec33f15e5e74334d50de6982b0e210d953a",
-  "references/plan.md": "3cd0f25f6cf0441be08c31137979c30f8621ecaafed07fb3f550bfe960884fd2",
-  "references/product-quality.md": "d52cd10a2e8bdd2c43f08b956f82d2540c712e9e333888a2f4dded9a522ce192",
+  "references/plan.md": "29cea6badbb7aed03cdd51e050b178220e0b2f9f8840ce1d87c421d3287f2173",
+  "references/product-quality.md": "a8e226fbb6ac398434c0e8f125af3f683c2be191aee7c6ea93161cdb52e01438",
   "references/release.md": "f90b40b0c122023b8faf2dcc7ac04f0813215113e8154434c160b31a68d350d2",
-  "references/runtime.md": "b526ebdf65b80c2ae9cf12d8a03b2a3c5729d3aff0791c2dcc563fc76be07275"
+  "references/runtime.md": "a9a20860fb4e9e95a5f8531ca7d1150e1630a5c3c6c90026a8fc4bda96195ddb"
 }

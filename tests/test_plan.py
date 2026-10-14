@@ -240,6 +240,33 @@ class PlanTests(Repo):
         self.assertTrue(any('but Risk is LOW' in line for line in lines), lines)
         self.assertTrue(any('RA-1' in line and 'probed by no task' in line for line in lines), lines)
 
+    def test_boot_flags_a_commit_that_differs_from_the_accepted_bytes(self):
+        """m10: a pre-commit hook (or a forgotten file) changes what DONE verified; boot says so."""
+        from runtime import accept
+        self.init_plan()
+        task = self.root / '.store-automation/tasks/SA-001.md'
+        plan.start(self.root, 'SA-001', 'm')
+        task.write_text(task.read_text(encoding='utf-8').replace('- [ ] [', '- [x] [').replace(
+            '`python -m', f'`{sys.executable.replace(chr(92), "/")} -m'), encoding='utf-8')
+        accept.check(self.root, 'SA-001', actor='m')
+        trailers = accept.accept(self.root, 'SA-001', 'm')[1]
+        message = 'feat: greet\n\n' + '\n'.join(t.strip() for t in trailers if t.startswith('  SA-'))
+        git(self.root, 'add', '-A')
+        git(self.root, 'commit', '-qm', message)
+        self.assertFalse(any('differ from what `accept` verified' in line for line in self.boot()))
+        (self.root / 'app.py').write_text('def greet():\n    return "selam"  # hook\n')  # what a formatter does
+        git(self.root, 'add', '-A')
+        git(self.root, 'commit', '-q', '--amend', '-m', message)
+        self.assertTrue(any('differ from what `accept` verified' in line for line in self.boot()))
+
+    def test_adr_shape_is_checked_and_plan_never_imports_legacy(self):
+        self.init_plan()
+        (self.root / '.store-automation/decisions/ADR-001.md').write_text('# ADR-001\nStatus: PROPOSED\n## Context\n')
+        self.assertTrue(any('ADR-001.md: missing Status' in line for line in plan.validate(self.root)[1]))
+        code = 'import sys, runtime.plan; sys.exit("runtime.legacy" in sys.modules)'
+        root = Path(__file__).resolve().parents[1]
+        self.assertEqual(subprocess.run([sys.executable, '-c', code], cwd=root).returncode, 0)
+
     def test_no_git_folder_degrades_but_works(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

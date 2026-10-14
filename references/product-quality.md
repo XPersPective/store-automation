@@ -12,8 +12,10 @@ a miss as QUALITY ([plan](plan.md) §8), which blocks until fixed or the user ac
 
 - **Design foundation first.** A product with UI gets, in its first UI milestone, a foundation task: color,
   type, spacing, radius, elevation and motion tokens; 2–3 rendered visual directions with a screenshot
-  each; the choice in an ADR. Later UI uses only those tokens (`[visual]` item: "no value outside the
-  tokens"). An existing design system is the foundation; extend it, never fork it.
+  each; the choice in an ADR naming the direction and the token source. Later UI uses only those tokens
+  (`[visual]` item: "no value outside the tokens") and is compared with the chosen direction's render; a
+  deliberate deviation is one Notes line with its reason. An existing design system is the foundation;
+  extend it, never fork it.
 - **Visual review rubric.** `[visual]` evidence shows the named narrow and wide viewports, and the reviewer
   answers yes to each: the primary action is clear at a glance; something is specific to this product
   (color, iconography, language), not a template; empty, loading, error, success, offline and permission
@@ -30,6 +32,9 @@ a miss as QUALITY ([plan](plan.md) §8), which blocks until fixed or the user ac
   `{"error": {"code", "message"}}`, idempotency key, limits and pagination, timeout. An unexpected exception
   returns a JSON 500 and a log line without secrets or personal data; validation and authorization happen
   at the boundary; versioning is decided once in an ADR.
+- **Backend proof.** A persistence or API task proves, each as its own item: authorization per actor and
+  resource, concurrent retries with the same key, a response lost after commit, a storage failure and a
+  restart; it records the migration and rollback path (or why none exists).
 - **Performance budget.** List endpoints are bounded (pagination) with a constant number of queries (no
   N+1, proven by a test); the task names its latency and payload budget for the real path at realistic
   size (web default: first load ≤200 KB JS+CSS, interactive <1 s locally) as a `[machine]` item, or says

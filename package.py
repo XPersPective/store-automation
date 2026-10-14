@@ -14,7 +14,7 @@ def build(source, destination):
         raise ValueError('Destination must not exist; preserve the current installation')
     if destination.resolve() != Path(os.path.abspath(destination)):  # `..` is fine, a linked parent is not
         raise ValueError('Linked destination refused')
-    names = ['SKILL.md', 'store.py']
+    names = ['SKILL.md', 'store.py', 'LICENSE']
     names += [p.relative_to(source).as_posix() for folder, pattern in
               [('runtime', '*.py'), ('references', '*.md')] for p in sorted((source / folder).glob(pattern))]
     for name in names:

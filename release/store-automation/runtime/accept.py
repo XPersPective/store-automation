@@ -10,7 +10,6 @@ and casual self-review, not a determined forger running as the same OS user.
 """
 from datetime import datetime, timezone
 import hashlib
-import json
 import os
 from pathlib import Path
 import re
@@ -32,14 +31,13 @@ FINDING_RE = re.compile(r'^- finding (BLOCKER|MAJOR|QUALITY|MINOR): (.+?)(?: \| 
 RISK_ORDER = {r: n for n, r in enumerate(plan.RISK_VALUES)}
 LOG_FOOTER = '[store-automation check]'
 SHOT_SUFFIXES = ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.webm', '.mp4', '.mov')
+RUNS_KEEP_DAYS, RUNS_KEEP_FILES = 14, 200
 
 
 def digest(root, areas):
     """Content digest of every tracked/untracked public file matched by Areas.
 
-    CRLF is hashed as LF: the same commit checked out with another core.autocrlf must not make every
-    piece of evidence stale. ponytail: a binary differing only in CRLF/LF hashes equal; git-normalized
-    blob hashes (`git hash-object --path`) if that ever matters.
+    CRLF is hashed as LF (plan.areas_digest), so another core.autocrlf keeps the evidence.
     """
     if not areas:
         raise ValueError('Task has no Areas; evidence cannot be bound to source')
@@ -48,11 +46,8 @@ def digest(root, areas):
                    and not PRIVATE.search(f))
     if not files:
         raise ValueError('Areas match no files: ' + ', '.join(areas))
-    entries = []
-    for f in files:
-        path = public_path(root, f)  # linked or escaping paths inside Areas are refused before reading
-        entries.append((f, hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()))
-    return hashlib.sha256(json.dumps(entries).encode()).hexdigest()[:16], len(files)
+    # Linked or escaping paths inside Areas are refused before reading.
+    return plan.areas_digest([(f, public_path(root, f).read_bytes()) for f in files]), len(files)
 
 
 def _hash(path):
@@ -64,6 +59,7 @@ def _log_path(root, task_id, n):
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     runs = plan.pdir(root) / 'runs'
     runs.mkdir(parents=True, exist_ok=True)
+    prune_runs(root)
     suffix = 1
     while True:
         path = runs / f"{task_id}-{stamp}-{n}{'' if suffix == 1 else f'-{suffix}'}.log"
@@ -74,15 +70,29 @@ def _log_path(root, task_id, n):
             suffix += 1
 
 
+def prune_runs(root):
+    """Keep runs/ bounded: a log an open task still cites stays; the rest goes after RUNS_KEEP_DAYS, and the
+    oldest beyond RUNS_KEEP_FILES go at once.
+
+    ponytail: count/age caps, not a byte budget; a byte cap if single logs grow huge.
+    """
+    runs = plan.pdir(root) / 'runs'
+    cited = {m['log'].split('/')[-1] for t in plan.list_tasks(root) if t['status'] != 'DONE'
+             for line in t['evidence'] if (m := CHECK_RE.match(line))}
+    logs = sorted((p for p in runs.glob('*.log') if p.name not in cited), key=lambda p: p.stat().st_mtime)
+    cutoff = datetime.now(timezone.utc).timestamp() - RUNS_KEEP_DAYS * 86400
+    for n, path in enumerate(logs):
+        if path.stat().st_mtime < cutoff or len(logs) - n > RUNS_KEEP_FILES:
+            path.unlink(missing_ok=True)
+
+
 def _actor(task, actor, anyone_on_review=False):
     """Only the Owner works an IN_PROGRESS task; on REVIEW the Owner or the latest reviewer may act.
 
     `check` on REVIEW is open to any named agent: a reviewer reruns Verify before it reviews; the line
     records who ran it and acceptance still needs that review.
     """
-    actor = (actor or '').strip()
-    if not actor or '|' in actor:
-        raise ValueError('--as <your model id> is required (no "|")')
+    actor = plan.agent_id(actor, '--as')
     if task['status'] == 'REVIEW' and anyone_on_review:
         return actor
     allowed = {task['owner']}
@@ -148,6 +158,9 @@ def evidence(root, task_id, kind, note, files=(), actor='', criteria=()):
     if kind == 'visual' and not any(name.lower().endswith(SHOT_SUFFIXES) for name in files):
         raise ValueError('Visual evidence needs the rendered result: --file <screenshot or recording>; '
                          'reading source is not visual acceptance')
+    if kind == 'interaction' and not files and note.count('->') < 2:
+        raise ValueError('Interaction evidence needs what was really done: --file <recording or trace>, or a '
+                         'note listing the steps and the result as "step -> step -> result"')
     hashed = []
     for name in files:
         path = public_path(root, name)
@@ -169,10 +182,10 @@ def implementers(task):
 
 def review(root, task_id, reviewer, verdict, findings=()):
     task = plan.find_task(root, task_id)
-    reviewer = (reviewer or '').strip()
+    reviewer = plan.agent_id(reviewer, '--reviewer')
     if task['status'] not in ('IN_PROGRESS', 'REVIEW'):
         return 2, [f"FAIL {task['id']} is {task['status']}; nothing to review"]
-    if not reviewer or '|' in reviewer or not task['owner'] or reviewer in implementers(task):
+    if not task['owner'] or reviewer in implementers(task):
         return 2, [f"FAIL reviewer must be named and must not have implemented {task['id']} "
                    f"({', '.join(sorted(implementers(task))) or 'no Owner'}); a session never reviews its own work"]
     if verdict not in ('PASS', 'BLOCKED'):

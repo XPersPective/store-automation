@@ -37,11 +37,15 @@ creates a PLANNED scaffold. Fill it:
   accessibility, security, integration, artifact, remote, user_feedback. Include a check that fails if the
   work is wrong. A UI change needs a `[visual]` item per named viewport (narrow and wide), an
   `[interaction]` item for the journey including error/empty/offline states that apply, and an
-  `[accessibility]` item; each is observed separately. Acceptance states the premium bar it holds the work
+  `[accessibility]` item (keyboard, focus and enlarged text complete the same journey); each is
+  observed separately. Acceptance states the premium bar it holds the work
   to ([product quality](product-quality.md) "Premium bar"), not only "test passes". A `[machine]` item must
   be proven by a Verify command's exit code (an assertion in a test), not by reading its log; name the test.
   Each item gets a criterion id (`boot` prints it); one observation proves only the ids it names.
 - **Verify** — `` - `command` `` lines, plain argv, no pipes or `&&` (no shell). Prefer config commands.
+  It must exercise the current source: a build step that tracks sources (`flutter test`, `cargo test`,
+  `npm run build`, then `npm test` as a second line), never a stale `dist/` or cached artifact. Python bytecode caches are
+  emptied by `check` itself.
 - **Escalate if**, **External** (pending outside effects), **Notes**. Evidence and Review are written by
   `SA check/evidence/review/accept`, never by hand.
 
@@ -178,14 +182,15 @@ new task with cost/data impact. Re-produce only the evidence the change affects;
    and your recommended default. Cover: who the users are, the core journey, platforms and distribution,
    data and accounts, the most expensive wrong assumption, what must not be built. User absent →
    `Status: DRAFT`, questions → Open Decisions, plan only goal-independent work.
-6. **Directions**: for a new product, flow or architecture, write 2–3 genuinely different options with
+6. **Directions**: for a new product, flow or architecture — and later for any new component or flow at
+   MEDIUM/HIGH risk — write 2–3 genuinely different options with
    trade-offs (cost, risk, data, platform fit); recommend one with evidence; record the choice in an ADR.
 7. product.md and constraints.md; run each config.json command once if code exists. Empty repo: leave
    them as planned commands and note "no code yet" in current.md; the first task makes them pass.
 8. **Roadmap**, risk-ordered milestones (gap = target − current):
    - **M1 Probe** — the riskiest assumption tested cheaply (prototype, spike or data/permission contract)
      and shown to the user. product.md numbers assumptions `RA-1`, `RA-2`…; an M1 task names `RA-1` in
-     its Objective (`validate` warns otherwise). Deferring a capability the user asked for (e.g. offline)
+     its Objective (`validate` fails otherwise). Deferring a capability the user asked for (e.g. offline)
      needs an ADR and an Open Decision the user sees.
    - **M2 First journey** — one real end-to-end journey with real storage/service, errors and recovery.
    - **M3 Breadth** — remaining journeys and states, shared components, accessibility and localization.
@@ -221,7 +226,8 @@ system, Store Automation 2.x, …) must end up as this plan, then disappear: one
    | Open tasks, in-progress work, blockers | `SA new` tasks: user quotes, steps, typed Acceptance, deps; READY only if executable; blockers → `Blocked:`; resume notes → `## Resume` |
    | Pending uploads / submissions / external calls | `## External` lines (`response_unknown` when unsure) |
    | Finished work and old PASS claims | nothing: Git history keeps it; old evidence is never new evidence |
-3. Write a trace for the adoption commit body: every open item of the old system → `SA-NNN`,
+3. Write a trace for the adoption commit body (e.g. `- PB-004 "login" -> SA-003`, `- goal -> product.md`,
+   `- PB-009 -> dropped: done in 3f2a1c9`): every open item of the old system → `SA-NNN`,
    `product.md`/`ADR-NNN`, or `dropped: <reason>`. Nothing open may be missing from the trace.
 4. Commit or discard pending edits to tracked foreign files first. `SA validate` (no FAIL), then
    `SA legacy --apply [--path …]`: it refuses unless a valid plan exists (it cannot judge whether your
@@ -263,6 +269,9 @@ it blocks like MAJOR unless `| accepted: <reason> | owner: user` (the user's cal
 own evidence; source reading never satisfies an interaction or accessibility item. MINOR may stay only as
 `| accepted: <reason> | owner: user` (only when the user actually accepted it) or `| owner: SA-NNN` (an
 open follow-up task, the default when the user is absent); the reviewer never owns its own exception.
+Example: `SA review SA-007 --reviewer claude-opus-5-5 --verdict BLOCKED --finding "BLOCKER: any site can
+POST /entries (no origin check)" --finding "QUALITY: raw 'Failed to fetch' shown on save" --finding
+"MINOR: button label casing | owner: SA-012"`.
 A reviewer may `SA check <task> --as <id>` on a REVIEW task so its own reruns become evidence. BLOCKED
 review → boot shows FIX; an implementer takes over (`start --takeover "fix review"`), fixes, checks; an
 agent that never started the task reviews again.

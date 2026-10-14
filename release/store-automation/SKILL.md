@@ -2,7 +2,7 @@
 name: store-automation
 description: Plan, build, verify and release applications with a git-native plan any agent can resume. A strong model shapes the product, architecture and risk-ordered milestones; smaller models execute fully specified tasks; acceptance needs current evidence and independent review. Use for app ideas, existing app projects, continue/resume/devam et/kaldığın yerden, plans and roadmaps, adoption, release preparation and maintenance.
 metadata:
-  version: "4.1.0"
+  version: "4.1.1"
 ---
 
 # Store Automation

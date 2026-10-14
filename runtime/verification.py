@@ -72,8 +72,9 @@ def run_command(root, argv, log_path, timeout=900):
 
 
 def text(value, label):
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(label + ' must be nonempty text')
+    """One printable line of at most 500 characters: readback values end up in reports and logs."""
+    if not isinstance(value, str) or not value.strip() or len(value) > 500 or not value.isprintable():
+        raise ValueError(label + ' must be one nonempty printable line (at most 500 characters)')
     return value
 
 

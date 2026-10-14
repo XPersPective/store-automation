@@ -11,7 +11,7 @@ there is none (`new`, `validate`). `boot` always exits 0 when it can report a st
 
 | Command | Does |
 |---|---|
-| `doctor` | Python, git, plan presence, legacy state, skill path |
+| `doctor` | Python, interpreter path, git, plan presence, legacy state, skill path |
 | `boot` | STATE (NO_PLAN, LEGACY, RESUME, INTERRUPTED, DIRTY, ADVANCED, CONFLICTED, READBACK_FIRST, NO_GIT), git line, product status, EXTERNAL, FIX (review BLOCKED), REVIEW queue, QUESTIONS, PLAN, FOCUS with criterion ids, RECENT, STALE, LOAD, CMDS, MODE, NEXT. INTERRUPTED = the IN_PROGRESS task has uncommitted changes in its Areas; a clean one is RESUME |
 | `map` | File tree summary, root/doc files, legacy markers, detected commands |
 | `init` | Creates the plan skeleton (never overwrites) and the AGENTS.md pointer; refuses if `.store-automation/` is gitignored |
@@ -22,9 +22,9 @@ there is none (`new`, `validate`). `boot` always exits 0 when it can report a st
 | `review SA-NNN --reviewer <id> --verdict PASS\|BLOCKED [--finding "..."]...` | The reviewer must not be anyone who started the task; review is bound to digest and contract |
 | `accept SA-NNN --as <id>` | DONE / REVIEW_PENDING / WAITING_USER / UNVERIFIED / BLOCKED; on DONE sets Status and prints commit trailers |
 | `changed` | Files changed since the applicable current.md checkpoints, by domain |
-| `validate` | Grammar, statuses, Owner, kind tags, External lines, Verify shell use, budgets, dependency cycles |
+| `validate` | FAIL: grammar, statuses, Owner, kind tags, External lines, a missing RA-1 probe, dependency cycles. WARN: Verify shell use or files outside Areas, a HIGH-risk subject under lower Risk, UI work without visual+interaction+accessibility items, a risky task without `ready by`, ADR shape, budgets |
 | `legacy [--apply] [--path P]... [--drop-archive [--confirm-untracked]]` | Finds foreign planning/state systems (Project Brain, Task Master, memory bank, Kiro specs, 2.x factory, or `--path`); `--path` refuses infrastructure in any spelling (`.git`, `.store-automation`, `.github`, AGENTS/CLAUDE/GEMINI.md, `.gitignore`) and any folder holding program source. `--apply` refuses until a valid plan exists (trace completeness is the strong model's duty) and while tracked foreign files have uncommitted edits, then moves them to `../store-automation-legacy-archive/<project>-<path hash>-<time>/` with `ADOPTION.json` and drops their ignore lines and pointers. `--drop-archive` deletes only this project's archives, only after a commit carries `SA-Legacy-Adoption: <archive name>`, and only with `--confirm-untracked` when they hold files that were never in Git; without git it never deletes |
-| `release-readback --request file.json` | Compares `{expected, observed}` release objects |
+| `release-readback --request file.json` | Compares `{expected, observed}` release objects; every text value is one printable line of at most 500 characters |
 
 ## Task file grammar
 
@@ -47,6 +47,10 @@ Steps, Acceptance, Verify, Escalate if, External, Evidence, Review, Resume, Note
   `- review by <id> | PASS | digest=<16 hex> | contract=<16 hex>` followed by
   `- finding BLOCKER|MAJOR|QUALITY|MINOR: text [| accepted: reason | owner: user|SA-NNN]`.
 - Criterion id: the first 6 hex of sha256(`kind|text`) of an Acceptance item; `boot` and `accept` print it.
+- `[interaction]` evidence needs `--file` (recording, trace) or a note of the real steps: `step -> step -> result`.
+- Agent ids (`--owner`, `--as`, `--reviewer`): letters, digits, spaces and `. : @ / + - _`, at most 80 characters.
+- `runs/` is pruned on every `check`: logs an open task cites stay; others go after 14 days, and the oldest
+  beyond 200 at once. Evidence files that must survive belong in `.store-automation/evidence/<task>/`.
 - Contract: digest of Objective, Steps, typed Acceptance (not the ticks), Verify, Escalate if, Areas, Risk
   and Tier. Priority, Owner, Status and the working sections are not part of it.
 
@@ -78,6 +82,8 @@ The digest covers public files matched by Areas (tracked and untracked, ignored 
 such as `.env`, `key.properties`, `*.jks` skipped; linked paths refused; CRLF hashed as LF so another
 `core.autocrlf` keeps the evidence). Files outside Areas do not invalidate evidence: write Areas to include
 every source and test the Verify depends on (`validate` warns when a Verify argument names a file outside).
+`boot` recomputes the digest of the newest DONE commit from its committed bytes and warns when it differs
+from the accepted one (a hook rewrote files, or Areas files were left out of the commit).
 `**/x` globs also match `x` at the root.
 
 ## Trust boundary

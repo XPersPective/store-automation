@@ -209,6 +209,32 @@ class AcceptTests(Repo):
         with self.assertRaisesRegex(ValueError, 'Linked|no files|escapes'):
             accept.digest(self.root, ['linked/**'])
 
+    def test_runs_stay_bounded_but_cited_logs_survive(self):
+        """runs/ is pruned by age and count; a log an open task cites is never deleted."""
+        accept.check(self.root, 'SA-001', actor=self.me)
+        cited = plan.pdir(self.root) / accept.CHECK_RE.match(plan.parse_task(self.task)['evidence'][-1])['log']
+        runs = plan.pdir(self.root) / 'runs'
+        old = runs / 'SA-000-old.log'
+        old.write_text('x')
+        os.utime(old, (0, 0))
+        os.utime(cited, (0, 0))
+        for n in range(accept.RUNS_KEEP_FILES + 5):
+            (runs / f'SA-000-{n:04d}.log').write_text('x')
+        accept.prune_runs(self.root)
+        self.assertFalse(old.exists())
+        self.assertTrue(cited.is_file())
+        self.assertLessEqual(len(list(runs.glob('*.log'))), accept.RUNS_KEEP_FILES + 1)
+
+    def test_interaction_needs_a_recording_or_the_steps_and_ids_are_plain(self):
+        self.edit('## Verify', '- [ ] [interaction] submit keeps input on error\n\n## Verify')
+        with self.assertRaisesRegex(ValueError, 'step -> step'):
+            accept.evidence(self.root, 'SA-001', 'interaction', 'worked fine', (), self.me)
+        accept.evidence(self.root, 'SA-001', 'interaction', 'stop server -> submit -> message shown, input kept',
+                        (), self.me)
+        for bad in ('', 'a|b', 'x\ny', ' ' * 3, 'z' * 81):
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                plan.agent_id(bad, '--as')
+
     def test_logs_of_the_same_second_never_overwrite(self):
         first, _ = accept._log_path(self.root, 'SA-001', 1)
         second, _ = accept._log_path(self.root, 'SA-001', 1)

@@ -71,14 +71,43 @@ diye yerel `audit-stray-d9d9ebf` dalında duruyor; gerekmiyorsa `git branch -D a
 | Flutter algılama kaba | C-m-09 | Satır başı `flutter`/`sdk: flutter` |
 | Verify yolu Areas dışında | A-M2 (E5b) | validate uyarır |
 
+## İkinci tur (4.1.1): kısmi kalanlar ve küçük öneriler
+
+| Bulgu | Rapor | Düzeltme | Regresyon |
+|---|---|---|---|
+| `runs/` süresiz büyüyor | A §7 | Her `check` budar: açık görevin andığı log kalır, diğerleri 14 gün sonra, 200'ü aşan en eskiler hemen silinir | `test_runs_stay_bounded_but_cited_logs_survive` |
+| Etkileşim kanıtı yalnız notla | A-M4 | `[interaction]` için `--file` ya da `adım -> adım -> sonuç` notu | `test_interaction_needs_a_recording_or_the_steps_and_ids_are_plain` |
+| Hook sonrası commit kanıtsız | A-m10 | boot en yeni DONE commit'inin Areas baytlarından digest'i yeniden hesaplar, farkı uyarır | `test_boot_flags_a_commit_that_differs_from_the_accepted_bytes` (temiz commit'te uyarı yok) |
+| RA-1 denetimi yalnız uyarı | A-M7 | `validate` FAIL | `test_validate_warns_on_underrated_risk_and_unprobed_assumption` |
+| ADR biçim kayması | B-B13 | `validate` Status/Problem/Evidence/Options/Choice/Impact eksikliğini uyarır | `test_adr_shape_is_checked_and_plan_never_imports_legacy` |
+| plan↔legacy çift yönlü import | C-M-03 | Yabancı sistem tablosu plan.py'de; legacy tek yönlü kullanır | aynı test |
+| `--as`/`--owner`/`--reviewer` gevşek | C-m-07 | Tek satır, en çok 80 karakter, harf/rakam/boşluk ve `. : @ / + - _` | `test_interaction_needs_...` |
+| Aynı saniyede arşiv adı | C-m-05 | Arşiv damgası mikro saniyeli | — |
+| release-readback alanları | C-m-08 | Metin alanları tek satır, yazdırılabilir, ≤500 karakter | `test_release_exit_success_cannot_replace_exact_remote_readback` |
+| Genel build önbelleği | B-B09 | plan.md: Verify güncel kaynağı çalıştırır, bayat `dist/` değil | belge |
+| Backend kanıtı eksik | B §5 | Premium bar "Backend proof": aktör/kaynak yetkisi, aynı anahtarla eşzamanlı tekrar, commit sonrası kayıp yanıt, depolama hatası, yeniden başlatma, migration/rollback | belge |
+| Tasarım yönü ve sapma | B §5, C-P-7/P-10 | ADR yönü ve token kaynağını adlandırır; render seçilen yönle karşılaştırılır; sapma Notes'ta gerekçeli | belge |
+| MEDIUM+ yeni bileşen için seçenekler | C-P-8 | plan.md §6 Directions | belge |
+| İnceleme ve izleme örnekleri | C-o-2, C-o-6 | plan.md §8 `review` örneği, §6a izleme satırı örnekleri | belge |
+| Büyütülmüş metin / klavye | B §5 | `[accessibility]` maddesi aynı yolculuğu klavye ve büyük metinle ister | belge |
+| design §4 boot durumları | A §6 | v4-target.md uygulanan durumlara göre düzeltildi | belge |
+| Sürüm/içerik kayması | A-m12, A §I | SKILL.md ve store.py sürümü testle eşit tutulur | `test_version_is_one_number` |
+| LICENSE | A-m14 | MIT, © 2026 XPersPective; pakete dahil | `test_standalone_package...` |
+| Global talimat kalıntıları | C-o-4 | Doğrulandı: `~/.codex/rules/default.rules`, `~/.codex/v2/default.rules`, `~/.codeium/windsurf/memories/global_rules.md`, `~/.clinerules` hâlâ Project Brain'i yüklüyordu; yedeklenip store-automation kuralına çevrildi (yedek: `store-automation-backup-20261014/brain-residue-*`). CLAUDE/Codex/Gemini/OpenCode/Qwen/Cursor/Kiro/Trae temiz | tarama |
+
+Yeniden kontrol: Windows 54 test + Node, WSL Linux 54 test (4 atlama), 300 görevde boot 1,0 sn, paketlenmiş
+CLI ile uçtan uca akış (READY kontrolü → check → kendi incelemesi reddi → bağımsız inceleme → DONE → Task
+Master devralma → arşiv silme → temiz boot).
+
 ## Bilinçli olarak yapılmayanlar
 
-- **Runtime satır bütçesi (H9 ≈1.400):** kaynak 2.158 satır (store.py dahil). Eklenen her satır bir
-  karşı örneği kapatıyor; kısaltma ayrı bir iş.
-- **LICENSE dosyası (A-m14):** atıf `plan.py` başında; lisans metni eklemek sahibin kararı.
-- **plan↔legacy çift yönlü import (C-M-03):** plan, legacy'yi yalnız fonksiyon içinde yüklüyor; gerçek
-  döngü hatası yok.
-- **Kimlik doğrulama:** `--as`, Owner, reviewer hâlâ beyan; araç dürüst hatayı ve sıradan kendini
-  onaylamayı durdurur, aynı OS kullanıcısıyla çalışan kararlı sahteciyi değil (runtime.md Trust boundary).
-- **Kontrol edilmeyenler:** gerçek kullanıcı projesinde 4.1.0 koşusu, diğer sağlayıcı host'ları, imzalı
-  commit zorunlu repo, macOS. A/B premium deneyi yeniden koşulmadı.
+- **Runtime satır bütçesi (H9 ≈1.400):** kaynak 2.227 satır (store.py dahil). Her ek satır bir karşı örneği
+  kapatıyor; bütçeye indirmek davranış kaybı demek. Hedef rakamı güncellenmeli ya da ayrı sadeleştirme işi.
+- **Boot özet modu (C-o-5):** boot zaten 25 açık görev ve sınırlı listelerle kesiliyor.
+- **`git ls-files` akışla okuma (C-m-10):** binlerce dosyada bile bellek farkı ihmal edilebilir.
+- **Tier H için asgari kanıt sayısı (C-P-6):** Tier yürütme zorluğu, kalite değil; kalite kanıtı UI üçlüsü
+  ve Premium bar ile isteniyor.
+- **READY kontrolünün anlamı (B-B13):** araç `ready by` satırının varlığını denetler, içeriğini değil.
+- **Kimlik doğrulama:** `--as`, Owner, reviewer beyandır; kararlı sahteciyi durdurmaz (runtime.md Trust boundary).
+- **Bu ortamda yapılamayanlar:** gerçek kullanıcı projesinde koşu, diğer sağlayıcı host'ları, macOS,
+  imzalı commit zorunlu repo, A/B premium deneyinin yeniden koşusu.

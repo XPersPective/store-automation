@@ -157,7 +157,7 @@ DONE + Evidence → checkpoint commit (SA-Task, SA-Verification, SA-Agent[, SA-R
 
 | Komut | Görev | Kaynak |
 |---|---|---|
-| `boot` | Durum: NO_PLAN/RESUME/INTERRUPTED/REVIEW_PENDING/READBACK_FIRST/DIRTY/ADVANCED/CONFLICTED/NO_GIT/INVALID; hedef, odak, sıradaki görev ve Tier'i, yüklenecek dosyalar, komutlar | Brain `cmd_boot` uyarlaması |
+| `boot` | Durum: NO_PLAN/LEGACY/RESUME/INTERRUPTED/READBACK_FIRST/DIRTY/ADVANCED/CONFLICTED/NO_GIT (uygulanan; tasarımdaki REVIEW_PENDING `accept` sonucudur ve boot'ta REVIEW/FIX satırıdır, INVALID ise `validate` FAIL'idir); hedef, odak, sıradaki görev ve Tier'i, yüklenecek dosyalar, komutlar | Brain `cmd_boot` uyarlaması |
 | `map`, `init` | Repo özeti + komut keşfi; iskelet (üzerine yazmaz), AGENTS.md işaretçisi | Brain |
 | `new` | Görev iskeleti (tek yol) | Brain |
 | `changed` | Son checkpoint'ten beri değişen alanlar | Brain |

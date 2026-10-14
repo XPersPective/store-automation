@@ -18,7 +18,7 @@ from runtime.legacy import found as legacy_found, legacy
 from runtime.paths import public_path
 from runtime.verification import release_readback
 
-VERSION = '4.1.0'
+VERSION = '4.1.1'
 
 
 def main(argv=None):

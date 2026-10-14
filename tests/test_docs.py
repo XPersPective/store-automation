@@ -30,6 +30,12 @@ class DocsTests(unittest.TestCase):
             for target in re.findall(r'\]\(([^)#:]+\.md)\)', doc.read_text(encoding='utf-8')):
                 self.assertTrue((doc.parent / target).is_file(), f'{doc.name} -> {target}')
 
+    def test_version_is_one_number(self):
+        """Content never changes under an unchanged version (audit m12)."""
+        skill = re.search(r'version: "([^"]+)"', (ROOT / 'SKILL.md').read_text(encoding='utf-8')).group(1)
+        store = re.search(r"VERSION = '([^']+)'", (ROOT / 'store.py').read_text(encoding='utf-8')).group(1)
+        self.assertEqual(skill, store)
+
     def test_skill_entry_stays_small(self):
         self.assertLessEqual(len((ROOT / 'SKILL.md').read_text(encoding='utf-8').splitlines()), 90)
 

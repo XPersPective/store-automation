@@ -83,6 +83,9 @@ class VerificationTests(unittest.TestCase):
                 release_readback(expected, dict(observed, **{key: True}))
         with self.assertRaises(ValueError):
             release_readback(expected, dict(observed, observed_at='2026-10-13T12:00:00'))
+        for junk in ('line\nbreak', 'x' * 501):
+            with self.assertRaises(ValueError):
+                release_readback(expected, dict(observed, readback_reference=junk))
 
 
 if __name__ == '__main__':

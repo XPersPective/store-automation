@@ -26,16 +26,7 @@ import shutil
 from . import plan
 from .paths import public_path
 
-# path -> (system, carries plan content that must be extracted first)
-MARKERS = {
-    '.project-brain': ('Project Brain', True),
-    'PROJECT_BRAIN.md': ('Project Brain (single file)', True),
-    '.taskmaster': ('Task Master', True),
-    'memory-bank': ('Cline memory bank', True),
-    '.kiro/specs': ('Kiro specs', True),
-    '.factory': ('Store Automation 2.x', False),
-    '.factory-bootstrap.json': ('Store Automation 2.x', False),
-}
+MARKERS, found = plan.LEGACY_MARKERS, plan.legacy_found  # boot reports them; this module retires them
 POINTERS = ("""<!-- project-brain -->
 ## Project Brain
 This project keeps its state in `.project-brain/` (current architecture, target, open tasks).
@@ -64,10 +55,6 @@ def _top(name):
 def _identity(root):
     """Archive ownership: a sibling project whose name merely starts the same cannot be matched."""
     return hashlib.sha256(os.path.normcase(str(root)).encode()).hexdigest()[:8]
-
-
-def found(root):
-    return [name for name in MARKERS if (Path(root) / name).exists() or (Path(root) / name).is_symlink()]
 
 
 def _ignore_lines(root):
@@ -123,7 +110,7 @@ def legacy(root, apply=False, extra=(), drop_archive=False, confirm_untracked=Fa
     must_extract = [n for n in names if MARKERS.get(n, ('', True))[1]]
     plan_ok = plan.plan_exists(root) and plan.validate(root)[0] != 2
     archive = root.parent / ARCHIVE_DIR / (
-        root.name + '-' + _identity(root) + '-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+        root.name + '-' + _identity(root) + '-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ'))
     result = dict(status='LEGACY_FOUND' if names or stale else 'CLEAN', project=str(root),
                   found=[{'path': n, 'system': MARKERS.get(n, ('declared by --path', True))[0]} for n in names],
                   files=len(files), bytes=sum(p.stat().st_size for p in files),
