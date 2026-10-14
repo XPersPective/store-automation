@@ -94,5 +94,13 @@ kataloğunun 25 ücretsiz adayı. Dört profile güncel AA karşılaştırmasın
 kaynak alınamadığı için UNKNOWN/backoff; ücretsiz adaylarda gerçek kota/erişim/fiyat doğrulanmadığı için
 seçim kapalı. Codex native kotasıyla H önerisi gözlendi. Kimlik/benchmark snapshot'ı beyana dayalıdır;
 ücretli inference, credential okuma veya host ayarı değişikliği yapılmadı. Kullanıcıya özel kayıt pakete/git'e
-girmez. Yayın sahibi bu oturum; sonraki güvenli adım GitHub push, Skills Manager update, 41 ajan + merkez
-+ 4 ek kurulumun eski/yeni manifest kontrolü ve post-commit kaynak/paket drift doğrulamasıdır.
+girmez.
+
+Dağıtım tamamlandı (8e1f904): master GitHub'a push edildi. Update öncesi 46 kopya eski manifestle
+birebir doğrulandı; Skills Manager refreshed, aynı ID/Default preset ve 41 deployment korundu.
+Merkez + 41 ajan + önceki paketle byte eşleşmesi doğrulanan 4 ek dizin = 46 kopya, 18 dosyalı 4.2.0
+manifestiyle SHA256 eşleşti. Ek kopya orijinalleri model-pool-extra-installs-4.1.1 yedeğinde. Launcher
+4.2.0; post-commit kaynak→paket hash kontrolü temiz. Açık yayın işlemi veya yazıcı yok. İlk güvenli adım:
+gerçek kullanıcı görevinde `models list`, native kota yenileme, gereken role `models select`; henüz
+doğrulanmayan ücretsiz erişimi/UNKNOWN modeli yetkili veya güçlü sayma. Advisory varsayılanı korundu;
+gerçek proje denemesi ve tam yerel tüketim verisi açık kanıt sınırlarıdır.
