@@ -72,3 +72,27 @@ Dağıtım (64aa2e7): Skills Manager `skills update` refreshed; aynı kimlik/Def
 Raporlardaki kısmi ve küçük önerilerin bu ortamda yapılabilenleri tamamlandı (design/audit-fixes-2026-10-14.md "İkinci tur"): runs/ budama, etkileşim kanıtı, boot'ta commit/kanıt farkı, RA-1 FAIL, ADR biçimi, tek yönlü import, ajan kimliği biçimi, readback alan sınırı, belge kuralları, MIT LICENSE (© XPersPective, pakette). Global talimatlarda kaçmış 4 Project Brain kalıntısı (codex rules ×2, Windsurf global_rules, ~/.clinerules) yedeklenip store-automation kuralına çevrildi. Windows 54 test + Node, WSL 54 test, paketlenmiş CLI ile uçtan uca akış geçti. Bilinçli yapılmayanlar ve gerekçeleri aynı belgede.
 
 Dağıtım (bac9ef3): Skills Manager refreshed, 41 deployment düşmedi; merkez + 41 ajan + 4.1.0 ile birebir aynı olduğu doğrulanan 4 ek dizin = 46 kopya 4.1.1 manifestiyle (LICENSE dahil) SHA256 eşleşti; launcher 4.1.1.
+
+## Model havuzu — 2026-10-14 (4.2.0)
+
+Kullanıcı model araştırması/sınıflandırma, kota/ekonomi karşılaştırması, kaynak güncelliği, sürüm artışı ve
+GitHub/yerel dağıtımı onayladı. runtime/models.py ve models list/merge/select: kullanıcı dizininde
+revizyonlu atomik kayıt; benchmark/version/harness/effort ve dış eşikler; coding/reasoning rol tahmini;
+30 gün kanıt, 24 saat katalog/fiyat, 5 dakika ortak kota; yetki/araç/bağlam/fiyat filtresi; tam görev
+tüketimi ve ayrı benchmark ön tahmini; eksik araştırma/backoff. Varsayılan advisory, açık enforce ile
+shared start/review/accept koruması; alias kendi incelemesini geçemez. Tasarım/sınırlar design/model-pool.md,
+ajan protokolü references/models.md. Runtime offline ve bağımlılıksız kaldı. Model gücü onay içeriğini
+veya gerçek kimliği doğrulamaz; yerel tüketim ölçümü olmayan maliyetler null. Satır bütçesi halen aşılmıştır.
+
+Bağımsız salt okunur incelemenin tüm somut bulguları düzeltildi; Windows 64 test PASS, WSL Python 3.14
+64 test PASS (4 Windows atlaması), Node PASS, son paket CLI init→merge→unknown start reddi→check→alias
+self-review reddi→bağımsız review→DONE→select→boot PASS. Eski 4.1.1 release repo dışındaki
+release-4.1.1-before-model-pool yedeğinde; son 4.2.0 paket package.py ile üretilip release'e taşındı.
+
+Yerel kullanıcı kaydı ~/.store-automation/models.json: mevcut host'un 7 Codex high profili + OpenCode
+kataloğunun 25 ücretsiz adayı. Dört profile güncel AA karşılaştırmasından puan; üçünde karşılaştırılabilir
+kaynak alınamadığı için UNKNOWN/backoff; ücretsiz adaylarda gerçek kota/erişim/fiyat doğrulanmadığı için
+seçim kapalı. Codex native kotasıyla H önerisi gözlendi. Kimlik/benchmark snapshot'ı beyana dayalıdır;
+ücretli inference, credential okuma veya host ayarı değişikliği yapılmadı. Kullanıcıya özel kayıt pakete/git'e
+girmez. Yayın sahibi bu oturum; sonraki güvenli adım GitHub push, Skills Manager update, 41 ajan + merkez
++ 4 ek kurulumun eski/yeni manifest kontrolü ve post-commit kaynak/paket drift doğrulamasıdır.

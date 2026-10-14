@@ -278,6 +278,11 @@ agent that never started the task reviews again.
 
 ## 9. Delegation and parallel agents
 
+Use the [model registry](models.md) for role evidence and authorized access. Its default is advisory;
+explicit `enforce: true` checks implementer Tier, risky READY approver and reviewer in the shared runtime.
+Plan/review H requires current coding and reasoning evidence or a visible explicit user override. Aliases
+of an implementer cannot independently review it. A model rating is an estimate, not proof of approval quality.
+
 Mechanical bookkeeping goes to `SA` commands. If the host can start cheaper sub-agents, delegate tier L
 tasks, test runs that return only failures, file summaries for Genesis and executability probes. Keep for
 the strong model: intake, planning, tier H, escalation, review and every write to product.md and ADRs.

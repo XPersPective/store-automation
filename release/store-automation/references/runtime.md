@@ -2,7 +2,7 @@
 
 `SA` = `python "<skill>/store.py" --project "<app root>"`. Python 3.11+ standard library and git; no
 network, no paid API, no other skill. Plan commands print short text lines; `doctor`, `legacy` and
-`release-readback` print JSON. Exit codes: 0 ok, 1 warnings / UNVERIFIED / REVIEW_PENDING / WAITING_USER /
+`release-readback` and `models` print JSON. Exit codes: 0 ok, 1 warnings / UNVERIFIED / REVIEW_PENDING / WAITING_USER /
 a FAIL `check` / a readback that is not MATCHED, 2 errors or accept BLOCKED, 3 the command needs a plan and
 there is none (`new`, `validate`). `boot` always exits 0 when it can report a state, including NO_PLAN.
 `doctor` prints the interpreter path; use the same one for every `SA` call.
@@ -12,6 +12,7 @@ there is none (`new`, `validate`). `boot` always exits 0 when it can report a st
 | Command | Does |
 |---|---|
 | `doctor` | Python, interpreter path, git, plan presence, legacy state, skill path |
+| `models list\|merge\|select` | User pool, benchmark-derived role estimates, refresh queue and authorized recommendations; [schema and commands](models.md). Global `--models-file` overrides the default user registry. BLOCKED selection exits 1; malformed data exits 2 |
 | `boot` | STATE (NO_PLAN, LEGACY, RESUME, INTERRUPTED, DIRTY, ADVANCED, CONFLICTED, READBACK_FIRST, NO_GIT), git line, product status, EXTERNAL, FIX (review BLOCKED), REVIEW queue, QUESTIONS, PLAN, FOCUS with criterion ids, RECENT, STALE, LOAD, CMDS, MODE, NEXT. INTERRUPTED = the IN_PROGRESS task has uncommitted changes in its Areas; a clean one is RESUME |
 | `map` | File tree summary, root/doc files, legacy markers, detected commands |
 | `init` | Creates the plan skeleton (never overwrites) and the AGENTS.md pointer; refuses if `.store-automation/` is gitignored |

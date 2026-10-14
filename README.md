@@ -8,6 +8,12 @@ Güncel durum: [HANDOFF.md](HANDOFF.md). Hedef ve mimari: [design/v4-target.md](
 
 Kurulu host'ta `$store-automation` ile uygulama fikrini veya mevcut projeyi belirt; "devam et" kalınan yerden sürdürür. Ajanlar ilk iş `store.py boot` çalıştırır. Projedeki durum `.store-automation/` altında git'e girer (product, current, tasks, decisions); yalnız `runs/` logları git dışıdır.
 
+4.2.0: kullanıcıya ait model havuzu `~/.store-automation/models.json` içinde güncellemelerden bağımsız
+saklanır. `python store.py models list` sınıflandırma gerekçelerini ve eksik/bayat araştırmayı;
+`python store.py models select --role plan --tier H` izinli erişim ve güncel kota koşullarına uyan adayları
+gösterir. Araç internete çıkmaz veya model çağırmaz; ajan yalnız gereken kaynakları araştırıp birleştirir.
+[Model havuzu ve seçim kuralları](references/models.md).
+
 ```powershell
 python store.py --project "D:/path/to/app" doctor
 python store.py --project "D:/path/to/app" boot

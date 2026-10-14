@@ -49,3 +49,13 @@ to the previous release.
 
 Rollback: move the new source and installs aside, restore the backup. Keep git history, unknown diffs and
 the Skills Manager metadata backup. Never migrate another app's data schema automatically.
+# 4.2.0 model registry
+
+Existing plans keep working in advisory mode. The user registry lives outside the skill at
+`~/.store-automation/models.json`; distribution updates never replace it. There is no seeded universal
+H/M/L table. Run `SA models list`, discover the user's actual hosts, research only due profiles and merge
+evidence as described in [models](models.md). Do not infer model access from Skills Manager deployments.
+Enable `enforce` only by explicit user choice after relevant profiles are evaluated. It can block a
+previously unguarded start/review/accept until evidence is current. Existing historical DONE commits are
+not rewritten. Use exact effort profiles and retain model aliases when updating an entry; aliases do
+not create independent reviewers. An existing empty/corrupt registry must be repaired, not reset.

@@ -2,7 +2,7 @@
 name: store-automation
 description: Plan, build, verify and release applications with a git-native plan any agent can resume. A strong model shapes the product, architecture and risk-ordered milestones; smaller models execute fully specified tasks; acceptance needs current evidence and independent review. Use for app ideas, existing app projects, continue/resume/devam et/kaldığın yerden, plans and roadmaps, adoption, release preparation and maintenance.
 metadata:
-  version: "4.1.1"
+  version: "4.2.0"
 ---
 
 # Store Automation
@@ -41,7 +41,8 @@ fields stay English, their content in the user's language. Python 3.11+ and git:
 Keep the user's words: a short quote goes into the Objective or Goal; nothing asked lives only in chat.
 
 ## 3. Roles and models
-
+- Resolve the user model pool with `SA models list`; research only due entries, refresh quota before
+  delegation, and choose with `SA models select` ([models](references/models.md)). Never infer access from an installed agent.
 - **Strong model (tier H):** Genesis interview, product.md, architecture, milestones, writing executable
   task specs, plan changes, ADRs, the REVIEW queue, and the READY check: a MEDIUM/HIGH or
   security/integration/remote task starts only after its `- ready by <id>: <what was confirmed>` Notes line.
@@ -49,7 +50,6 @@ Keep the user's words: a short quote goes into the Objective or Goal; nothing as
 - `SA start <task> --owner <your model id>` before implementing. Whoever ever started a task never reviews it.
 
 ## 4. Work a task
-
 `start` → implement Steps → `SA check <task> --as <id>` (runs Verify, writes machine evidence) → observe
 each other Acceptance item for real: `SA evidence <task> --as <id> --kind <k> --criterion <id> --note "..."
 [--file shot.png]` (one observation proves only the criteria it names; visual needs the render as `--file`)

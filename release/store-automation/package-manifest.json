@@ -1,18 +1,20 @@
 {
-  "SKILL.md": "007c0332e1499651ba7a2870e5f47982ded7187b3bfecce975efdd4f3aa866a8",
-  "store.py": "3d88985b6ffe97ddfc2fd671719bf3308b0afb537b950ee1055fa56af300ced5",
+  "SKILL.md": "6c58415b0a3a1b852ebc533840cd5baa4b4719745bc7e946d99d9dac1a0eebff",
+  "store.py": "bc4f7b5620826d9d9625ac053470b1e23222ed7bb7c7d45399da180c72353261",
   "LICENSE": "f05205b0e38654f67199de5966b1772253ff56254f78096a24337513b35b991b",
-  "runtime/accept.py": "dd71b00a87d78b7510b03da119caa4afd07418943c49b523800cc902e6612a72",
+  "runtime/accept.py": "f7193bc8a7832b4525bba573be8925cd59151c665b9d4fed2aab1379bd2fa7eb",
   "runtime/legacy.py": "e9bb3012a30c06280274e3974b15e1199e0836c3f388583b3474ba23508fbfa4",
+  "runtime/models.py": "d373d923e43e82d83f5e2924e5ed3a9ef59f0842378483c8eff60761c2c185ac",
   "runtime/paths.py": "0568db7730878bffc8baf5445b6bcfc5e34a5522843b744a6261b34098c70f58",
-  "runtime/plan.py": "c7d9686d8232f9a272b607840ebaed6ebdbefabcb6c4484cb406a1cbcc7d1d96",
+  "runtime/plan.py": "d61fd6ecfc9d293b86126f5d1ef5bbcf3a9002dd36d004aab23056d58659392a",
   "runtime/processes.py": "23115bc142d1197c4f284604e66ce3d67cb2bbe21216404ac7ef9a25ff711812",
   "runtime/verification.py": "61ca36e2afc3cb0c04184d9e7847fd4d2f107be81cc839b201045685349023bf",
   "references/edge-cases.md": "74716338a02e2a8f48778be4197938a7e2c31de3548b2155a6c616b3b9dd974c",
-  "references/execution.md": "518ef63547128b0066fffc7f119e2619eec06e3bc50de18f2153085065931676",
-  "references/migration.md": "1ca24f0144917c07f8ae3d4407104ec33f15e5e74334d50de6982b0e210d953a",
-  "references/plan.md": "29cea6badbb7aed03cdd51e050b178220e0b2f9f8840ce1d87c421d3287f2173",
+  "references/execution.md": "b8858f2b61d8c7bf0e7434f7b9ba5a20286c2a6b4c19ee0438c8089633f1d9ad",
+  "references/migration.md": "255e7db0d5075869974743356e382c32ce6834a62691af528173ac7471ebd2b6",
+  "references/models.md": "e32bcafc907c91a1189a1d0a794a9253f2db30a7222259a78553fd1591c2c9e9",
+  "references/plan.md": "72e373b25721eceb228df8f459d466ef981ac792c58f8fe1567bda0b6aca9937",
   "references/product-quality.md": "a8e226fbb6ac398434c0e8f125af3f683c2be191aee7c6ea93161cdb52e01438",
   "references/release.md": "f90b40b0c122023b8faf2dcc7ac04f0813215113e8154434c160b31a68d350d2",
-  "references/runtime.md": "a9a20860fb4e9e95a5f8531ca7d1150e1630a5c3c6c90026a8fc4bda96195ddb"
+  "references/runtime.md": "6c5c659c86073a768ff40148536c3752e0ec10653943d89e1dba219392f4864c"
 }

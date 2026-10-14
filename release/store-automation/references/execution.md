@@ -55,6 +55,10 @@ capability the work stays blocked while unrelated authorized work continues.
 
 ## Measurement
 
+Model selection and its user-owned registry follow [models](models.md). Benchmark estimates are priors;
+only complete comparable task observations rank accepted-work consumption. A subscription quota is shared
+account state, never a per-task token counter. Unknown values stay null.
+
 No new telemetry service: commit times, check durations and task Notes are enough. When needed, add time
 stamps for: need received, first useful output, worker start/end, check, feedback, rework, acceptance.
 Derive analysis/execution/waiting/rework time only from observed events; never add parallel durations as

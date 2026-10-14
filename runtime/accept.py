@@ -180,7 +180,7 @@ def implementers(task):
     return {r['owner'] for r in plan.start_records(task)} | ({task['owner']} if task['owner'] else set())
 
 
-def review(root, task_id, reviewer, verdict, findings=()):
+def review(root, task_id, reviewer, verdict, findings=(), models_path=None):
     task = plan.find_task(root, task_id)
     reviewer = plan.agent_id(reviewer, '--reviewer')
     if task['status'] not in ('IN_PROGRESS', 'REVIEW'):
@@ -190,6 +190,8 @@ def review(root, task_id, reviewer, verdict, findings=()):
                    f"({', '.join(sorted(implementers(task))) or 'no Owner'}); a session never reviews its own work"]
     if verdict not in ('PASS', 'BLOCKED'):
         raise ValueError('Verdict must be PASS or BLOCKED')
+    from . import models
+    models.gate(task, reviewer, 'review', models_path)
     for f in findings:
         m = FINDING_RE.match('- finding ' + f.strip())
         if not m:
@@ -228,11 +230,13 @@ def effective_risk(task):
     return max((r for r in risks if r in RISK_ORDER), key=RISK_ORDER.get, default=task['risk'])
 
 
-def accept(root, task_id, actor=''):
+def accept(root, task_id, actor='', models_path=None):
     task = plan.find_task(root, task_id)
     if task['status'] not in ('IN_PROGRESS', 'REVIEW'):
         return 2, [f"FAIL {task['id']} is {task['status']}: only IN_PROGRESS or REVIEW tasks are accepted"]
     _actor(task, actor)
+    from . import models
+    models.gate(task, actor, 'accept', models_path)
     if not task['owner']:
         return 2, [f"FAIL {task['id']} has no Owner; `start` records who implemented it"]
     errors = plan.task_errors(task)  # the grammar validate enforces: no empty Verify, unknown kind/state

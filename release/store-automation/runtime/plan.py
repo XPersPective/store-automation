@@ -32,7 +32,7 @@ ADR_FILE_RE = re.compile(r'^ADR-(\d+)\.md$')
 HEADER_RE = re.compile(r'^(status|priority|tier|risk|milestone|depends|owner|areas|domains|blocked):\s*(.*)$', re.I)
 ACCEPT_RE = re.compile(r'^\s*- \[([ xX])\]\s*(?:\[([a-z_]+)\])?\s*(.*)$')
 EXTERNAL_RE = re.compile(r'^\s*- (.+?)\s*\|\s*([a-z_]+)\s*\|\s*readback:\s*(.+)$')
-READY_BY_RE = re.compile(r'^\s*- ready by (.+?):', re.I)
+READY_BY_RE = re.compile(r'^\s*- ready by (.+?):\s', re.I)
 START_RE = re.compile(r'^- start by (?P<owner>.+?) \| risk=(?P<risk>[A-Z]*) \| contract=(?P<contract>[0-9a-f]+)$')
 # Words that make a task HIGH risk (§2 of plan.md); small models tend to rate them lower.
 HIGH_RISK_RE = re.compile(r'\b(auth\w*|login|password|token|session|crypto\w*|encrypt\w*|migration\w*|'
@@ -1089,7 +1089,7 @@ def new_task(root, title, depends='', risk=None, priority=None, tier=None, miles
                'numbered Steps with exact paths, typed Acceptance checkboxes, Verify commands; then Status: READY.']
 
 
-def start(root, task_id, owner, takeover=''):
+def start(root, task_id, owner, takeover='', models_path=None):
     """READY -> IN_PROGRESS. Taking over another owner's IN_PROGRESS/REVIEW task needs a recorded reason."""
     owner = agent_id(owner, '--owner')
     with checkout_lock(pdir(root)):
@@ -1127,6 +1127,8 @@ def start(root, task_id, owner, takeover=''):
         errors = task_errors(task)
         if errors:
             return 2, [f"FAIL {task['id']}"] + [f'  - {e}' for e in errors]
+        from . import models
+        models.gate(task, owner, 'start', models_path)
         if foreign:
             append_section(task['file'], 'Notes', f"- takeover from {task['owner']} by {owner}: {takeover.strip()}")
         # Who implemented, at which risk and spec: reviewers are checked against it, risk never drops below it.
