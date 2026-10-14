@@ -64,3 +64,5 @@ Dağıtım (9b976fe): Skills Manager refreshed; 41 ajan + merkez + 4 ek dizin = 
 Denetim yan etkisi: A/B alt ajanının kaynak repoya yazdığı d9d9ebf (push edilmemişti) geri alındı; yerel `audit-stray-d9d9ebf` dalında duruyor, gerekmiyorsa silinebilir. Paralel "Denetim uygulaması" oturumu aynı dosyalarda yarım iş bırakmıştı; kullanıcı kararıyla bu oturum devraldı, o oturumun değişiklikleri korunup tamamlandı. O oturum yeniden çalıştırılırsa bu checkout'a yazmamalı.
 
 Açık: runtime bütçesi aşıldı (≈2.160/≈1.400); LICENSE kararı sahibinde; gerçek kullanıcı projesinde ve diğer host'larda 4.1.0 koşusu yapılmadı.
+
+Dağıtım (64aa2e7): Skills Manager `skills update` refreshed; aynı kimlik/Default preset, 41 deployment düşmedi. Merkez + 41 ajan + önceki sürümle birebir aynı olduğu doğrulanan 4 ek dizin = 46 kopya 4.1.0 manifestiyle SHA256 eşleşti.
