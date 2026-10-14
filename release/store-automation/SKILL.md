@@ -22,10 +22,10 @@ file headings and field names stay English, their content in the user's language
    diff with Resume; another owner's task needs `start --takeover "<reason>"`. **ADVANCED** → map the
    listed files in current.md and checkpoint. **CONFLICTED / DIRTY** → [edge cases](references/edge-cases.md).
    **QUESTIONS** → ask the user those first when present. **RESUME** → §2.
-3. `SA doctor` shows `legacy` → 2.x or Project Brain state exists: `SA legacy` (preview), then
-   `SA legacy --apply` before planning ([migration](references/migration.md)).
-4. Takeover check once per session: run the configured test command; red → find the cause first.
-   Trust nothing unverified, including your predecessor.
+3. **LEGACY** (or another agent's planning files you recognise) → take it over: extract its goal, state and
+   open work into this plan, then `SA legacy --apply` removes it; instruction lines that only send agents to
+   the retired system are part of it ([plan](references/plan.md) §6a).
+4. Takeover check once per session: run the test command; red → find the cause; trust nothing unverified.
 
 ## 2. Route the message
 

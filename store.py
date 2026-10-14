@@ -57,8 +57,10 @@ def main(argv=None):
     p = sub.add_parser('accept', help='Evaluate acceptance; DONE, REVIEW_PENDING, WAITING_USER, UNVERIFIED or BLOCKED')
     p.add_argument('task')
     p.add_argument('--as', dest='actor', required=True, help='Owner, or the reviewer on a REVIEW task')
-    p = sub.add_parser('legacy', help='Archive 2.x state and convert Project Brain (preview unless --apply)')
+    p = sub.add_parser('legacy', help='Retire foreign planning/state systems after extraction (preview unless --apply)')
     p.add_argument('--apply', action='store_true')
+    p.add_argument('--path', action='append', default=[], help='Extra foreign state path found by judgment')
+    p.add_argument('--drop-archive', action='store_true', help='Delete this project archive after the adoption commit')
     p = sub.add_parser('release-readback', help='Compare expected/observed release JSON')
     p.add_argument('--request', required=True, help='JSON {expected, observed} relative to the project')
     args = ap.parse_args(argv)
@@ -75,7 +77,7 @@ def main(argv=None):
                         isolation='Scope instructions are not an OS sandbox')
             return emit_json(data, 0 if data['status'] == 'READY' else 1)
         if c == 'legacy':
-            return emit_json(legacy(root, apply=args.apply), 0)
+            return emit_json(legacy(root, apply=args.apply, extra=args.path, drop_archive=args.drop_archive), 0)
         if c == 'release-readback':
             path = public_path(root, args.request)
             data = json.loads(path.read_text(encoding='utf-8-sig'))

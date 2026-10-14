@@ -8,32 +8,14 @@ silently to a command that does something else.
 
 ## Removing old state: `legacy`
 
-When `SA doctor` shows `legacy`, before planning:
-
-1. `SA legacy` previews: 2.x `.factory/` and `.factory-bootstrap.json`, Project Brain `.project-brain/`
-   (schema 4 only), file count/size, old handoff names, `.gitignore` lines to remove, plan files to
-   convert, the archive path.
-2. If old handoffs or Brain tasks hold open work, read the preview; after conversion summarize it in the
-   matching task's Resume.
-3. `SA legacy --apply`:
-   - moves old directories in one same-volume rename each to `store-automation-legacy-archive/<project>-<time>`
-     beside the project; nothing is deleted;
-   - converts a Brain plan: `target.md` → `product.md` (missing Users / Core Journeys / Platforms / Riskiest
-     Assumptions sections are added as UNKNOWN), `PB-NNN` → `SA-NNN`, dependencies on tasks that are no
-     longer open are removed with a Notes line, `config.yaml` → `config.json`, the AGENTS.md Brain pointer
-     is replaced by this skill's pointer;
-   - removes `.factory` and whole-`.store-automation/` ignore lines (the plan must be tracked; only
-     `runs/` stays ignored through its own `.gitignore`).
-4. It moves nothing when 2.x files are tracked by git, a path is linked, a file is open or a process
-   runs inside, or both a Brain and a new plan exist.
-5. Untagged Acceptance items in converted tasks fail `validate`; a strong model adds each item's evidence
-   kind deliberately, never by guessing. UNKNOWN product.md sections are filled in the adoption interview.
-6. Record it in one commit (`chore(plan): adopt store-automation 4`, `SA-Current-Checkpoint: all`).
-   Tracked `.project-brain` files show as deleted in that commit; git history keeps them. Delete the
-   archive once nothing needs it.
-
-Old receipts, Brain evidence and 3.x `.store-automation/runs/*.json` records never become PASS; they are
-history. Acceptance is produced again with `check/evidence/review` on current source.
+Any foreign planning or state system (Project Brain of any schema or `PROJECT_BRAIN.md`, Task Master, a
+memory bank, Kiro specs, Store Automation 2.x `.factory`, or a path you identify) is taken over the same
+way: a strong model extracts its goal, decisions, current state, open work, blockers and pending external
+operations into the plan with a trace of every open item ([plan](plan.md) §6a); `SA legacy --apply`
+then moves it out of the project (it refuses while plan content is not extracted, or when a path is
+linked, open or in use) and drops its ignore lines and known pointer blocks; after the adoption commit
+`SA legacy --drop-archive` deletes the archive. Tracked files remain in Git history. Old receipts and
+PASS claims never become evidence.
 
 ## Adopting an existing app
 

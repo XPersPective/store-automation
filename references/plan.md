@@ -55,7 +55,9 @@ Forbidden vague words: "etc.", "improve", "clean up", "refactor as needed", "han
 - **Priority**: P1 the user's current ask or a blocker · P2 normal · P3 later.
 - **Size**: one task = one commit ≈ ≤8 files, ≤300 changed lines, one context window. Bigger → split.
 - **Status**: PLANNED → READY → IN_PROGRESS (one at a time) → REVIEW (MEDIUM/HIGH) → DONE → file deleted
-  after the checkpoint commit. BLOCKED needs `Blocked: <what, from whom>`.
+  after the checkpoint commit. BLOCKED needs `Blocked: <what, from whom>`; a task that only waits for the
+  user (e.g. live acceptance) is written as `Status: BLOCKED` with `Blocked: user feedback: <question>`
+  and an empty Owner, and boot lists it under QUESTIONS.
 - Plan globally, specify locally: the next milestone is fully specified; later ones may be one-line PLANNED.
 - **Executability probe** after writing tasks: best is a cheap sub-agent that lists ambiguities without
   doing the work; if the host forbids sub-agents, do a separate pass that reads only the task file and the
@@ -153,7 +155,8 @@ new task with cost/data impact. Re-produce only the evidence the change affects;
 
 ## 6. Genesis and adoption (no plan yet)
 
-1. `SA doctor`; legacy present → `SA legacy` preview, `--apply`, then continue here.
+1. Boot says LEGACY, or you find another agent's or tool's planning/state system (any format) → do
+   §6a in place of steps 5–8, then continue at step 9.
 2. `SA map`. Read only manifests, entry points, instruction files (AGENTS/CLAUDE/GEMINI.md), README and
    goal docs — ≤15 files. Skip tests, vendor, generated.
 3. `SA init` (adds the AGENTS.md pointer so any agent loads this skill). Never per-agent copies.
@@ -183,6 +186,34 @@ new task with cost/data impact. Re-produce only the evidence the change affects;
 Adoption of an existing app is the same, plus: run its real build/test once and record the result; keep
 its architecture, design language and release setup; pre-plan history is evidence only, never invent
 tasks for it; existing uncommitted work stays untouched.
+
+### 6a. Taking over a foreign planning system
+
+Another agent's memory (Project Brain, Task Master, a memory bank, specs folders, an old HANDOFF/TODO
+system, Store Automation 2.x, …) must end up as this plan, then disappear: one source of truth.
+
+1. `SA legacy` lists known systems. Look for others yourself (dot folders holding goals/tasks/state,
+   agent-written plan files); add each with `--path <dir-or-file>`. Ordinary project docs the team
+   maintains (README, ROADMAP owned by people, CHANGELOG) are not foreign state: link them, do not remove.
+2. Read the foreign state fully, then map it — verify every claim against code and git, never copy blind:
+   | Foreign content | Goes to |
+   |---|---|
+   | Goal / vision / target | product.md Goal in the user's original words; `CONFIRMED` only if the user wrote or confirmed it there, else DRAFT |
+   | Users, journeys, platforms, non-goals, open questions | product.md sections; unanswered questions → Open Decisions |
+   | Architecture, file map, conventions | current.md (re-verified, honest markers), constraints.md |
+   | Decisions with rationale | decisions/ADR-NNN.md (renumbered, rationale kept) |
+   | Open tasks, in-progress work, blockers | `SA new` tasks: user quotes, steps, typed Acceptance, deps; READY only if executable; blockers → `Blocked:`; resume notes → `## Resume` |
+   | Pending uploads / submissions / external calls | `## External` lines (`response_unknown` when unsure) |
+   | Finished work and old PASS claims | nothing: Git history keeps it; old evidence is never new evidence |
+3. Write a trace for the adoption commit body: every open item of the old system → `SA-NNN`,
+   `product.md`/`ADR-NNN`, or `dropped: <reason>`. Nothing open may be missing from the trace.
+4. `SA validate` (no FAIL), then `SA legacy --apply [--path …]`: it refuses unless a valid plan exists
+   (it cannot judge whether your trace is complete: that is your duty and the reviewer's), then moves every listed path out of the project, drops their ignore lines and
+   known pointer blocks. Remove remaining `instruction_mentions` from AGENTS/CLAUDE/GEMINI.md by hand,
+   keeping the user's own text.
+5. One commit replaces §6 step 10: `chore(plan): adopt store-automation` with the trace, `SA-Genesis: true`,
+   `SA-Plan-Audit: genesis`, `SA-Current-Checkpoint: all`; push; then `SA legacy --drop-archive` deletes the archive (it refuses
+   until the removal is committed; tracked files remain in Git history).
 
 ## 7. Audits
 

@@ -11,7 +11,7 @@ network, no paid API, no other skill. Plan commands print short text lines; `doc
 | Command | Does |
 |---|---|
 | `doctor` | Python, git, plan presence, legacy state, skill path |
-| `boot` | STATE, git line, product status, EXTERNAL, REVIEW queue, PLAN, FOCUS, RECENT, STALE, LOAD, CMDS, MODE, NEXT |
+| `boot` | STATE (NO_PLAN, LEGACY, RESUME, INTERRUPTED, DIRTY, ADVANCED, CONFLICTED, READBACK_FIRST, NO_GIT), git line, product status, EXTERNAL, REVIEW queue, PLAN, FOCUS, RECENT, STALE, LOAD, CMDS, MODE, NEXT |
 | `map` | File tree summary, root/doc files, legacy markers, detected commands |
 | `init` | Creates the plan skeleton (never overwrites) and the AGENTS.md pointer; refuses if `.store-automation/` is gitignored |
 | `new "title" [--priority] [--tier] [--risk] [--milestone] [--depends]` | Next SA-NNN as a PLANNED scaffold; IDs are never reused (Git history checked) |
@@ -22,7 +22,7 @@ network, no paid API, no other skill. Plan commands print short text lines; `doc
 | `accept SA-NNN --as <id>` | DONE / REVIEW_PENDING / WAITING_USER / UNVERIFIED / BLOCKED; on DONE sets Status and prints commit trailers |
 | `changed` | Files changed since the applicable current.md checkpoints, by domain |
 | `validate` | Grammar, statuses, Owner, kind tags, External lines, Verify shell use, budgets, dependency cycles |
-| `legacy [--apply]` | Archives 2.x `.factory/`; converts `.project-brain` schema 4 to `.store-automation` |
+| `legacy [--apply] [--path P]... [--drop-archive]` | Finds foreign planning/state systems (Project Brain, Task Master, memory bank, Kiro specs, 2.x factory, or `--path`); `--apply` refuses until a valid plan exists (trace completeness is the strong model's duty), then moves them to `../store-automation-legacy-archive/<project>-<time>` and drops their ignore lines and pointers; `--drop-archive` deletes the archive after the removal is committed |
 | `release-readback --request file.json` | Compares `{expected, observed}` release objects |
 
 ## Task file grammar

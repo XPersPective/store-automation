@@ -1,32 +1,44 @@
-"""Retire older project state: Store Automation 2.x and Project Brain schema 4.
+"""Retire foreign planning/state systems after their content lives in the plan.
 
-2.x left .factory/ and .factory-bootstrap.json. A Project Brain plan is
-converted into .store-automation/ (PB-NNN -> SA-NNN). Originals move to an
-archive beside the project in one same-volume rename each; nothing is deleted
-and no old receipt becomes new evidence. Tracked .project-brain files show up
-as deletions for the adoption commit; Git history keeps them.
+Any agent or tool may have left its own memory in a project: Project Brain,
+Task Master, a Cline memory bank, Kiro specs, Store Automation 2.x. Their
+formats differ, so a strong model extracts goal, decisions, current state and
+open work into .store-automation/ (plan.md §6) and this module only does the
+mechanical part: find, refuse removal before extraction, move everything out
+in same-volume renames, drop ignore lines and pointers, and finally delete
+the archive once the adoption commit holds the change. Tracked files stay in
+Git history; untracked artifacts are gone after --drop-archive.
 """
 from datetime import datetime, timezone
-import json
 import os
 from pathlib import Path
-import re
-import subprocess
+import shutil
 
 from . import plan
 from .paths import public_path
 
-LEGACY = ('.factory', '.factory-bootstrap.json', '.project-brain')
-BRAIN_POINTER = """<!-- project-brain -->
+# path -> (system, carries plan content that must be extracted first)
+MARKERS = {
+    '.project-brain': ('Project Brain', True),
+    'PROJECT_BRAIN.md': ('Project Brain (single file)', True),
+    '.taskmaster': ('Task Master', True),
+    'memory-bank': ('Cline memory bank', True),
+    '.kiro/specs': ('Kiro specs', True),
+    '.factory': ('Store Automation 2.x', False),
+    '.factory-bootstrap.json': ('Store Automation 2.x', False),
+}
+POINTERS = ("""<!-- project-brain -->
 ## Project Brain
 This project keeps its state in `.project-brain/` (current architecture, target, open tasks).
 Before any work, load the `project-brain` skill and run its boot step; follow it for all work here.
-"""
-PRODUCT_EXTRA = ('Users', 'Core Journeys', 'Platforms', 'Riskiest Assumptions')
+""",)
+INSTRUCTION_FILES = ('AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.github/copilot-instructions.md', '.cursorrules')
+PROTECTED = {'.git', plan.DIR, '.gitignore', 'AGENTS.md', 'CLAUDE.md', 'GEMINI.md'}
+ARCHIVE_DIR = 'store-automation-legacy-archive'
 
 
 def found(root):
-    return [name for name in LEGACY if (Path(root) / name).exists() or (Path(root) / name).is_symlink()]
+    return [name for name in MARKERS if (Path(root) / name).exists() or (Path(root) / name).is_symlink()]
 
 
 def _ignore_lines(root):
@@ -37,104 +49,63 @@ def _ignore_lines(root):
         return ignore, stream.read().splitlines(keepends=True)
 
 
-def _brain_config(text):
-    """Commands and git policy from a schema-4 Brain config.yaml (two-level scalar subset)."""
-    out, section = {'commands': {}, 'git': {}}, None
-    for line in text.splitlines():
-        if m := re.fullmatch(r'([\w-]+):\s*(.*)', line):
-            section = m.group(1) if not m.group(2) else None
-        elif (m := re.fullmatch(r'  ([\w-]+):\s*(.*)', line)) and section in out:
-            raw = m.group(2).strip()
-            out[section][m.group(1)] = json.loads(raw) if raw.startswith('"') else raw.strip("'")
-    git_ = {'commit': out['git'].get('commit', 'auto'),
-            'push': 'auto' if out['git'].get('push', 'manual') in ('auto', 'always') else 'ask'}
-    return {'schema': 1, 'commands': out['commands'], 'git': git_, 'check_timeout': 900}
+def _archives(root):
+    base = root.parent / ARCHIVE_DIR
+    return sorted(base.glob(root.name + '-*')) if base.is_dir() else []
 
 
-def _convert_brain(src):
-    """{relative path in .store-automation: text} from a schema-4 .project-brain directory."""
-    config = plan.read(src / 'config.yaml') or ''
-    if not re.search(r'^schema_version:\s*"?4"?\s*$', config, re.M):
-        raise ValueError('.project-brain is not schema 4; convert it with Project Brain migrate first')
-    files = {'config.json': json.dumps(_brain_config(config), indent=2, ensure_ascii=False) + '\n',
-             '.gitignore': 'runs/\n'}
-    rename = lambda text: re.sub(r'\bPB-(\d+)', r'SA-\1', text)
-    for name in ('current.md', 'constraints.md'):
-        if (src / name).is_file():
-            files[name] = rename(plan.read(src / name))
-    target = plan.read(src / 'target.md') or '# Target\nStatus: DRAFT\n'
-    product = re.sub(r'^# .*$', '# Product', rename(target), count=1, flags=re.M)
-    for heading in PRODUCT_EXTRA:
-        if f'## {heading}' not in product:
-            product += f'\n## {heading}\n- UNKNOWN: fill during the adoption interview\n'
-    files['product.md'] = product
-    for adr in sorted((src / 'decisions').glob('ADR-*.md')) if (src / 'decisions').is_dir() else []:
-        files[f'decisions/{adr.name}'] = rename(plan.read(adr))
-    tasks = {f.name: plan.read(f) for f in (src / 'tasks').glob('PB-*.md')} if (src / 'tasks').is_dir() else {}
-    open_ids = {re.sub(r'^PB-0*(\d+)\.md$', r'\1', n) for n in tasks}
-    for name, text in sorted(tasks.items()):
-        text = rename(text)
-        dropped = []
-
-        def keep_open(m):
-            ids = re.findall(r'SA-0*(\d+)', m.group(1))
-            dropped.extend(i for i in ids if i not in open_ids)
-            kept = [plan.norm_id(i) for i in ids if i in open_ids]
-            return 'Depends: ' + (', '.join(kept) or '-')
-        text = re.sub(r'^Depends:\s*(.*)$', keep_open, text, count=1, flags=re.M)
-        if dropped:
-            text = text.rstrip('\n') + '\n' + ''.join(
-                f'- migrated: closed dependency PB-{int(i):03d} removed (completed in Project Brain history)\n'
-                for i in dropped)
-        files['tasks/' + name.replace('PB-', 'SA-')] = text
-    return files
-
-
-def legacy(root, apply=False):
+def legacy(root, apply=False, extra=(), drop_archive=False):
     root = Path(root).resolve(strict=True)
     if root.parent == root:
         raise ValueError('Archive needs a parent directory outside the project')
-    names = found(root)
+    if drop_archive:
+        return _drop(root)
+    extra = [e.strip().strip('/') for e in extra if e.strip()]
+    for name in extra:
+        if name.split('/')[0] in PROTECTED or not (root / name).exists():
+            raise ValueError(f'--path {name}: must be an existing foreign state path, not project infrastructure')
+    names = found(root) + [e for e in extra if e not in MARKERS]
     for name in names:
-        public_path(root, name)  # refuses linked legacy paths before anything moves
-    try:
-        tracked = subprocess.run(['git', '-C', str(root), 'ls-files', '--', '.factory', '.factory-bootstrap.json'],
-                                 capture_output=True, text=True, timeout=60).stdout.split()
-    except (OSError, subprocess.TimeoutExpired):
-        tracked = []  # not a git checkout or git unavailable
-    if tracked:
-        raise ValueError('2.x files are tracked by git; remove them in a reviewed commit: ' + ', '.join(tracked[:5]))
-    converted = {}
-    if '.project-brain' in names:
-        if plan.plan_exists(root):
-            raise ValueError('Both .project-brain and a .store-automation plan exist; reconcile them by hand')
-        converted = _convert_brain(root / '.project-brain')
+        public_path(root, name)  # refuses linked or escaping paths before anything moves
     ignore, lines = _ignore_lines(root)
-    stale = [line for line in lines if line.strip().rstrip('/') in ('.factory', '.store-automation')
-             or line.strip().startswith('.factory/')]
+    def obsolete(line):
+        entry = line.strip().rstrip('*').rstrip('/')
+        return entry == plan.DIR or any(entry == n or entry.startswith(n + '/') for n in names)
+    stale = [line for line in lines if obsolete(line)]
     kept = [line for line in lines if line not in stale]
     files = [p for name in names for p in ([root / name] if (root / name).is_file() else (root / name).rglob('*'))
              if p.is_file()]
-    stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-    archive = root.parent / 'store-automation-legacy-archive' / (root.name + '-' + stamp)
-    agents = plan.read(root / 'AGENTS.md') or ''
-    result = dict(status='LEGACY_FOUND' if names or stale else 'CLEAN', project=str(root), legacy=names,
+    mentions = {}
+    for rel in INSTRUCTION_FILES:
+        text = plan.read(root / rel) or ''
+        hits = [line.strip()[:120] for line in text.splitlines()
+                if any(n in line for n in names) or 'project-brain' in line]
+        if hits:
+            mentions[rel] = hits[:5]
+    must_extract = [n for n in names if MARKERS.get(n, ('', True))[1]]
+    plan_ok = plan.plan_exists(root) and plan.validate(root)[0] != 2
+    archive = root.parent / ARCHIVE_DIR / (root.name + '-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    result = dict(status='LEGACY_FOUND' if names or stale else 'CLEAN', project=str(root),
+                  found=[{'path': n, 'system': MARKERS.get(n, ('declared by --path', True))[0]} for n in names],
                   files=len(files), bytes=sum(p.stat().st_size for p in files),
-                  old_handoffs=sorted(p.relative_to(root).as_posix() for p in files
-                                      if p.name.startswith('handoff'))[-20:],
-                  converted=sorted(converted), gitignore_remove=[line.strip() for line in stale],
-                  agents_pointer='replace' if BRAIN_POINTER in agents else None,
+                  extract_first=must_extract, plan_ready=plan_ok,
+                  gitignore_remove=[line.strip() for line in stale], instruction_mentions=mentions,
                   archive=str(archive) if names else None, applied=False,
-                  note='Old receipts are history, not evidence. Untagged acceptance items in converted tasks '
-                       'fail `validate` until a strong model adds kind tags. The archive is outside the '
-                       'project; delete it once nothing needs it.')
+                  next=('Extract goal, decisions, current state, open work, blockers and pending external operations '
+                        'into .store-automation (references/plan.md §6, adoption) with a trace of every open item; '
+                        '`validate`; then `legacy --apply`.' if must_extract and not plan_ok else
+                        '`legacy --apply`, commit the adoption, then `legacy --drop-archive`.'))
     if not apply or result['status'] == 'CLEAN':
         return result
+    if must_extract and not plan_ok:
+        raise ValueError('Plan content not extracted yet: ' + ', '.join(must_extract) +
+                         ' carry goals/tasks; build and validate the .store-automation plan first')
     moved = []
     if names:
         archive.mkdir(parents=True)
         try:
             for name in names:
+                (archive / name).parent.mkdir(parents=True, exist_ok=True)
                 # Same-volume rename: an open file or running process inside aborts it.
                 os.rename(root / name, archive / name)
                 moved.append(name)
@@ -142,18 +113,42 @@ def legacy(root, apply=False):
             for name in reversed(moved):
                 os.rename(archive / name, root / name)
             raise
-    for rel, text in converted.items():
-        path = plan.pdir(root) / rel
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open('x', encoding='utf-8', newline='\n') as stream:
-            stream.write(text)
     if stale:
         eol = '\r\n' if any(line.endswith('\r\n') for line in kept) else '\n'
         body = ''.join(kept)
         ignore.write_text(body + ('' if not body or body.endswith('\n') else eol), encoding='utf-8', newline='')
-    if result['agents_pointer']:
-        plan.write_atomic(root / 'AGENTS.md', agents.replace(BRAIN_POINTER, plan.POINTER))
+    for rel in INSTRUCTION_FILES:
+        text = plan.read(root / rel)
+        if text and any(p in text for p in POINTERS):
+            for p in POINTERS:
+                text = text.replace(p, plan.POINTER if plan.POINTER_MARK not in text else '')
+            plan.write_atomic(root / rel, text)
+    result['instruction_mentions'] = {
+        rel: hits for rel in INSTRUCTION_FILES
+        if (hits := [line.strip()[:120] for line in (plan.read(root / rel) or '').splitlines()
+                     if any(n in line for n in names) or 'project-brain' in line][:5])}
     result['applied'] = True
-    result['next'] = ('Commit the adoption (archive is outside the repo), then `boot`; tag acceptance kinds and '
-                      'fill product.md gaps.' if converted else '`map` then `init` when planning is needed.')
+    result['next'] = ('Remove any remaining instruction_mentions by hand, commit the adoption '
+                      '(chore(plan): adopt store-automation), then `legacy --drop-archive`.')
     return result
+
+
+def _drop(root):
+    """Delete this project's archives once the removal is committed (tracked content stays in Git history)."""
+    archives = _archives(root)
+    pending = []
+    for archive in archives:
+        entries = [p.relative_to(archive).as_posix() for p in archive.iterdir()]
+        if plan.has_git(root) and entries:
+            status = plan.git(root, 'status', '--porcelain', '--', *entries) or ''
+            if status.strip():
+                pending.append(archive.name)
+    if pending:
+        raise ValueError('Commit the adoption first; uncommitted removals for ' + ', '.join(pending))
+    for archive in archives:
+        shutil.rmtree(archive)
+    base = root.parent / ARCHIVE_DIR
+    if base.is_dir() and not any(base.iterdir()):
+        base.rmdir()
+    return {'status': 'DROPPED' if archives else 'NOTHING_TO_DROP', 'project': str(root),
+            'deleted': [str(a) for a in archives]}

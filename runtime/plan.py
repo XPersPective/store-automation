@@ -27,8 +27,6 @@ ADR_FILE_RE = re.compile(r'^ADR-(\d+)\.md$')
 HEADER_RE = re.compile(r'^(status|priority|tier|risk|milestone|depends|owner|areas|domains|blocked):\s*(.*)$', re.I)
 ACCEPT_RE = re.compile(r'^\s*- \[([ xX])\]\s*(?:\[([a-z_]+)\])?\s*(.*)$')
 EXTERNAL_RE = re.compile(r'^\s*- (.+?)\s*\|\s*([a-z_]+)\s*\|\s*readback:\s*(.+)$')
-# Unfilled template text such as <exact path ...>; HTML comments and real generics like List<int> are not matched.
-PLACEHOLDER_RE = re.compile(r"(?<![\w!-])<[a-z`][a-z' ,/|.;:()*`-]*[a-z.)`]>")
 BUDGETS = {'current': 200, 'product': 150, 'constraints': 100, 'task': 120, 'open_tasks': 25}
 SKIP_DIRS = {'.git', '.hg', '.svn', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build',
              '.next', '.nuxt', 'target', 'coverage', '.pytest_cache', '.mypy_cache', '.ruff_cache',
@@ -131,6 +129,16 @@ Domains: <domain>
 
 ## Notes
 """
+
+# Unfilled template text: exactly the <...> tokens our own templates contain, so command syntax such as
+# `--owner <id>` written by an agent is never mistaken for a leftover.
+TEMPLATE_TOKENS = {t for t in re.findall(r'<[^<>\n]+>', CURRENT_TMPL + PRODUCT_TMPL + CONSTRAINTS_TMPL + TASK_TMPL)
+                   if not t.startswith('<!')}
+
+
+def has_placeholder(text):
+    return any(token in text for token in TEMPLATE_TOKENS)
+
 
 POINTER_MARK = '<!-- store-automation -->'
 POINTER = POINTER_MARK + """
@@ -567,6 +575,13 @@ def detect_commands(root):
 # ── commands ─────────────────────────────────────────────────────────────
 
 def boot(root):
+    from .legacy import MARKERS, found as legacy_found  # legacy imports plan; resolve at call time
+    foreign = [f'{n} ({MARKERS[n][0]})' for n in legacy_found(root)]
+    if foreign and not plan_exists(root):
+        return 0, ['STATE: LEGACY', 'FOREIGN STATE: ' + ', '.join(foreign),
+                   'NEXT: Another planning/state system lives here. `legacy` (preview), extract its goal, decisions, '
+                   'current state and open work into a new plan (references/plan.md §6 adoption), `validate`, then '
+                   '`legacy --apply`. Small unrelated request -> do it, but report the foreign state.']
     if not plan_exists(root):
         return 0, ['STATE: NO_PLAN',
                    'NEXT: Multi-session work, a new product or a plan request -> Genesis (`map`, then `init`, '
@@ -577,6 +592,9 @@ def boot(root):
     open_ids = {t['id'] for t in tasks}
     cfg = load_config(root)
     notes, state, out = [], None, []
+    if foreign:
+        notes.append('foreign state still present: ' + ', '.join(foreign) +
+                     ' -> check its open work is in the plan, then `legacy --apply`')
     bad = [t['id'] for t in tasks if t['status'] == '?']
     ip = [t for t in tasks if t['status'] == 'IN_PROGRESS']
     kept = [t['id'] for t in all_tasks if t['status'] == 'DONE']
@@ -760,9 +778,9 @@ def map_repo(root):
             ('README.MD', 'AGENTS.MD', 'CLAUDE.MD', 'GEMINI.MD', 'CONTRIBUTING.MD', 'ARCHITECTURE.MD')]
     if docs:
         out.append('INSTRUCTION/DOC FILES: ' + ' '.join(docs[:15]))
-    for marker in ('.factory', '.factory-bootstrap.json', '.project-brain'):
-        if (Path(root) / marker).exists():
-            out.append(f'LEGACY: {marker} present -> `legacy` (preview) before init')
+    from .legacy import MARKERS, found as legacy_found
+    for marker in legacy_found(root):
+        out.append(f'FOREIGN STATE: {marker} ({MARKERS[marker][0]}) -> extract into the plan, then `legacy --apply`')
     cmds = detect_commands(root)
     out.append('CMDS: ' + (' | '.join(f'{k}={v}' for k, v in cmds.items()) if cmds else 'none detected'))
     out.append('NEXT: Read only manifests, entry points and instruction files (<=15 files), then `init`.')
@@ -813,6 +831,7 @@ def init(root):
     (p / 'decisions').mkdir(exist_ok=True)
     out = [f'CREATED {Path(os.path.relpath(f, root)).as_posix()}' for f in created] or ['EXISTS: nothing overwritten']
     out += [f'POINTER {name} ({action})' for name, action in ensure_pointers(root)]
+    out.append('NOTE: config.json commands are detected guesses; run each once and correct it before relying on it.')
     out.append('NEXT: Fill current.md from code, product.md from the user interview (unknown -> Open Decisions), '
                'constraints.md, config.json commands. Then `new` per gap, then the genesis commit.')
     return 0, out
@@ -906,7 +925,7 @@ def validate(root):
             continue
         if len(text.splitlines()) > BUDGETS[key]:
             warns.append(f'{name}: {len(text.splitlines())} lines > {BUDGETS[key]}')
-        if name != 'constraints.md' and PLACEHOLDER_RE.search(text):
+        if name != 'constraints.md' and has_placeholder(text):
             warns.append(f'{name}: unfilled template placeholders')
     if product_status(root) == 'UNSET':
         warns.append('product.md has no `Status: DRAFT|CONFIRMED` line')
@@ -937,7 +956,7 @@ def validate(root):
         # Only spec sections: Resume/Notes prose may mention <id> legitimately.
         parts = sections(t['text'])
         spec = '\n'.join(line for k in ('', 'objective', 'steps', 'acceptance', 'verify') for line in parts.get(k, []))
-        if PLACEHOLDER_RE.search(spec) and t['status'] != 'PLANNED':
+        if has_placeholder(spec) and t['status'] != 'PLANNED':
             warns.append(f'{tid}: unfilled template placeholders')
         if t['priority_raw'] and t['priority_raw'].upper()[:2] not in PRIORITY_VALUES:
             warns.append(f'{tid}: Priority must be P1|P2|P3')

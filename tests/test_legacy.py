@@ -5,7 +5,11 @@ import tempfile
 import unittest
 
 from runtime import plan
-from runtime.legacy import BRAIN_POINTER, legacy
+from runtime.legacy import POINTERS, legacy
+
+
+def git(root, *args):
+    return subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True, text=True).stdout
 
 
 class LegacyTests(unittest.TestCase):
@@ -19,10 +23,19 @@ class LegacyTests(unittest.TestCase):
         (self.root / '.gitignore').write_bytes(b'build/\r\n.factory/runs/\r\n.factory/\r\n.store-automation/\r\n')
         (self.root / 'user.txt').write_text('keep')
 
-    def test_dry_run_then_apply_moves_old_state_out_and_keeps_user_files(self):
+    def add_brain(self):
+        (self.root / '.project-brain/tasks').mkdir(parents=True)
+        (self.root / '.project-brain/tasks/PB-004.md').write_text('# PB-004\n## Status\nREADY\n')
+        (self.root / 'PROJECT_BRAIN.md').write_text('# goal\n')
+        (self.root / 'AGENTS.md').write_text('# Rules\n\nkeep this\n\n' + POINTERS[0])
+
+    def make_plan(self):
+        plan.init(self.root)  # .gitignore still ignores the plan here, so init refuses only under git
+
+    def test_artifacts_only_are_removed_without_a_plan(self):
         preview = legacy(self.root)
-        self.assertEqual((preview['status'], preview['applied'], preview['files']), ('LEGACY_FOUND', False, 2))
-        self.assertTrue((self.root / '.factory').exists())
+        self.assertEqual((preview['status'], preview['applied'], preview['files'], preview['extract_first']),
+                         ('LEGACY_FOUND', False, 2, []))
         done = legacy(self.root, apply=True)
         archive = Path(done['archive'])
         self.assertFalse((self.root / '.factory').exists() or (self.root / '.factory-bootstrap.json').exists())
@@ -33,46 +46,47 @@ class LegacyTests(unittest.TestCase):
         self.assertEqual((self.root / 'user.txt').read_text(), 'keep')
         self.assertEqual(legacy(self.root)['status'], 'CLEAN')
 
-    def test_project_brain_plan_converts_to_store_automation(self):
-        brain = self.root / '.project-brain'
-        (brain / 'tasks').mkdir(parents=True)
-        (brain / 'decisions').mkdir()
-        (brain / 'config.yaml').write_text('schema_version: 4\n\ngit:\n  commit: "auto"\n  push: "manual"\n'
-                                           '\ncommands:\n  test: "flutter test"\n')
-        (brain / 'current.md').write_text('# Current Architecture\n\n## Map\n- `lib/` — app\n', encoding='utf-8')
-        (brain / 'target.md').write_text('# Target Architecture\nStatus: CONFIRMED\n\n## Goal\nilaç takibi\n',
-                                         encoding='utf-8')
-        (brain / 'decisions/ADR-001.md').write_text('# ADR-001\nSee PB-004.\n')
-        (brain / 'tasks/PB-004.md').write_text('# PB-004 — Reminder\nStatus: READY\nDepends: PB-001, PB-005\n\n'
-                                               '## Acceptance\n- [ ] works\n', encoding='utf-8')
-        (brain / 'tasks/PB-005.md').write_text('# PB-005 — Export\nStatus: PLANNED\nDepends: -\n', encoding='utf-8')
-        (self.root / 'AGENTS.md').write_text('# Rules\n\n' + BRAIN_POINTER)
-        preview = legacy(self.root)
-        self.assertIn('tasks/SA-004.md', preview['converted'])
-        self.assertFalse(plan.plan_exists(self.root))
-        legacy(self.root, apply=True)
-        self.assertFalse(brain.exists())
-        task = plan.parse_task(self.root / '.store-automation/tasks/SA-004.md')
-        self.assertEqual((task['title'], task['deps']), ('Reminder', ['SA-005']))
-        self.assertIn('closed dependency PB-001', task['text'])
-        product = (self.root / '.store-automation/product.md').read_text(encoding='utf-8')
-        self.assertIn('Status: CONFIRMED', product)
-        self.assertIn('## Core Journeys', product)
-        config = plan.load_config(self.root)
-        self.assertEqual((config['commands']['test'], config['git']['push']), ('flutter test', 'ask'))
-        self.assertIn('SA-004', (self.root / '.store-automation/decisions/ADR-001.md').read_text())
-        agents = (self.root / 'AGENTS.md').read_text()
-        self.assertIn(plan.POINTER_MARK, agents)
-        self.assertNotIn('project-brain', agents)
-        # Untagged acceptance stays visible as a validate failure, never guessed.
-        self.assertTrue(any('kind tag' in line for line in plan.validate(self.root)[1]))
-
-    def test_tracked_legacy_files_are_refused(self):
-        subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
-        subprocess.run(['git', '-C', str(self.root), 'add', '-f', '.factory-bootstrap.json'], check=True)
-        with self.assertRaisesRegex(ValueError, 'tracked'):
+    def test_plan_carrying_system_is_kept_until_extracted_then_fully_retired(self):
+        self.add_brain()
+        self.assertEqual(plan.boot(self.root)[1][0], 'STATE: LEGACY')
+        with self.assertRaisesRegex(ValueError, 'not extracted'):
             legacy(self.root, apply=True)
-        self.assertTrue((self.root / '.factory').exists())
+        self.assertTrue((self.root / '.project-brain').is_dir())
+        self.make_plan()
+        done = legacy(self.root, apply=True)
+        self.assertTrue(done['applied'])
+        for name in ('.project-brain', 'PROJECT_BRAIN.md', '.factory'):
+            self.assertFalse((self.root / name).exists(), name)
+        agents = (self.root / 'AGENTS.md').read_text()
+        self.assertIn('keep this', agents)
+        self.assertNotIn('project-brain', agents)
+        self.assertIn(plan.POINTER_MARK, agents)
+
+    def test_unknown_system_by_path_and_infrastructure_refused(self):
+        (self.root / '.otheragent/state').mkdir(parents=True)
+        (self.root / '.otheragent/state/todo.json').write_text('[]')
+        with self.assertRaisesRegex(ValueError, 'infrastructure'):
+            legacy(self.root, extra=['.git'])
+        self.make_plan()
+        done = legacy(self.root, apply=True, extra=['.otheragent'])
+        self.assertFalse((self.root / '.otheragent').exists())
+        self.assertTrue((Path(done['archive']) / '.otheragent/state/todo.json').is_file())
+
+    def test_archive_is_deleted_only_after_the_removal_is_committed(self):
+        git(self.root, 'init', '-q', '-b', 'main')
+        git(self.root, 'config', 'user.email', 't@example.com')
+        git(self.root, 'config', 'user.name', 'T')
+        git(self.root, 'add', '-f', '.factory-bootstrap.json', 'user.txt')
+        git(self.root, 'commit', '-qm', 'old')
+        done = legacy(self.root, apply=True)
+        with self.assertRaisesRegex(ValueError, 'Commit the adoption first'):
+            legacy(self.root, drop_archive=True)
+        git(self.root, 'add', '-A')
+        git(self.root, 'commit', '-qm', 'chore(plan): adopt store-automation')
+        self.assertEqual(legacy(self.root, drop_archive=True)['status'], 'DROPPED')
+        self.assertFalse(Path(done['archive']).exists())
+        # Tracked content survives in Git history.
+        self.assertEqual(git(self.root, 'show', 'HEAD~1:.factory-bootstrap.json'), '{}')
 
     @unittest.skipUnless(os.name == 'nt', 'Windows refuses renaming a directory with open files')
     def test_open_legacy_file_aborts_without_partial_move(self):

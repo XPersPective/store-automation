@@ -223,3 +223,7 @@ P6 gerçek alt ajan zinciri (geçici repo `p6/app`, 16 commit, sonunda `validate
 | H9 | SKILL.md 90 satır; runtime ≈1.600 satır (hedef ≈1.400 aşıldı: şablonlar ve takeover/WAITING_USER eklemeleri) | Kısmen aşıldı, bilerek |
 
 Açık sınırlar: kimlikler beyandır; gerçek mobil/mağaza yayını, gerçek kullanıcı geri bildirimi ve başka sağlayıcıların (Codex, Gemini) host'larında koşu bu turda yok.
+
+## 8. Genel yabancı durum devralma (2026-10-14, kullanıcı isteği)
+
+`legacy` Project Brain'e özel dönüştürücü olmaktan çıktı. Her türden yabancı plan/durum sistemi (Project Brain her şema ve `PROJECT_BRAIN.md`, Task Master, memory bank, Kiro specs, 2.x factory veya `--path` ile bildirilen) aynı yoldan devralınır: boot `LEGACY` der; güçlü model hedefi, kararları, mevcut durumu, açık işleri, engelleri ve bekleyen dış işlemleri plana aktarır, her açık maddeyi izleme tablosuyla commit'e yazar (plan.md §6a); `legacy --apply` geçerli plan olmadan plan taşıyan sistemi kaldırmaz, sonra hepsini proje dışına taşır, ignore satırlarını ve işaretçileri kaldırır; adaptasyon commit'inden sonra `--drop-archive` arşivi siler (izlenen dosyalar git geçmişinde kalır). Gerçek deneme: şema 3 Brain'li n-click-to-speak kopyasında Opus yalnız "devam et" ile devraldı; 41 kural, 4 ADR, 2 açık görev izlenebilir biçimde aktarıldı, Brain ve arşiv silindi, validate 0/0. Bu denemeden: şablon kontrolü yalnız gerçek şablon jetonlarını yakalar (`<id>` gibi komut sözdizimi serbest), adaptasyon tek commit.
