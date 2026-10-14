@@ -2,7 +2,44 @@
 
 Use this for product, flow and interface work. Do not open every product phase for a small technical
 task. Existing product decisions and visual language are the starting point; do not replace them for a
-template unless the user's goal changes. These lists are a floor, not a ceiling.
+template unless the user's goal changes. These lists are a floor, not a ceiling; the premium bar below is
+what review holds every output to.
+
+## Premium bar
+
+"Works" is not done. Each rule becomes concrete Acceptance in the task that touches it; a reviewer reports
+a miss as QUALITY ([plan](plan.md) §8), which blocks until fixed or the user accepts it.
+
+- **Design foundation first.** A product with UI gets, in its first UI milestone, a foundation task: color,
+  type, spacing, radius, elevation and motion tokens; 2–3 rendered visual directions with a screenshot
+  each; the choice in an ADR. Later UI uses only those tokens (`[visual]` item: "no value outside the
+  tokens"). An existing design system is the foundation; extend it, never fork it.
+- **Visual review rubric.** `[visual]` evidence shows the named narrow and wide viewports, and the reviewer
+  answers yes to each: the primary action is clear at a glance; something is specific to this product
+  (color, iconography, language), not a template; empty, loading, error, success, offline and permission
+  states each have their own render where they apply; long text and the user's locale do not break; dark
+  mode where the platform has it; touch targets ≥44 px (48 dp on Android).
+- **Errors speak the user's language.** Every visible error says what happened and what to do, in the
+  user's language; never a raw exception or transport message (`Failed to fetch`, stack traces). Input is
+  kept on error and retry works. Acceptance example: `[interaction] server stopped → submit shows a
+  <language> message, input kept, retry succeeds after restart`.
+- **No duplicate work.** Repeated taps, lost responses and retries create one record:
+  `[interaction] three fast taps on Save → one record (read back from the API)` and
+  `[machine] same id with different content → 409 (test name)`.
+- **API contract.** Per endpoint: path, method, request/response shape, error body
+  `{"error": {"code", "message"}}`, idempotency key, limits and pagination, timeout. An unexpected exception
+  returns a JSON 500 and a log line without secrets or personal data; validation and authorization happen
+  at the boundary; versioning is decided once in an ADR.
+- **Performance budget.** List endpoints are bounded (pagination) with a constant number of queries (no
+  N+1, proven by a test); the task names its latency and payload budget for the real path at realistic
+  size (web default: first load ≤200 KB JS+CSS, interactive <1 s locally) as a `[machine]` item, or says
+  why none applies.
+- **Security checklist** (HIGH tasks; the reviewer ticks each in its review): bind address (127.0.0.1
+  unless serving others), request size limits, output escaping (XSS), path traversal, CSRF/origin checks
+  for state-changing requests, authorization per actor and resource, no secret or personal data in logs,
+  commits or plan files.
+- **Observability.** Failures leave a structured log line with a correlation id; a background or offline
+  queue shows its state to the user.
 
 ## Shape of the work
 

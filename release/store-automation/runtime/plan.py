@@ -5,11 +5,14 @@ Adapted from Project Brain 2.1 (same author, MIT) and owned here. State lives in
 Every command returns (exit_code, lines): 0 ok, 1 warnings, 2 errors, 3 no plan.
 """
 import fnmatch
+import hashlib
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
+import time
 
 DIR = '.store-automation'
 STATUS_VALUES = ('PLANNED', 'READY', 'IN_PROGRESS', 'REVIEW', 'BLOCKED', 'DONE')
@@ -27,6 +30,14 @@ ADR_FILE_RE = re.compile(r'^ADR-(\d+)\.md$')
 HEADER_RE = re.compile(r'^(status|priority|tier|risk|milestone|depends|owner|areas|domains|blocked):\s*(.*)$', re.I)
 ACCEPT_RE = re.compile(r'^\s*- \[([ xX])\]\s*(?:\[([a-z_]+)\])?\s*(.*)$')
 EXTERNAL_RE = re.compile(r'^\s*- (.+?)\s*\|\s*([a-z_]+)\s*\|\s*readback:\s*(.+)$')
+READY_BY_RE = re.compile(r'^\s*- ready by (.+?):', re.I)
+START_RE = re.compile(r'^- start by (?P<owner>.+?) \| risk=(?P<risk>[A-Z]*) \| contract=(?P<contract>[0-9a-f]+)$')
+# Words that make a task HIGH risk (§2 of plan.md); small models tend to rate them lower.
+HIGH_RISK_RE = re.compile(r'\b(auth\w*|login|password|token|session|crypto\w*|encrypt\w*|migration\w*|'
+                          r'persist\w*|sqlite|database|payment\w*|billing|permission\w*|'
+                          r'kimlik|şifre\w*|oturum|ödeme\w*|veritaban\w*|yetki\w*)\b', re.I)
+# Acceptance that a weak implementer must not judge alone: risk or an outside contract.
+SECURE_KINDS = ('security', 'integration', 'remote')
 BUDGETS = {'current': 200, 'product': 150, 'constraints': 100, 'task': 120, 'open_tasks': 25}
 SKIP_DIRS = {'.git', '.hg', '.svn', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build',
              '.next', '.nuxt', 'target', 'coverage', '.pytest_cache', '.mypy_cache', '.ruff_cache',
@@ -75,7 +86,7 @@ Confirmed intent only. DRAFT until the user confirms the Goal. Unknown -> Open D
 - [interaction] <observable condition>
 
 ## Riskiest Assumptions
-- <assumption that would be most expensive if wrong -> cheapest probe>
+- RA-1: <assumption that would be most expensive if wrong -> cheapest probe; an M1 task names RA-1>
 
 ## Target State
 ### <domain>
@@ -176,8 +187,19 @@ def read(path):
         return None
 
 
+def read_raw(path):
+    """Text with its line endings untouched, for rewriting a file in place."""
+    with open(path, encoding='utf-8', errors='replace', newline='') as stream:
+        return stream.read()
+
+
 def norm_id(n):
     return f'SA-{int(n):03d}'
+
+
+def criterion_id(kind, text):
+    """Stable id per Acceptance item: same kind+text -> same id, whatever else in the task changed."""
+    return hashlib.sha256(f'{kind}|{text}'.encode()).hexdigest()[:6]
 
 
 def norm_domain(s):
@@ -189,7 +211,8 @@ def matches(path, pat):
     pat = pat.strip()
     pat = pat[2:] if pat.startswith('./') else pat
     if any(c in pat for c in '*?['):
-        return fnmatch.fnmatchcase(path, pat)
+        # `**/x` also matches x at the root, as git and shell globs do.
+        return fnmatch.fnmatchcase(path, pat) or (pat.startswith('**/') and fnmatch.fnmatchcase(path, pat[3:]))
     return path == pat or path.startswith(pat.rstrip('/') + '/')
 
 
@@ -271,7 +294,8 @@ def parse_task(path, text=None):
     for line in acc:
         m = ACCEPT_RE.match(line)
         if m:
-            items.append({'done': m.group(1) != ' ', 'kind': m.group(2) or '', 'text': m.group(3).strip()})
+            items.append({'done': m.group(1) != ' ', 'kind': m.group(2) or '', 'text': m.group(3).strip(),
+                          'id': criterion_id(m.group(2) or '', m.group(3).strip())})
     resume = sec.get('resume', [])
     nxt = next((m.group(1).strip() for line in resume
                 if (m := re.match(r'^\s*next:\s*(.*)$', line, re.I))), '')
@@ -299,6 +323,7 @@ def parse_task(path, text=None):
         'external': external, 'evidence': [line.strip() for line in sec.get('evidence', []) if line.strip()],
         'review': [line.strip() for line in sec.get('review', []) if line.strip()],
         'next': nxt, 'lines': len(text.splitlines()), 'text': text,
+        'ready_by': next((m.group(1).strip() for line in sec.get('notes', []) if (m := READY_BY_RE.match(line))), ''),
         'vague': sorted({m.group(1).lower() for m in VAGUE_RE.finditer('\n'.join(steps + acc))}),
         'header_id': re.findall(r'^# (SA-\d+)', text, re.M),
     }
@@ -322,33 +347,120 @@ def find_task(root, task_id):
     return parse_task(path)
 
 
+def contract(task):
+    """Digest of what the task promises, without its progress: changing the spec invalidates evidence.
+
+    Status, Owner, Priority, ticks, Evidence, Review, Notes, Resume and External are working state;
+    Objective, Steps, typed Acceptance, Verify, Escalate, Areas, Risk and Tier are the contract, so a
+    reworded Acceptance, a lowered Risk or narrowed Areas never ride on an old check or review.
+    """
+    parts = sections(task['text'])
+    spec = [f'{key}\n' + '\n'.join(line.strip() for line in parts.get(key, []) if line.strip())
+            for key in ('objective', 'steps', 'verify', 'escalate if')]
+    spec.append('acceptance\n' + '\n'.join(f"- [{i['kind']}] {i['text']}" for i in task['items']))
+    spec.append(f"areas={task['areas']}\nrisk={task['risk']}\ntier={task['tier']}")
+    return hashlib.sha256('\n'.join(spec).encode()).hexdigest()[:16]
+
+
+def start_records(task):
+    """The `- start by <owner> | risk=<R> | contract=<hex>` Notes lines `start` wrote, oldest first."""
+    return [m.groupdict() for line in sections(task['text']).get('notes', [])
+            if (m := START_RE.match(line.strip()))]
+
+
+def task_errors(task):
+    """Hard grammar invariants, shared by validate and accept so neither can be softer than the other."""
+    tid, errors = task['id'], []
+    if task['status'] == '?':
+        errors.append(f"{tid}: no valid Status (first word must be {'|'.join(STATUS_VALUES)})")
+    if task['risk'] not in RISK_VALUES:
+        errors.append(f'{tid}: Risk must be LOW|MEDIUM|HIGH')
+    for item in task['items']:
+        if item['kind'] not in KINDS:
+            errors.append(f"{tid}: acceptance item needs a kind tag [{'|'.join(KINDS)}]: {item['text'][:50]}")
+    for e in task['external']:
+        if e['state'] not in EXTERNAL_STATES:
+            errors.append(f"{tid}: External line must be `- <op> | <{'|'.join(EXTERNAL_STATES)}> | readback: <how>`")
+    if task['status'] in ('READY', 'IN_PROGRESS', 'REVIEW'):
+        missing = [n for n, ok in (('Steps', task['steps']), ('Acceptance', task['items']),
+                                   ('a backticked Verify command', task['verify']), ('Areas', task['areas'])) if not ok]
+        if missing:
+            errors.append(f"{tid}: {task['status']} but not an executable spec: missing {', '.join(missing)}")
+    if task['status'] in ('IN_PROGRESS', 'REVIEW') and not task['owner']:
+        errors.append(f"{tid}: {task['status']} without Owner (use `start`)")
+    return errors
+
+
 def set_header(path, key, value):
-    """Replace or insert one header line before the first section; keep the rest byte-identical."""
-    text = read(path)
-    lines = text.splitlines(keepends=True)
+    set_headers(path, {key: value})
+
+
+def set_headers(path, values):
+    """Replace several header lines in one atomic write: never a half-updated identity."""
+    lines = read_raw(path).splitlines(keepends=True)
+    eol = _eol(lines)
     end = next((i for i, line in enumerate(lines) if line.startswith('## ')), len(lines))
+    rest = {k.lower(): (k, v) for k, v in values.items()}
     for i in range(end):
-        if re.match(rf'^{key}:', lines[i], re.I):
-            lines[i] = f'{key}: {value}\n'
-            break
-    else:
-        lines.insert(max(1, min(end, 2)), f'{key}: {value}\n')
+        m = re.match(r'^([A-Za-z]+):', lines[i])
+        if m and m.group(1).lower() in rest:
+            key, value = rest.pop(m.group(1).lower())
+            lines[i] = f'{key}: {value}'.rstrip() + eol
+    for key, value in reversed(list(rest.values())):  # keys that were absent go before the first section
+        lines.insert(max(1, min(end, 2)), f'{key}: {value}'.rstrip() + eol)
     write_atomic(path, ''.join(lines))
+
+
+def _eol(lines):
+    """A CRLF task file stays CRLF: one header edit must not rewrite every line."""
+    return '\r\n' if lines and lines[0].endswith('\r\n') else '\n'
+
+
+@contextmanager
+def checkout_lock(root):
+    """One writer per checkout: an exclusive lock around read-check-write of task identity.
+
+    ponytail: single whole-checkout lock with a 10s wait and 30s stale break; per-task locks or a
+    lock service are not worth it because one IN_PROGRESS task is the protocol anyway.
+    """
+    runs = Path(root) / 'runs'
+    runs.mkdir(parents=True, exist_ok=True)
+    lock = runs / 'writer.lock'
+    deadline = time.monotonic() + 10
+    while True:
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, f'{os.getpid()} {time.time()}'.encode())
+            os.close(fd)
+            break
+        except FileExistsError:
+            if time.time() - lock.stat().st_mtime > 30:  # a crashed holder left it behind
+                lock.unlink(missing_ok=True)
+                continue
+            if time.monotonic() > deadline:
+                raise ValueError('another writer is starting a task in this checkout; retry in a moment')
+            time.sleep(.1)
+    try:
+        yield
+    finally:
+        lock.unlink(missing_ok=True)
 
 
 def append_section(path, heading, entry):
     """Append one line at the end of a '## heading' section, creating it if absent."""
-    text = read(path)
-    lines = text.splitlines(keepends=True)
+    lines = read_raw(path).splitlines(keepends=True)
+    eol = _eol(lines)
+    if lines and not lines[-1].endswith('\n'):
+        lines[-1] += eol
     start = next((i for i, line in enumerate(lines) if line.strip().lower() == '## ' + heading.lower()), None)
     if start is None:
-        lines += (['\n'] if lines and lines[-1].strip() else []) + [f'## {heading}\n', entry + '\n']
+        lines += ([eol] if lines and lines[-1].strip() else []) + [f'## {heading}{eol}', entry + eol]
     else:
         end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith('## ')), len(lines))
         insert = end
         while insert > start + 1 and not lines[insert - 1].strip():
             insert -= 1
-        lines.insert(insert, entry + '\n')
+        lines.insert(insert, entry + eol)
     write_atomic(path, ''.join(lines))
 
 
@@ -361,6 +473,12 @@ def write_atomic(path, text):
         stream.flush()
         os.fsync(stream.fileno())
     os.replace(tmp, path)
+    if os.name != 'nt':  # make the rename durable too; Windows has no directory handle for this
+        fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
 
 
 # ── git state ────────────────────────────────────────────────────────────
@@ -387,32 +505,65 @@ def task_ids_in(body):
     return [norm_id(n) for v in trailer_values(body, 'SA-Tasks?') for n in re.findall(r'SA-(\d+)', v)]
 
 
-def closed_ids(root, sha, body):
-    """Verified deletion or committed DONE+Evidence; never mere absence in today's worktree."""
-    if is_wip(body) or not set(trailer_values(body, 'SA-Verification')) & set(VERIFICATION.values()):
-        return set()
-    paths = git_paths(root, 'ls-tree', '-r', '--name-only', sha, '--', f'{DIR}/tasks')
-    if paths is None:
-        return set()
-    ids = set(task_ids_in(body))
-    present, recorded = set(), set()
-    for p in paths:
-        m = TASK_FILE_RE.match(Path(p).name)
-        if m:
-            tid = norm_id(m.group(1))
-            present.add(tid)
-            if tid in ids:
-                task = parse_task(Path(p), git(root, 'show', f'{sha}:{p}') or '')
-                if task['status'] == 'DONE' and task['evidence']:
-                    recorded.add(tid)
-    return (ids - present) | recorded
+def cat_files(root, specs):
+    """`<rev>:<path>` -> text, or None when absent, for many objects in one git process; None if git failed."""
+    if not specs:
+        return {}
+    try:
+        r = subprocess.run(['git', '-C', str(root), 'cat-file', '--batch'], input=''.join(s + '\n' for s in specs)
+                           .encode(), capture_output=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode:
+        return None
+    out, data, pos = {}, r.stdout, 0
+    for spec in specs:
+        end = data.index(b'\n', pos)
+        head, pos = data[pos:end].split(), end + 1
+        if len(head) != 3:  # `<spec> missing` / `ambiguous`
+            out[spec] = None
+            continue
+        size = int(head[2])
+        out[spec] = data[pos:pos + size].decode('utf-8', 'replace')
+        pos += size + 1
+    return out
+
+
+_HISTORY = {}
+
+
+def task_history(root):
+    """[(sha, body, closed ids)] for SA-Task commits, newest first; one pass per HEAD, shared by every caller.
+
+    Closed = the commit is verified (not WIP) and the task file is absent in that commit, or present
+    there as DONE with Evidence; never mere absence in today's worktree.
+    """
+    key = (str(root), git(root, 'rev-parse', '-q', '--verify', 'HEAD'))
+    if key in _HISTORY:
+        return _HISTORY[key]
+    recs = [(sha, body, set(task_ids_in(body))) for sha, body in git_records(root, 'SA-Task')]
+    verified = {sha for sha, body, _ in recs
+                if not is_wip(body) and set(trailer_values(body, 'SA-Verification')) & set(VERIFICATION.values())}
+    blobs = cat_files(root, [f'{sha}:{DIR}/tasks/{tid}.md' for sha, _, ids in recs if sha in verified
+                             for tid in sorted(ids)])
+    out = []
+    for sha, body, ids in recs:
+        closed = set()
+        if sha in verified and blobs is not None:
+            for tid in ids:
+                text = blobs[f'{sha}:{DIR}/tasks/{tid}.md']
+                if text is None or ((t := parse_task(Path(f'{tid}.md'), text))['status'] == 'DONE' and t['evidence']):
+                    closed.add(tid)
+        out.append((sha, body, closed))
+    _HISTORY[key] = out
+    return out
 
 
 def history_task_ids(root):
     every, done = set(), set()
-    for sha, body in git_records(root, 'SA-Task'):
+    for _, body, closed in task_history(root):
         every |= set(task_ids_in(body))
-        done |= closed_ids(root, sha, body)
+        done |= closed
     names = git(root, 'log', '--format=', '--name-only', '--', f'{DIR}/tasks') or ''
     every.update(norm_id(m.group(1)) for p in names.splitlines() if (m := TASK_FILE_RE.match(Path(p).name)))
     return every, done
@@ -420,8 +571,8 @@ def history_task_ids(root):
 
 def recent_closed(root, open_ids, n=3):
     out, seen = [], set(open_ids)
-    for sha, body in git_records(root, 'SA-Task'):
-        ids = sorted(closed_ids(root, sha, body) - seen)
+    for sha, body, closed in task_history(root):
+        ids = sorted(closed - seen)
         seen.update(ids)
         if ids:
             out.append((','.join(ids), (trailer_values(body, 'SA-Agent') or ['?'])[0], sha[:7]))
@@ -432,9 +583,11 @@ def recent_closed(root, open_ids, n=3):
 
 def closed_since_audit(root, open_ids):
     last = git(root, 'log', '-1', '--grep=SA-Plan-Audit:', '--format=%H')
+    since = set((git(root, 'rev-list', f'{last}..HEAD') or '').split()) if last else None
     ids = set()
-    for sha, body in git_records(root, 'SA-Task', *([f'{last}..HEAD'] if last else [])):
-        ids |= closed_ids(root, sha, body)
+    for sha, _, closed in task_history(root):
+        if since is None or sha in since:
+            ids |= closed
     return len(ids - open_ids)
 
 
@@ -551,7 +704,7 @@ def detect_commands(root):
             if k in scripts:
                 cmds.setdefault(k, f'{runner} run {k}')
     if (root / 'pubspec.yaml').exists():
-        flutter = 'flutter:' in (read(root / 'pubspec.yaml') or '')
+        flutter = re.search(r'^\s*(?:sdk:\s*)?flutter\b', read(root / 'pubspec.yaml') or '', re.M) is not None
         cmds.setdefault('test', 'flutter test' if flutter else 'dart test')
         cmds.setdefault('lint', 'flutter analyze' if flutter else 'dart analyze')
     pyproject = read(root / 'pyproject.toml') or ''
@@ -631,8 +784,11 @@ def boot(root):
         recent = recent_closed(root, open_ids)
         since_audit = closed_since_audit(root, open_ids)
         op = merge_op(root)
+        # INTERRUPTED = the active task left uncommitted work; a clean IN_PROGRESS task simply resumes.
         state = ('CONFLICTED' if op else 'READBACK_FIRST' if pending else 'DIRTY' if unowned
-                 else 'INTERRUPTED' if active else 'ADVANCED' if stale or unmapped else 'RESUME')
+                 else 'INTERRUPTED' if active and owned else 'ADVANCED' if stale or unmapped else 'RESUME')
+        if active and state in ('DIRTY', 'ADVANCED'):
+            notes.append(f"{active['id']} is IN_PROGRESS (owner {active['owner'] or '?'}): resume it after this")
         gitline = f"git: {branch or 'DETACHED'} @ {head} | dirty {len(other)} (+{len(plan_dirty)} plan)"
         if op:
             notes.append(f'{op} in progress')
@@ -659,9 +815,16 @@ def boot(root):
                                       'UNSET': ' (add `Status: DRAFT|CONFIRMED` to product.md)'}.get(pstat, ''))
     for tid, e in pending:
         out.append(f"EXTERNAL {tid}: {e['op']} is {e['state']} -> readback first: {e['readback']} (never resend before it)")
+    # A BLOCKED review waits for a fixer, not for another review.
+    fix = [t for t in review if (v := re.findall(r'^- review by (.+?) \| (PASS|BLOCKED) \|', '\n'.join(t['review']),
+                                                re.M)) and v[-1][1] == 'BLOCKED']
+    review = [t for t in review if t not in fix]
+    for t in fix:
+        out.append(f"FIX: {t['id']} (review BLOCKED; owner {t['owner'] or '?'}) -> an implementer runs "
+                   f"`start {t['id']} --takeover \"fix review\"`, fixes the findings, checks; a non-implementer re-reviews")
     if review:
         out.append('REVIEW: ' + ', '.join(f"{t['id']} (owner {t['owner'] or '?'})" for t in review) +
-                   ' -> a different, stronger agent reviews these before new implementation')
+                   ' -> a different, stronger agent that did not implement it reviews these before new implementation')
     waiting = [t for t in tasks if t['status'] == 'BLOCKED' and t['blocked'].lower().startswith('user')]
     if waiting:
         out.append('QUESTIONS (ask the user when present): ' +
@@ -694,7 +857,7 @@ def boot(root):
         if focus['next']:
             out.append(f"  next: {focus['next']}")
         for item in focus['open_items'][:5]:
-            out.append(f"  - [ ] [{item['kind'] or '?'}] {item['text']}")
+            out.append(f"  - [ ] [{item['kind'] or '?'}] {item['text']}  (criterion {item['id']})")
         missing = [n for n, ok in (('Steps', focus['steps']), ('Acceptance', focus['items']),
                                    ('Verify command', focus['verify'])) if not ok]
         if missing:
@@ -736,6 +899,11 @@ def boot(root):
     if not nxt:
         if review:
             nxt = f"Strong model: `review` {review[0]['id']}. Weaker model: continue with tier L/M work below."
+        elif fix:
+            nxt = f"Fix {fix[0]['id']}: read its Review findings, `start --takeover \"fix review\"`, fix, `check`."
+        elif active:
+            nxt = (f"Continue {active['id']} from its Resume; if you are not its Owner and it stopped, "
+                   f"`start {active['id']} --takeover \"<reason>\"`.")
         elif focus:
             nxt = f"Route the user's request first. Authorized 'continue': `start {focus['id']}` and work the queue."
         elif promote:
@@ -844,6 +1012,9 @@ def new_task(root, title, depends='', risk=None, priority=None, tier=None, miles
     tdir.mkdir(exist_ok=True)
     nums = [int(TASK_FILE_RE.match(f.name).group(1)) for f in tdir.iterdir() if TASK_FILE_RE.match(f.name)]
     every, _ = history_task_ids(root)
+    # Every local branch and worktree too: two branches must not both mint SA-014 (a fetch brings remote ones).
+    names = git(root, 'log', '--all', '--format=%B', '--name-only', '--', f'{DIR}/tasks') or ''
+    every.update(norm_id(n) for n in re.findall(r'(?:^|/|\s)SA-(\d+)\b', names))
     nums += [int(i[3:]) for i in every]
     tid = norm_id(max(nums, default=0) + 1)
     deps = [norm_id(n) for n in re.findall(r'SA-(\d+)', depends or '')]
@@ -859,30 +1030,53 @@ def new_task(root, title, depends='', risk=None, priority=None, tier=None, miles
 def start(root, task_id, owner, takeover=''):
     """READY -> IN_PROGRESS. Taking over another owner's IN_PROGRESS/REVIEW task needs a recorded reason."""
     owner = (owner or '').strip()
-    if not owner:
-        raise ValueError('--owner is your model/agent id')
-    task = find_task(root, task_id)
-    others = [t['id'] for t in list_tasks(root) if t['status'] == 'IN_PROGRESS' and t['id'] != task['id']]
-    if others:
-        return 2, [f"FAIL {', '.join(others)} already IN_PROGRESS: finish it, or write Resume and set it "
-                   'READY (BLOCKED if it waits for the user)']
-    foreign = task['owner'] and task['owner'] != owner and task['status'] in ('IN_PROGRESS', 'REVIEW')
-    if task['status'] not in ('READY', 'IN_PROGRESS', 'BLOCKED') and not (task['status'] == 'REVIEW' and takeover):
-        return 2, [f"FAIL {task['id']} is {task['status']}: only READY or unblocked tasks start "
-                   '(REVIEW needs --takeover to fix a blocking review)']
-    if foreign and not takeover.strip():
-        return 2, [f"FAIL {task['id']} is owned by {task['owner']}. If that agent is no longer running (no "
-                   'recent activity, user confirms, or its session ended), rerun with --takeover "<reason>"']
-    missing = [n for n, ok in (('Steps', task['steps']), ('Acceptance', task['items']),
-                               ('Verify', task['verify']), ('Areas', task['areas'])) if not ok]
-    if missing:
-        return 2, [f"FAIL {task['id']} is not an executable spec: missing {', '.join(missing)}"]
-    if foreign:
-        append_section(task['file'], 'Notes', f"- takeover from {task['owner']} by {owner}: {takeover.strip()}")
-    if task['status'] == 'BLOCKED':
-        set_header(task['file'], 'Blocked', '-')  # the caller resolved the block
-    set_header(task['file'], 'Status', 'IN_PROGRESS')
-    set_header(task['file'], 'Owner', owner)
+    if not owner or '|' in owner:
+        raise ValueError('--owner is your model/agent id (no "|")')
+    with checkout_lock(pdir(root)):
+        task = find_task(root, task_id)  # read the file inside the lock: it may have changed while waiting
+        all_tasks = list_tasks(root)
+        others = [t['id'] for t in all_tasks if t['status'] == 'IN_PROGRESS' and t['id'] != task['id']]
+        if others:
+            return 2, [f"FAIL {', '.join(others)} already IN_PROGRESS: finish it, or write Resume and set it "
+                       'READY (BLOCKED if it waits for the user)']
+        open_ids = {t['id'] for t in all_tasks}
+        done_ids = {t['id'] for t in all_tasks if t['status'] == 'DONE' and t['evidence']}
+        if has_git(root):
+            _, closed = history_task_ids(root)
+            done_ids |= closed
+        unresolved = sorted(set(task['deps']) - open_ids - done_ids)
+        if unresolved:
+            return 2, [f"FAIL {task['id']} depends on {', '.join(unresolved)}: no verified completion evidence"]
+        foreign = task['owner'] and task['owner'] != owner and task['status'] in ('IN_PROGRESS', 'REVIEW')
+        if task['status'] not in ('READY', 'IN_PROGRESS', 'BLOCKED') and not (task['status'] == 'REVIEW' and takeover):
+            return 2, [f"FAIL {task['id']} is {task['status']}: only READY or unblocked tasks start "
+                       '(REVIEW needs --takeover to fix a blocking review)']
+        if foreign and not takeover.strip():
+            return 2, [f"FAIL {task['id']} is owned by {task['owner']}. If that agent is no longer running (no "
+                       'recent activity, user confirms, or its session ended), rerun with --takeover "<reason>"']
+        missing = [n for n, ok in (('Steps', task['steps']), ('Acceptance', task['items']),
+                                   ('Verify', task['verify']), ('Areas', task['areas'])) if not ok]
+        if missing:
+            return 2, [f"FAIL {task['id']} is not an executable spec: missing {', '.join(missing)}"]
+        if task['status'] == 'READY' and not task['ready_by'] and (
+                task['risk'] != 'LOW' or any(i['kind'] in SECURE_KINDS for i in task['items'])):
+            return 2, [f"FAIL {task['id']} needs a strong model's READY check first: confirm the risk "
+                       'classification and that the spec leaves no design choice to the implementer, then '
+                       'record `- ready by <model id>: <what you confirmed>` in Notes (B13: a weak model '
+                       'must not start risk or outside-contract work on its own judgment)']
+        errors = task_errors(task)
+        if errors:
+            return 2, [f"FAIL {task['id']}"] + [f'  - {e}' for e in errors]
+        if foreign:
+            append_section(task['file'], 'Notes', f"- takeover from {task['owner']} by {owner}: {takeover.strip()}")
+        # Who implemented, at which risk and spec: reviewers are checked against it, risk never drops below it.
+        record = {'owner': owner, 'risk': task['risk'], 'contract': contract(task)}
+        if record not in start_records(task):
+            append_section(task['file'], 'Notes', '- start by {owner} | risk={risk} | contract={contract}'.format(**record))
+        headers = {'Status': 'IN_PROGRESS', 'Owner': owner}
+        if task['status'] == 'BLOCKED':
+            headers['Blocked'] = '-'  # the caller resolved the block
+        set_headers(task['file'], headers)  # identity changes in one atomic write
     return 0, [f"STARTED {task['id']} owner={owner} tier={task['tier'] or '?'} risk={task['risk'] or '?'}"
                + (f" (took over from {task['owner']})" if foreign else ''),
                'NEXT: Verify inherited work before trusting it; implement the Steps; `check`; tick Acceptance '
@@ -945,9 +1139,8 @@ def validate(root):
             if ADR_FILE_RE.match(f.name)} if (p / 'decisions').is_dir() else set()
     for t in all_tasks:
         tid = t['id']
-        if t['status'] == '?':
-            fails.append(f"{tid}: no valid Status (first word must be {'|'.join(STATUS_VALUES)})")
-        elif t['status_note']:
+        fails.extend(task_errors(t))
+        if t['status_note']:
             warns.append(f'{tid}: notes on the Status line; move them to Blocked:/Notes/Resume')
         if t['status'] == 'DONE' and not t['evidence']:
             fails.append(f'{tid}: DONE without Evidence')
@@ -962,27 +1155,11 @@ def validate(root):
             warns.append(f'{tid}: Priority must be P1|P2|P3')
         if t['tier'] not in TIER_VALUES:
             warns.append(f'{tid}: Tier must be L|M|H')
-        if t['risk'] not in RISK_VALUES:
-            warns.append(f'{tid}: Risk must be LOW|MEDIUM|HIGH')
-        for item in t['items']:
-            if item['kind'] not in KINDS:
-                fails.append(f"{tid}: acceptance item needs a kind tag [{'|'.join(KINDS)}]: {item['text'][:50]}")
-        for e in t['external']:
-            if e['state'] not in EXTERNAL_STATES:
-                fails.append(f"{tid}: External line must be `- <op> | <{'|'.join(EXTERNAL_STATES)}> | readback: <how>`")
-        if t['status'] in ('READY', 'IN_PROGRESS', 'REVIEW'):
-            missing = [n for n, ok in (('Steps', t['steps']), ('Acceptance', t['items']),
-                                       ('a backticked Verify command', t['verify']), ('Areas', t['areas'])) if not ok]
-            if missing:
-                (fails if t['status'] != 'READY' else warns).append(
-                    f"{tid}: {t['status']} but not an executable spec: missing {', '.join(missing)}")
-            if t['vague']:
-                warns.append(f"{tid}: vague words in Steps/Acceptance: {', '.join(t['vague'])}")
-            for cmd in t['verify']:
-                if re.search(r'[|;&<>]', cmd):
-                    warns.append(f'{tid}: Verify runs without a shell; split `{cmd}` into plain commands')
-        if t['status'] in ('IN_PROGRESS', 'REVIEW') and not t['owner']:
-            fails.append(f"{tid}: {t['status']} without Owner (use `start`)")
+        if t['status'] in ('READY', 'IN_PROGRESS', 'REVIEW') and t['vague']:
+            warns.append(f"{tid}: vague words in Steps/Acceptance: {', '.join(t['vague'])}")
+        for cmd in t['verify']:
+            if re.search(r'[|;&<>]', cmd):
+                warns.append(f'{tid}: Verify runs without a shell; split `{cmd}` into plain commands')
         if t['status'] == 'BLOCKED' and not t['blocked']:
             warns.append(f"{tid}: BLOCKED without 'Blocked:' reason")
         if t['lines'] > BUDGETS['task']:
@@ -993,6 +1170,32 @@ def validate(root):
         for n in set(re.findall(r'ADR-(\d+)', t['text'])):
             if int(n) not in adrs:
                 warns.append(f'{tid}: references missing ADR-{n}')
+        if t['status'] in ('READY', 'IN_PROGRESS', 'REVIEW') and not t['ready_by'] and (
+                t['risk'] != 'LOW' or any(i['kind'] in SECURE_KINDS for i in t['items'])):
+            warns.append(f"{tid}: risk or outside-contract Acceptance without a strong model's `ready by <id>:` "
+                         'Notes line (references/plan.md READY)')
+        if t['status'] == 'DONE':
+            continue
+        spec_text = '\n'.join(parts.get('objective', []) + parts.get('steps', []) + t['areas'])
+        if t['risk'] != 'HIGH' and (hit := HIGH_RISK_RE.search(spec_text)):
+            warns.append(f"{tid}: mentions `{hit.group(0)}` but Risk is {t['risk'] or '?'}; auth, persistence, "
+                         'migrations, payments and permissions are HIGH (references/plan.md §2)')
+        kinds = {i['kind'] for i in t['items']}
+        if kinds & {'visual', 'interaction'} and not {'visual', 'interaction', 'accessibility'} <= kinds:
+            warns.append(f"{tid}: UI work needs [visual], [interaction] and [accessibility] Acceptance, each "
+                         f"observed separately (has {', '.join(sorted(kinds))})")
+        for cmd in t['verify']:
+            for word in cmd.split()[1:]:
+                path = word.split('::')[0].rstrip(',')
+                if ('/' in path or re.search(r'\.\w{1,5}$', path)) and (Path(root) / path).is_file() and \
+                        not any(matches(path, a) for a in t['areas']):
+                    warns.append(f'{tid}: Verify uses `{path}` outside Areas; evidence would not notice it change')
+    ra = re.findall(r'^\s*- (RA-\d+)\b', '\n'.join(sections(read(p / 'product.md') or '').get('riskiest assumptions', [])),
+                    re.M)
+    if ra and all_tasks and not any(ra[0] in t['text'] for t in all_tasks) and not (
+            git_ok and git(root, 'log', '-1', '--format=%H', f'-S{ra[0]}', '--', f'{DIR}/tasks')):
+        warns.append(f'{ra[0]} (product.md Riskiest Assumptions) is probed by no task: an M1 task names it '
+                     '(references/plan.md §6 step 8)')
     adj, seen = {t['id']: [d for d in t['deps'] if d in ids] for t in tasks}, {}
 
     def cyclic(n):

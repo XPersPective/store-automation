@@ -48,6 +48,7 @@ Hidden paths may hold architecture: scope current.md claims to visible domains, 
 ## Worktrees
 Each worktree has its own HEAD, index and dirty state; never use another worktree's uncommitted files.
 One agent per worktree, disjoint Areas, fetch before checkpointing long work, reconcile before merging.
+`SA new` reads task IDs from every local branch; `git fetch` first so remote branches count too.
 
 ## Remote divergence
 Before pushing: `git fetch`, compare with upstream. Remote advanced → inspect, integrate per repo policy,
@@ -63,6 +64,11 @@ IN_PROGRESS or REVIEW task owned by another agent. Evidence it stopped: its sess
 so, or no commits and no file changes in its Areas for a long time (check `git log -1` and file times).
 Then `SA start <task> --owner <you> --takeover "<evidence>"`; verify everything inherited (rerun checks,
 read the diff) before building on it. If it may still be running, work on something else.
+
+## Commit hooks and signing
+A pre-commit hook that rewrites staged files (formatter, codegen) makes the evidence describe other bytes:
+rerun `SA check` and `SA accept`, then commit again. Signing required → sign; never bypass hooks or
+signing (`--no-verify`, `-c commit.gpgsign=false`); a failing hook is a finding to fix.
 
 ## Push failure
 The local commit is still a valid local checkpoint, just not durable. Do not retry destructive remote
@@ -116,7 +122,8 @@ exists; static review alone is not completion.
 ## Security
 Auth, authorization, sessions, crypto, secrets, permissions, data exposure, payments → HIGH risk, full
 verification, independent review, escalate unless the user explicitly requested that change. Never
-write credentials into plan files, tasks, trailers, ADRs or notes.
+write credentials into plan files, tasks, trailers, ADRs or notes. The reviewer works through the
+security checklist in [product quality](product-quality.md) "Premium bar" item by item.
 
 ## Unknown situation
 Stop changing things; preserve coherent work (WIP commit if needed); observe (`git status`,

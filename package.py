@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 from runtime.paths import public_path
@@ -11,7 +12,7 @@ def build(source, destination):
     source, destination = Path(source).resolve(), Path(destination).absolute()
     if destination.exists() or destination.is_symlink():
         raise ValueError('Destination must not exist; preserve the current installation')
-    if destination.resolve() != destination:
+    if destination.resolve() != Path(os.path.abspath(destination)):  # `..` is fine, a linked parent is not
         raise ValueError('Linked destination refused')
     names = ['SKILL.md', 'store.py']
     names += [p.relative_to(source).as_posix() for folder, pattern in

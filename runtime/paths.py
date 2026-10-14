@@ -1,4 +1,5 @@
 """Project-relative path checks shared by packaging, digests and evidence files."""
+import ntpath
 from pathlib import Path, PureWindowsPath
 import re
 
@@ -14,7 +15,7 @@ def public_path(root, name):
     root = Path(root).absolute()
     parts = PureWindowsPath(name)
     if (parts.anchor or '\\' in name or '..' in parts.parts or ':' in name or
-            any(part.endswith(('.', ' ')) or PureWindowsPath(part).is_reserved() for part in parts.parts) or
+            any(part.endswith(('.', ' ')) or _reserved(part) for part in parts.parts) or
             PRIVATE.search(name) or any(ord(c) < 32 for c in name)):
         raise ValueError('Private or escaping path refused: ' + name)
     path = root / name
@@ -24,3 +25,8 @@ def public_path(root, name):
     if root.resolve() not in path.resolve().parents:
         raise ValueError('Path escapes project: ' + name)
     return path
+
+
+def _reserved(part):
+    """Windows device names (CON, NUL, COM1...); PurePath.is_reserved is deprecated from Python 3.13."""
+    return ntpath.isreserved(part) if hasattr(ntpath, 'isreserved') else PureWindowsPath(part).is_reserved()

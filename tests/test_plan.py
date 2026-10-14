@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -162,6 +163,82 @@ class PlanTests(Repo):
         self.assertEqual(code, 2)
         self.assertTrue(any('kind tag' in line for line in lines))
         self.assertTrue(any('without Owner' in line for line in lines))
+
+    def test_start_needs_done_dependencies_and_a_strong_ready_check_for_risk(self):
+        """B12/B13: `start` itself enforces what boot only suggested."""
+        self.init_plan()
+        tasks = self.root / '.store-automation/tasks'
+        (tasks / 'SA-002.md').write_text(READY_TASK.format(id='SA-002').replace('Depends: -', 'Depends: SA-999'),
+                                         encoding='utf-8')
+        code, lines = plan.start(self.root, 'SA-002', 'm')
+        self.assertEqual(code, 2)
+        self.assertIn('SA-999', lines[0])
+        (tasks / 'SA-003.md').write_text(READY_TASK.format(id='SA-003').replace('Risk: LOW', 'Risk: MEDIUM'),
+                                         encoding='utf-8')
+        code, lines = plan.start(self.root, 'SA-003', 'm')
+        self.assertIn('ready by', lines[0])
+        self.assertTrue(any('ready by' in line for line in plan.validate(self.root)[1]))
+        plan.append_section(tasks / 'SA-003.md', 'Notes', '- ready by opus: risk and contract confirmed')
+        self.assertEqual(plan.start(self.root, 'SA-003', 'm')[0], 0)
+        self.assertIn('- start by m | risk=MEDIUM | contract=', (tasks / 'SA-003.md').read_text(encoding='utf-8'))
+
+    def test_parallel_starts_leave_exactly_one_writer(self):
+        """B06: the read-check-write of `start` is atomic per checkout."""
+        self.init_plan()
+        tasks = self.root / '.store-automation/tasks'
+        for n in range(2, 7):
+            (tasks / f'SA-00{n}.md').write_text(READY_TASK.format(id=f'SA-00{n}'), encoding='utf-8')
+        store = Path(__file__).resolve().parents[1] / 'store.py'
+        procs = [subprocess.Popen([sys.executable, str(store), '--project', str(self.root), 'start', f'SA-00{n}',
+                                   '--owner', f'agent{n}'], stdout=subprocess.PIPE, text=True) for n in range(1, 7)]
+        started = sum('STARTED' in p.communicate()[0] for p in procs)
+        owners = [t['owner'] for t in plan.list_tasks(self.root) if t['status'] == 'IN_PROGRESS']
+        self.assertEqual((started, len(owners)), (1, 1))
+        self.assertTrue(owners[0])
+
+    def test_blocked_review_asks_for_a_fix_and_clean_in_progress_resumes(self):
+        """M11 and m8."""
+        self.init_plan()
+        task = self.root / '.store-automation/tasks/SA-001.md'
+        plan.start(self.root, 'SA-001', 'small')
+        self.assertEqual(self.boot()[0], 'STATE: RESUME')  # clean tree: nothing was interrupted mid-edit
+        plan.set_header(task, 'Status', 'REVIEW')
+        plan.append_section(task, 'Review', '- review by strong | BLOCKED | digest=abc | contract=def')
+        lines = self.boot()
+        self.assertTrue(any(line.startswith('FIX: SA-001') for line in lines), lines)
+        self.assertFalse(any(line.startswith('REVIEW:') for line in lines))
+
+    def test_ids_are_unique_across_branches_and_headers_keep_crlf(self):
+        """M9 and m15."""
+        self.init_plan()
+        git(self.root, 'switch', '-qc', 'feature')
+        plan.new_task(self.root, 'on feature')
+        git(self.root, 'add', '-A')
+        git(self.root, 'commit', '-qm', 'docs(plan): feature task')
+        git(self.root, 'switch', '-q', 'main')
+        self.assertIn('SA-003', plan.new_task(self.root, 'on main')[1][0])
+        task = self.root / '.store-automation/tasks/SA-001.md'
+        task.write_bytes(task.read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n'))
+        plan.set_header(task, 'Owner', 'x')
+        plan.append_section(task, 'Notes', '- note')
+        self.assertNotIn(b'\n', task.read_bytes().replace(b'\r\n', b''))
+
+    def test_glob_double_star_matches_root_files(self):
+        self.assertTrue(plan.matches('app.py', '**/*.py'))
+        self.assertTrue(plan.matches('src/a/app.py', '**/*.py'))
+        self.assertFalse(plan.matches('app.js', '**/*.py'))
+
+    def test_validate_warns_on_underrated_risk_and_unprobed_assumption(self):
+        self.init_plan()
+        task = self.root / '.store-automation/tasks/SA-001.md'
+        task.write_text(READY_TASK.format(id='SA-001').replace('"selam desin"', 'login session persistence'),
+                        encoding='utf-8')
+        product = self.root / '.store-automation/product.md'
+        product.write_text(product.read_text(encoding='utf-8').replace(
+            '- RA-1: <', '- RA-1: offline sync works <'), encoding='utf-8')
+        lines = plan.validate(self.root)[1]
+        self.assertTrue(any('but Risk is LOW' in line for line in lines), lines)
+        self.assertTrue(any('RA-1' in line and 'probed by no task' in line for line in lines), lines)
 
     def test_no_git_folder_degrades_but_works(self):
         with tempfile.TemporaryDirectory() as temp:

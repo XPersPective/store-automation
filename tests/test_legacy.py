@@ -83,10 +83,49 @@ class LegacyTests(unittest.TestCase):
             legacy(self.root, drop_archive=True)
         git(self.root, 'add', '-A')
         git(self.root, 'commit', '-qm', 'chore(plan): adopt store-automation')
-        self.assertEqual(legacy(self.root, drop_archive=True)['status'], 'DROPPED')
+        with self.assertRaisesRegex(ValueError, 'SA-Legacy-Adoption'):  # B08: a commit must name the archive
+            legacy(self.root, drop_archive=True)
+        name = Path(done['archive']).name
+        git(self.root, 'commit', '--allow-empty', '-qm', f'chore(plan): adopt\n\nSA-Legacy-Adoption: {name}')
+        with self.assertRaisesRegex(ValueError, 'never in Git'):  # untracked runs/ exist nowhere else
+            legacy(self.root, drop_archive=True)
+        self.assertEqual(legacy(self.root, drop_archive=True, confirm_untracked=True)['status'], 'DROPPED')
         self.assertFalse(Path(done['archive']).exists())
         # Tracked content survives in Git history.
-        self.assertEqual(git(self.root, 'show', 'HEAD~1:.factory-bootstrap.json'), '{}')
+        self.assertEqual(git(self.root, 'show', 'HEAD~2:.factory-bootstrap.json'), '{}')
+
+    def test_sibling_archive_infrastructure_source_and_uncommitted_edits_are_refused(self):
+        # B01: `app` must never drop `app-mobile`'s archive.
+        sibling = self.root.parent / 'app-mobile'
+        (sibling / '.factory').mkdir(parents=True)
+        (sibling / '.factory/x.json').write_text('{}')
+        other = Path(legacy(sibling, apply=True)['archive'])
+        for repo in (self.root, sibling):
+            git(repo, 'init', '-q', '-b', 'main')
+            git(repo, 'config', 'user.email', 't@example.com')
+            git(repo, 'config', 'user.name', 'T')
+            git(repo, 'commit', '--allow-empty', '-qm', f'adopt\n\nSA-Legacy-Adoption: {other.name}')
+        self.assertEqual(legacy(self.root, drop_archive=True, confirm_untracked=True)['status'], 'NOTHING_TO_DROP')
+        self.assertTrue(other.is_dir())
+        # B02: case, ./ and backslash spellings of infrastructure; source trees are not foreign state.
+        (self.root / 'AGENTS.md').write_text('rules')
+        (self.root / 'src').mkdir()
+        (self.root / 'src/main.py').write_text('x = 1')
+        for name in ('.GIT', './.git', 'agents.md', './AGENTS.md', '.Store-Automation', '.git\\config', 'src', '.'):
+            with self.assertRaises(ValueError, msg=name):
+                legacy(self.root, extra=[name])
+        self.assertTrue((self.root / '.git').is_dir() and (self.root / 'src/main.py').is_file())
+        # B3: a tracked foreign file with uncommitted edits is refused, not moved and lost.
+        (self.root / '.taskmaster').mkdir()
+        (self.root / '.taskmaster/tasks.json').write_text('[]')
+        git(self.root, 'add', '-f', '.taskmaster/tasks.json')
+        git(self.root, 'commit', '-qm', 'tm')
+        (self.root / '.taskmaster/tasks.json').write_text('[1]')
+        (self.root / '.gitignore').write_text('build/\n')  # under git, init refuses an ignored plan
+        self.make_plan()
+        with self.assertRaisesRegex(ValueError, 'Uncommitted edits'):
+            legacy(self.root, apply=True)
+        self.assertEqual((self.root / '.taskmaster/tasks.json').read_text(), '[1]')
 
     @unittest.skipUnless(os.name == 'nt', 'Windows refuses renaming a directory with open files')
     def test_open_legacy_file_aborts_without_partial_move(self):

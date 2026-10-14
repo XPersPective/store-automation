@@ -10,11 +10,15 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 
 from .processes import ProcessTree
 
-SECRET_ENV = re.compile(r'API_KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|OPENAI_BASE_URL|ANTHROPIC_BASE_URL', re.I)
+SECRET_ENV = re.compile(r'API_KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|PRIVATE|_KEY$|^KEY$|_PAT$|DSN$|'
+                        r'DATABASE_URL|_AUTH|AUTH_|COOKIE|OPENAI_BASE_URL|ANTHROPIC_BASE_URL', re.I)
+# cmd.exe reads these in .cmd/.bat arguments as commands, quoting or expansions even without a shell.
+BATCH_META = re.compile(r'[&|<>^%!"\r\n]')
 
 
 def run_command(root, argv, log_path, timeout=900):
@@ -32,23 +36,36 @@ def run_command(root, argv, log_path, timeout=900):
     elif os.name == 'nt':
         # CreateProcess finds only .exe by bare name; npm, flutter and npx are .cmd/.bat.
         executable = shutil.which(executable) or executable
+    if Path(executable).suffix.lower() in ('.cmd', '.bat'):
+        # argv safety stops at the batch boundary: cmd.exe would read & and % as commands.
+        injected = [s for s in argv[1:] if BATCH_META.search(s)]
+        if injected:
+            raise ValueError('Batch arguments must not contain & | < > ^ % ! " (cmd.exe injection): ' + injected[0])
     env = {k: v for k, v in os.environ.items() if not SECRET_ENV.search(k)}
+    # A stale __pycache__ next to edited source can answer for code that no longer exists (equal size,
+    # preserved mtime). Every run gets an empty bytecode cache, whichever tool (pytest, npm, make) starts Python.
+    cache = tempfile.mkdtemp(prefix='sa-pycache-')
+    env['PYTHONPYCACHEPREFIX'] = cache
     started = time.monotonic()
     tree = ProcessTree()
     Path(log_path).parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, 'wb') as log:
         proc, timed_out = None, False
         try:
-            proc = tree.spawn([executable, *argv[1:]], cwd=root, env=env, stdin=subprocess.DEVNULL,
-                              stdout=log, stderr=subprocess.STDOUT)
             try:
-                proc.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                timed_out = True
+                proc = tree.spawn([executable, *argv[1:]], cwd=root, env=env, stdin=subprocess.DEVNULL,
+                                  stdout=log, stderr=subprocess.STDOUT)
+                try:
+                    proc.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    timed_out = True
+            finally:
+                tree.close()
+                if proc is not None:
+                    proc.wait(timeout=10)
         finally:
-            tree.close()
-            if proc is not None:
-                proc.wait(timeout=10)
+            if cache:
+                shutil.rmtree(cache, ignore_errors=True)
     return {'exit_code': 124 if timed_out else proc.returncode, 'timed_out': timed_out,
             'duration_seconds': round(time.monotonic() - started, 3),
             'containment': 'Windows JobObject' if os.name == 'nt' else 'POSIX process group'}

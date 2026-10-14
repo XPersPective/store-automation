@@ -36,6 +36,28 @@ class VerificationTests(unittest.TestCase):
         finally:
             os.environ['PATH'] = old
 
+    @unittest.skipUnless(os.name == 'nt', 'cmd.exe argument parsing')
+    def test_batch_arguments_cannot_inject_commands(self):
+        """B05: argv safety ends at a .cmd/.bat boundary unless metacharacters are refused."""
+        (self.root / 'probe.cmd').write_text('@exit /b 0')
+        for arg in ('x&echo hit>injected.txt', 'a|b', '%COMSPEC%', 'x"&calc'):
+            with self.assertRaises(ValueError, msg=arg):
+                self.execute(['./probe.cmd', arg])
+        self.assertFalse((self.root / 'injected.txt').exists())
+        self.assertEqual(self.execute(['./probe.cmd', 'plain-arg'])['exit_code'], 0)
+
+    def test_stale_bytecode_cannot_answer_for_edited_source(self):
+        """B09: same size, same mtime, different source: the run must see the new source."""
+        mod = self.root / 'greet.py'
+        mod.write_text('WORD = "selam"\n')
+        stamp = mod.stat().st_mtime_ns
+        import py_compile
+        py_compile.compile(str(mod), cfile=str(self.root / '__pycache__' / f'greet.{sys.implementation.cache_tag}.pyc'))
+        mod.write_text('WORD = "wrong"\n')
+        os.utime(mod, ns=(stamp, stamp))
+        result = self.execute([sys.executable, '-c', 'import greet; raise SystemExit(greet.WORD != "wrong")'])
+        self.assertEqual(result['exit_code'], 0)
+
     def test_real_timeout_kills_owned_descendant_before_delayed_write(self):
         marker = self.root / 'orphan.txt'
         child = 'import time; from pathlib import Path; time.sleep(1.5); Path("orphan.txt").write_text("bad")'

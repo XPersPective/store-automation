@@ -56,3 +56,11 @@ Kullanıcı isteğiyle Project Brain global olarak kaldırıldı: Skills Manager
 
 `legacy` genelleştirildi (design/v4-target.md §8): Brain'e özel dönüştürücü kaldırıldı; her plan/durum sistemi güçlü model tarafından izleme tablosuyla plana aktarılır, sonra `--apply` ile kaldırılır ve `--drop-archive` ile arşiv silinir. boot LEGACY durumu eklendi. Şema 3 Brain'li gerçek proje kopyasında Opus ile uçtan uca doğrulandı. Gerçek 18 Brain projesine uygulanmadı; her biri ilk kullanımda devralınır.
 Dağıtım (9b976fe): Skills Manager refreshed; 41 ajan + merkez + 4 ek dizin = 46 kopya manifestle eşleşti.
+
+## Bağımsız denetimlerin uygulanması — 2026-10-14 (4.1.0)
+
+Üç dış denetim raporu (Opus A/B, gpt, MiniMax) ve önceki yarım uygulama tek defterde birleştirildi: design/audit-fixes-2026-10-14.md (bulgu → düzeltme → regresyon testi). Kırılanların hepsi kapandı: legacy veri kaybı (kardeş arşiv, korumalı yol, kirli/untracked içerik, adoption trailer'ı), kabul atlatma (elle PASS, Risk düşürme, sözleşme değişimi, WAITING_USER kendi incelemesi, kriter başına kanıt, gramer, junction), batch enjeksiyonu, eşzamanlı start kilidi, bayat bytecode, CRLF digest, boot hızı (300 görev 57 sn → 1,1 sn), dal arası ID. Premium çıta product-quality.md "Premium bar" + QUALITY bulgu sınıfı + READY kontrolü (`- ready by`). Evidence/Review satır biçimi değişti: 4.0.x satırları sayılmaz (migration.md). Windows 49 test + Node, WSL Linux 49 test (4 Windows atlaması) geçti.
+
+Denetim yan etkisi: A/B alt ajanının kaynak repoya yazdığı d9d9ebf (push edilmemişti) geri alındı; yerel `audit-stray-d9d9ebf` dalında duruyor, gerekmiyorsa silinebilir. Paralel "Denetim uygulaması" oturumu aynı dosyalarda yarım iş bırakmıştı; kullanıcı kararıyla bu oturum devraldı, o oturumun değişiklikleri korunup tamamlandı. O oturum yeniden çalıştırılırsa bu checkout'a yazmamalı.
+
+Açık: runtime bütçesi aşıldı (≈2.160/≈1.400); LICENSE kararı sahibinde; gerçek kullanıcı projesinde ve diğer host'larda 4.1.0 koşusu yapılmadı.

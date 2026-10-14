@@ -18,7 +18,7 @@ from runtime.legacy import found as legacy_found, legacy
 from runtime.paths import public_path
 from runtime.verification import release_readback
 
-VERSION = '4.0.0'
+VERSION = '4.1.0'
 
 
 def main(argv=None):
@@ -48,6 +48,8 @@ def main(argv=None):
     p.add_argument('--kind', required=True)
     p.add_argument('--as', dest='actor', required=True, help='Your model id (must be the Owner)')
     p.add_argument('--note', required=True)
+    p.add_argument('--criterion', action='append', default=[],
+                   help='Acceptance item id this observation proves (shown by `boot`/`accept`), repeatable')
     p.add_argument('--file', action='append', default=[], help='Observed artifact (e.g. screenshot), repeatable')
     p = sub.add_parser('review', help='Independent review by an agent other than Owner')
     p.add_argument('task')
@@ -61,6 +63,8 @@ def main(argv=None):
     p.add_argument('--apply', action='store_true')
     p.add_argument('--path', action='append', default=[], help='Extra foreign state path found by judgment')
     p.add_argument('--drop-archive', action='store_true', help='Delete this project archive after the adoption commit')
+    p.add_argument('--confirm-untracked', action='store_true',
+                   help='With --drop-archive: also delete archived files that were never in Git')
     p = sub.add_parser('release-readback', help='Compare expected/observed release JSON')
     p.add_argument('--request', required=True, help='JSON {expected, observed} relative to the project')
     args = ap.parse_args(argv)
@@ -71,13 +75,14 @@ def main(argv=None):
         c = args.cmd
         if c == 'doctor':
             data = dict(status='READY' if sys.version_info >= (3, 11) else 'BLOCKED', version=VERSION,
-                        python=sys.version.split()[0], git=plan.git(root, '--version') or 'missing',
+                        python=sys.version.split()[0], interpreter=sys.executable, git=plan.git(root, '--version') or 'missing',
                         project=str(root), plan=plan.plan_exists(root), legacy=legacy_found(root) or None,
                         skill=str(Path(__file__).resolve().parent / 'SKILL.md'),
                         isolation='Scope instructions are not an OS sandbox')
             return emit_json(data, 0 if data['status'] == 'READY' else 1)
         if c == 'legacy':
-            return emit_json(legacy(root, apply=args.apply, extra=args.path, drop_archive=args.drop_archive), 0)
+            return emit_json(legacy(root, apply=args.apply, extra=args.path, drop_archive=args.drop_archive,
+                                    confirm_untracked=args.confirm_untracked), 0)
         if c == 'release-readback':
             path = public_path(root, args.request)
             data = json.loads(path.read_text(encoding='utf-8-sig'))
@@ -90,7 +95,8 @@ def main(argv=None):
                                          args.milestone),
             'start': lambda: plan.start(root, args.task, args.owner, args.takeover),
             'check': lambda: accept.check(root, args.task, args.timeout, args.actor),
-            'evidence': lambda: accept.evidence(root, args.task, args.kind, args.note, args.file, args.actor),
+            'evidence': lambda: accept.evidence(root, args.task, args.kind, args.note, args.file,
+                                                args.actor, args.criterion),
             'review': lambda: accept.review(root, args.task, args.reviewer, args.verdict, args.finding),
             'accept': lambda: accept.accept(root, args.task, args.actor),
         }[c]()

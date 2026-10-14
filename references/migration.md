@@ -1,6 +1,6 @@
 # Upgrades and adoption
 
-4.0.0 keeps the plan and resume state in the project, in git (`.store-automation/`). Project Brain is no
+4.x keeps the plan and resume state in the project, in git (`.store-automation/`). Project Brain is no
 longer needed: its plan, resume and map mechanics are part of this skill. The 3.x JSON flow (`task`,
 `prepare`, `finish`, `record`, `snapshot`, `gate`, `handoff`, `usage`) was removed; the task file plus
 `start/check/evidence/review/accept` replace it ([runtime](runtime.md)). Never route an old command name
@@ -13,9 +13,15 @@ memory bank, Kiro specs, Store Automation 2.x `.factory`, or a path you identify
 way: a strong model extracts its goal, decisions, current state, open work, blockers and pending external
 operations into the plan with a trace of every open item ([plan](plan.md) §6a); `SA legacy --apply`
 then moves it out of the project (it refuses while plan content is not extracted, or when a path is
-linked, open or in use) and drops its ignore lines and known pointer blocks; after the adoption commit
-`SA legacy --drop-archive` deletes the archive. Tracked files remain in Git history. Old receipts and
+linked, open or in use, or when tracked foreign files have uncommitted edits) and drops its ignore lines
+and known pointer blocks; after the adoption commit (trailer `SA-Legacy-Adoption: <archive>`)
+`SA legacy --drop-archive` deletes this project's archive. Tracked files remain in Git history. Old receipts and
 PASS claims never become evidence.
+
+4.1.0 changed the Evidence/Review line format (by=, contract=, criterion=, log hash): lines written
+by 4.0.x no longer count, so an open task reruns `check`, `evidence` and `review` once. Archives made by
+4.0.x `legacy` (`<project>-<time>`) are never matched by `--drop-archive`; delete them by hand after
+checking the adoption commit holds their content.
 
 ## Adopting an existing app
 
