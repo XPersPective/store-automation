@@ -55,3 +55,4 @@ Kullanıcı isteğiyle Project Brain global olarak kaldırıldı: Skills Manager
 ## Genel yabancı durum devralma — 2026-10-14
 
 `legacy` genelleştirildi (design/v4-target.md §8): Brain'e özel dönüştürücü kaldırıldı; her plan/durum sistemi güçlü model tarafından izleme tablosuyla plana aktarılır, sonra `--apply` ile kaldırılır ve `--drop-archive` ile arşiv silinir. boot LEGACY durumu eklendi. Şema 3 Brain'li gerçek proje kopyasında Opus ile uçtan uca doğrulandı. Gerçek 18 Brain projesine uygulanmadı; her biri ilk kullanımda devralınır.
+Dağıtım (9b976fe): Skills Manager refreshed; 41 ajan + merkez + 4 ek dizin = 46 kopya manifestle eşleşti.
