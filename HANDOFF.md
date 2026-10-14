@@ -70,3 +70,5 @@ Dağıtım (64aa2e7): Skills Manager `skills update` refreshed; aynı kimlik/Def
 ## İkinci tur — 2026-10-14 (4.1.1)
 
 Raporlardaki kısmi ve küçük önerilerin bu ortamda yapılabilenleri tamamlandı (design/audit-fixes-2026-10-14.md "İkinci tur"): runs/ budama, etkileşim kanıtı, boot'ta commit/kanıt farkı, RA-1 FAIL, ADR biçimi, tek yönlü import, ajan kimliği biçimi, readback alan sınırı, belge kuralları, MIT LICENSE (© XPersPective, pakette). Global talimatlarda kaçmış 4 Project Brain kalıntısı (codex rules ×2, Windsurf global_rules, ~/.clinerules) yedeklenip store-automation kuralına çevrildi. Windows 54 test + Node, WSL 54 test, paketlenmiş CLI ile uçtan uca akış geçti. Bilinçli yapılmayanlar ve gerekçeleri aynı belgede.
+
+Dağıtım (bac9ef3): Skills Manager refreshed, 41 deployment düşmedi; merkez + 41 ajan + 4.1.0 ile birebir aynı olduğu doğrulanan 4 ek dizin = 46 kopya 4.1.1 manifestiyle (LICENSE dahil) SHA256 eşleşti; launcher 4.1.1.
